@@ -96,4 +96,26 @@ mod tests {
         assert_eq!(targets.targets_const, expected);
         assert_eq!(targets.path, path);
     }
+
+    #[test]
+    fn test_parse_targets_with_block_and_const_instrumentation() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_LINE
+        let x = 1;
+        // ABSTRAKTOR_CONST: y
+        let y = 2;
+        // ABSTRAKTOR_LINE
+        let z = 3;
+        ";
+        let path = "test.rs";
+        let targets = instrumentor.parse_targets(&content, &path);
+
+        let expected_line = vec![2, 6];
+        let expected_const = HashMap::from([(4, "y".to_string())]);
+        assert_eq!(targets.targets_line, expected_line);
+        assert_eq!(targets.targets_const, expected_const);
+        assert_eq!(targets.path, path);
+    }
+    
 }
