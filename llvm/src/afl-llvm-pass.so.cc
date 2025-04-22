@@ -55,6 +55,8 @@
 
 #include "../rustc-demangle/crates/capi/include/rustc_demangle.h"
 
+#include "cJSON.h"
+
 using namespace llvm;
 
 #define TARGETS_TYPE std::unordered_map<std::string, std::set<int>>
