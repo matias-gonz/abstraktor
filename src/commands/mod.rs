@@ -1,7 +1,7 @@
 use clap::{command, Parser, Subcommand};
 
-pub mod instrument;
-pub use instrument::{InstrumentArgs, run};
+pub mod get_targets;
+pub use get_targets::GetTargetsArgs;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -17,5 +17,5 @@ pub struct Abstraktor {
 
 #[derive(Subcommand, Debug)]
 pub enum AbstraktorSubcommand {
-    Instrument(InstrumentArgs),
+    GetTargets(GetTargetsArgs),
 }

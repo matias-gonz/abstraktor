@@ -23,7 +23,7 @@ impl Instrumentor {
         }
     }
 
-    pub fn parse_targets(self: &Self, content: &str, path: &str) -> InstrumentationTargets {
+    pub fn get_targets(self: &Self, content: &str, path: &str) -> InstrumentationTargets {
         let mut targets = InstrumentationTargets {
             path: path.to_string(),
             ..Default::default()
@@ -56,7 +56,7 @@ mod tests {
         let x = 1;
         ";
         let path = "test.rs";
-        let targets = instrumentor.parse_targets(&content, &path);
+        let targets = instrumentor.get_targets(&content, &path);
         assert!(targets.targets_line.is_empty());
         assert_eq!(targets.path, path);
     }
@@ -73,7 +73,7 @@ mod tests {
         let z = 3;
         ";
         let path = "test.rs";
-        let targets = instrumentor.parse_targets(&content, &path);
+        let targets = instrumentor.get_targets(&content, &path);
         assert_eq!(targets.targets_line, vec![2, 4]);
         assert_eq!(targets.path, path);
     }
@@ -90,7 +90,7 @@ mod tests {
         let z = 3;
         ";
         let path = "test.rs";
-        let targets = instrumentor.parse_targets(&content, &path);
+        let targets = instrumentor.get_targets(&content, &path);
 
         let expected = HashMap::from([(2, "x".to_string()), (4, "y".to_string()), (6, "z".to_string())]);
         assert_eq!(targets.targets_const, expected);
@@ -109,7 +109,7 @@ mod tests {
         let z = 3;
         ";
         let path = "test.rs";
-        let targets = instrumentor.parse_targets(&content, &path);
+        let targets = instrumentor.get_targets(&content, &path);
 
         let expected_line = vec![2, 6];
         let expected_const = HashMap::from([(4, "y".to_string())]);

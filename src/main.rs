@@ -6,6 +6,6 @@ use commands::{Abstraktor, AbstraktorSubcommand};
 fn main() {
     let args = Abstraktor::parse();
     match args.command {
-        AbstraktorSubcommand::Instrument(args) => commands::instrument::run(args),
-    }
+        AbstraktorSubcommand::GetTargets(args) => commands::get_targets::run(args),
+    };
 }
