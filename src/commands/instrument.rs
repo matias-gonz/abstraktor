@@ -9,7 +9,8 @@ pub struct InstrumentArgs {
 }
 
 pub fn run(args: InstrumentArgs) {
-    let _instrumentor = Instrumentor::new();
-
-    println!("{:?}", args);
+    let content = std::fs::read_to_string(&args.path).unwrap();
+    let instrumentor = Instrumentor::new();
+    let targets = instrumentor.parse_targets(&content, &args.path);
+    println!("{:?}", targets);
 }
