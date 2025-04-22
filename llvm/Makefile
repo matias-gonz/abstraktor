@@ -54,6 +54,8 @@ else
 endif
 	@echo "[*] Checking for working '$(CC)'..."
 	@which $(CC) >/dev/null 2>&1 || ( echo "[-] Oops, can't find '$(CC)'. Make sure that it's in your \$$PATH (or set \$$CC and \$$CXX)."; exit 1 )
+	@echo "[*] Checking for nlohmann/json..."
+	@test -f /usr/include/nlohmann/json.hpp || ( echo "[-] Oops, can't find nlohmann/json. Install nlohmann-json3-dev (apt-get install nlohmann-json3-dev)"; exit 1 )
 	@echo "[+] All set and ready to build."
 
 ./afl-clang-fast: ./src/afl-clang-fast.c | test_deps

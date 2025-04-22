@@ -54,8 +54,7 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 #include "../rustc-demangle/crates/capi/include/rustc_demangle.h"
-
-#include "cJSON.h"
+#include <nlohmann/json.hpp>
 
 using namespace llvm;
 
@@ -111,44 +110,38 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &fun
 {
   char *target_file = getenv("TARGETS_FILE");
 
-  std::ifstream targetsfile(target_file);
-  if (!targetsfile.is_open())
-  {
-    outs() << "[!!] Fail to open targets file"
-           << "\n";
+  std::ifstream file(target_file);
+  if (!file.is_open()) {
+    outs() << "[!!] Fail to open targets file\n";
     return;
   }
 
-  std::string line;
-  std::string codefile;
-  int num = 0;
-  while (std::getline(targetsfile, line))
-  {
-    if (num % 3 == 0)
-    {
-      codefile = line;
-    }
-    else if (num % 3 == 1)
-    {
-      std::stringstream ss(line);
-      std::string item;
-      while (std::getline(ss, item, ' '))
-      {
-        bb_targets[codefile].insert(std::stoi(item));
-      }
-    }
-    else
-    {
-      std::stringstream ss(line);
-      std::string item;
-      while (std::getline(ss, item, ' '))
-      {
-        func_targets[codefile].insert(std::stoi(item));
-      }
-    }
-    ++num;
+  std::string json_str;
+  file.seekg(0, std::ios::end);
+  json_str.reserve(file.tellg());
+  file.seekg(0, std::ios::beg);
+  json_str.assign((std::istreambuf_iterator<char>(file)),
+                  std::istreambuf_iterator<char>());
+
+  auto json = nlohmann::json::parse(json_str, nullptr, false);
+  if (json.is_discarded()) {
+    outs() << "[!!] JSON parsing error\n";
+    return;
   }
-  targetsfile.close();
+
+  if (!json.contains("path") || !json.contains("targets_line")) {
+    outs() << "[!!] Missing required JSON fields\n";
+    return;
+  }
+
+  std::string codefile = json["path"];
+  auto targets = json["targets_line"];
+  
+  for (const auto& line : targets) {
+    if (line.is_number()) {
+      bb_targets[codefile].insert(line.get<int>());
+    }
+  }
 }
 
 /***
