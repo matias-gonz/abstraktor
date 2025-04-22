@@ -11,11 +11,11 @@ const AFL_QUIET: &str = "1";
 #[derive(Parser, Debug)]
 pub struct LlvmArgs {
     #[arg(short, long)]
-    path: String,
+    pub path: String,
     #[arg(short, long)]
-    targets_path: String,
+    pub targets_path: String,
     #[arg(short, long)]
-    output: String,
+    pub output: String,
 }
 
 pub fn run(args: LlvmArgs) {

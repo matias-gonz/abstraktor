@@ -5,9 +5,9 @@ use crate::model::instrumentor::Instrumentor;
 #[derive(Parser, Debug)]
 pub struct GetTargetsArgs {
     #[arg(short, long)]
-    path: String,
+    pub path: String,
     #[arg(short, long)]
-    output: String,
+    pub output: String,
 }
 
 pub fn run(args: GetTargetsArgs) {

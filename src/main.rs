@@ -8,5 +8,6 @@ fn main() {
     match args.command {
         AbstraktorSubcommand::GetTargets(args) => commands::get_targets::run(args),
         AbstraktorSubcommand::Llvm(args) => commands::llvm::run(args),
+        AbstraktorSubcommand::Instrument(args) => commands::instrument::run(args),
     };
 }
