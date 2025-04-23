@@ -32,6 +32,10 @@ impl Logger {
     pub fn outro(&self) {
         outro(style("Execution successful!").bold().green()).unwrap();
     }
+
+    pub fn error(&self, message: impl Display) {
+        log::error(format!("{} {}", style("Error:").bold().red(), style(message).red())).unwrap();
+    }
 }
 
 impl Default for Logger {

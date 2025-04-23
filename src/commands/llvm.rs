@@ -5,7 +5,7 @@ use xshell::Shell;
 
 use crate::logger::Logger;
 
-const LLVM_INSTRUMENTOR_PATH: &str = "./llvm/afl-clang-fast";
+const LLVM_INSTRUMENTOR_PATH: &str = "../llvm/afl-clang-fast";
 
 const AFL_CC: &str = "clang-12";
 const AFL_QUIET: &str = "1";
@@ -28,7 +28,7 @@ pub fn run(args: LlvmArgs, logger: &Logger) {
     let targets_path = Path::new(&args.targets_path);
     let output_path = Path::new(&args.output);
     if !instrumentor_path.exists() {
-        println!("Error: instrumentor not found");
+        logger.error(format!("instrumentor not found at {}", instrumentor_path.to_str().unwrap()));
         return;
     }
     sh.cmd(instrumentor_path)
