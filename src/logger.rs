@@ -1,5 +1,6 @@
 use std::fmt::Display;
-use cliclack::log;
+use cliclack::{intro, log};
+use console::style;
 
 pub enum LogLevel {
     Debug,
@@ -22,6 +23,10 @@ impl Logger {
 
     pub fn success(&self, message: impl Display) {
         log::success(message).unwrap();
+    }
+
+    pub fn intro(&self) {
+        intro(style(format!("Abstraktor - v{}", env!("CARGO_PKG_VERSION"))).bold().cyan()).unwrap();
     }
 }
 
