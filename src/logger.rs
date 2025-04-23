@@ -18,7 +18,7 @@ impl Logger {
     }
 
     pub fn log(&self, message: impl Display) {
-        log::info(message).unwrap();
+        log::step(message).unwrap();
     }
 
     pub fn success(&self, message: impl Display) {

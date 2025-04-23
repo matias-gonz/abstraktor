@@ -5,7 +5,7 @@ use xshell::Shell;
 
 use crate::logger::Logger;
 
-const LLVM_INSTRUMENTOR_PATH: &str = "../llvm/afl-clang-fast";
+const LLVM_INSTRUMENTOR_PATH: &str = "./llvm/afl-clang-fast";
 
 const AFL_CC: &str = "clang-12";
 const AFL_QUIET: &str = "1";
