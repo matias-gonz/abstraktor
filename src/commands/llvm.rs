@@ -5,7 +5,7 @@ use xshell::Shell;
 
 use crate::logger::Logger;
 
-const LLVM_INSTRUMENTOR_PATH: &str = "../llvm/afl-clang-fast";
+const LLVM_INSTRUMENTOR_PATH: &str = "./llvm/afl-clang-fast";
 
 const AFL_CC: &str = "clang-12";
 const AFL_QUIET: &str = "1";
@@ -21,6 +21,7 @@ pub struct LlvmArgs {
 }
 
 pub fn run(args: LlvmArgs, logger: &Logger) {
+    logger.log(format!("Instrumenting {}", args.path));
     let sh = Shell::new().unwrap();
     let instrumentor_path = Path::new(LLVM_INSTRUMENTOR_PATH);
     let path = Path::new(&args.path);
@@ -36,6 +37,10 @@ pub fn run(args: LlvmArgs, logger: &Logger) {
         ("TARGETS_FILE", targets_path.to_str().unwrap()),
         ("AFL_QUIET", AFL_QUIET),
         ("AFL_CC", AFL_CC)
-        ]).run().unwrap();
+        ])
+        .quiet()
+        .run()
+        .unwrap();
+    logger.success(format!("Instrumented binary saved to {}", args.output));
 }
 
