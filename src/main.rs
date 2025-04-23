@@ -14,4 +14,5 @@ fn main() {
         AbstraktorSubcommand::Llvm(args) => commands::llvm::run(args, &logger),
         AbstraktorSubcommand::Instrument(args) => commands::instrument::run(args, &logger),
     };
+    logger.outro();
 }
