@@ -8,7 +8,6 @@ use crate::logger::Logger;
 const LLVM_INSTRUMENTOR_PATH: &str = "./llvm/afl-clang-fast";
 
 const AFL_CC: &str = "clang-12";
-const AFL_QUIET: &str = "1";
 
 #[derive(Parser, Debug)]
 pub struct LlvmArgs {
@@ -35,8 +34,8 @@ pub fn run(args: LlvmArgs, logger: &Logger) {
     .args(&["-o", output_path.to_str().unwrap(), path.to_str().unwrap()])
     .envs([
         ("TARGETS_FILE", targets_path.to_str().unwrap()),
-        ("AFL_QUIET", AFL_QUIET),
-        ("AFL_CC", AFL_CC)
+        ("AFL_CC", AFL_CC),
+        ("AFL_QUIET", ""),
         ])
         .quiet()
         .run()

@@ -15,7 +15,7 @@
 
 const u64 BLOCK_EVENT_TYPE = 1;
 const u64 FUNC_EVENT_TYPE = 2;
-
+const u64 LINE_EVENT_TYPE = 3;
 #pragma pack(8) // 8-byte memory alignment
 /** Event entry **/
 struct Event
@@ -41,6 +41,12 @@ struct Event
     };
     struct
     {
+      u64 lineEventType;
+      s64 lineTimestamp;
+      u64 lineEventID;
+    };
+    struct
+    {
       u64 evtType; // 3 = packet send; 4 = packet receive
       s64 timestamp;
       u64 evtID; // a mostly-unique identifier for the packet
@@ -56,6 +62,22 @@ u8 __afl_area_initial[MAP_SIZE];
 u8 *__afl_area_ptr = __afl_area_initial;
 
 __thread u32 __afl_prev_loc;
+
+void trigger_line_event(u16 evtID)
+{
+  /* find location to record this event */
+  u16 loc = __atomic_add_fetch(&evtVec_ptr[0].evtCounter, 1, __ATOMIC_RELAXED);
+
+  /* collect tid and timestamp */
+  struct timespec st;
+  clock_gettime(CLOCK_MONOTONIC, &st);
+  s64 time = st.tv_sec * 1000000000 + st.tv_nsec;
+
+  /* record this event */
+  evtVec_ptr[loc].lineEventType = LINE_EVENT_TYPE;
+  evtVec_ptr[loc].lineEventID = evtID;
+  evtVec_ptr[loc].lineTimestamp = time;
+}
 
 /***
  * instrument bb starting point
