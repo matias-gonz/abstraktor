@@ -61,20 +61,31 @@ mod tests {
     use super::*;
     use crate::logger::LogLevel;
 
-    fn normalize_paths(value: &mut serde_json::Value, base_dir: &Path) {
+    fn normalize_and_sort(mut value: serde_json::Value, base_dir: &Path) -> serde_json::Value {
         if let Some(array) = value.as_array_mut() {
-            for item in array {
+            for item in array.iter_mut() {
                 if let Some(obj) = item.as_object_mut() {
                     if let Some(path_val) = obj.get_mut("path") {
                         if let Some(p) = path_val.as_str() {
-                            if let Some(rel_path) = pathdiff::diff_paths(Path::new(p), base_dir) {
-                                *path_val = serde_json::Value::String(rel_path.to_string_lossy().into_owned());
-                            }
+                            let path = Path::new(p);
+                            let rel = if path.is_absolute() {
+                                pathdiff::diff_paths(path, base_dir).unwrap_or_else(|| path.to_path_buf())
+                            } else {
+                                path.to_path_buf()
+                            };
+                            *path_val = serde_json::Value::String(rel.to_string_lossy().into_owned());
                         }
                     }
                 }
             }
+    
+            array.sort_by(|a, b| {
+                let a_path = a.get("path").and_then(|v| v.as_str()).unwrap_or("");
+                let b_path = b.get("path").and_then(|v| v.as_str()).unwrap_or("");
+                a_path.cmp(b_path)
+            });
         }
+        value
     }
 
     #[test]
@@ -102,8 +113,8 @@ mod tests {
         let mut expected_json: serde_json::Value = serde_json::from_str(&expected).unwrap();
         
         let base_dir = test_dir.canonicalize().unwrap();
-        normalize_paths(&mut output_json, &base_dir);
-        normalize_paths(&mut expected_json, &base_dir);
+        output_json = normalize_and_sort(output_json, &base_dir);
+        expected_json = normalize_and_sort(expected_json, &base_dir);
         
         assert_eq!(output_json, expected_json);
 
