@@ -1,0 +1,18 @@
+[
+  {
+    "path": "./tests/instrument_test/src/math_utils.c",
+    "targets_const": {},
+    "targets_block": [
+      5,
+      10
+    ]
+  },
+  {
+    "path": "./tests/instrument_test/main.c",
+    "targets_const": {},
+    "targets_block": [
+      6,
+      15
+    ]
+  }
+]
