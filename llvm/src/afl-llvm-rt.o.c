@@ -29,9 +29,9 @@ struct Event
     };
     struct
     {
-      u64 bevtType; // 1: basicblock
-      s64 btimestamp;
-      u64 bevtID;
+      u64 blockEventType; // 1: block
+      s64 blockEventTimestamp;
+      u64 blockEventID;
     };
     struct
     {
@@ -58,9 +58,9 @@ u8 *__afl_area_ptr = __afl_area_initial;
 __thread u32 __afl_prev_loc;
 
 /***
- * instrument bb starting point
+ * instrument block starting point
  ***/
-void track_blocks(u16 evtID)
+void trigger_block_event(u16 evtID)
 {
   /* find location to record this event */
   u16 loc = __atomic_add_fetch(&evtVec_ptr[0].evtCounter, 1, __ATOMIC_RELAXED);
@@ -71,9 +71,9 @@ void track_blocks(u16 evtID)
   s64 time = st.tv_sec * 1000000000 + st.tv_nsec;
 
   /* record this event */
-  evtVec_ptr[loc].bevtType = BLOCK_EVENT_TYPE;
-  evtVec_ptr[loc].bevtID = evtID;
-  evtVec_ptr[loc].btimestamp = time;
+  evtVec_ptr[loc].blockEventType = BLOCK_EVENT_TYPE;
+  evtVec_ptr[loc].blockEventID = evtID;
+  evtVec_ptr[loc].blockEventTimestamp = time;
 }
 
 /***
