@@ -91,14 +91,15 @@ namespace
 
     u16 *get_ID_ptr();
     static void get_debug_loc(const Instruction *I, std::string &Filename, unsigned &Line);
-    static void load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets);
+    static void load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets);
 
-    // -1: not checking, 0: not targets, 1: target BBs, 2: target functions
-    static u8 is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets);
+    // -1: not checking, 0: not targets, 1: target BBs, 2: target functions, 3: target blocks
+    static u8 is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets);
 
     u8 check_code_language(std::string codefile);
     void printFuncLog(std::string filename, unsigned line, u16 evtID, std::string func_name);
     void printBBLog(std::string filename, unsigned line, u16 evtID);
+    void printBlockLog(std::string filename, unsigned line, u16 evtID);
   };
 
 }
@@ -106,7 +107,7 @@ namespace
 /***
  * Load identified interesting basicblocks(targets) to instrument
  ***/
-void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets)
+void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets)
 {
   char *target_file = getenv("TARGETS_FILE");
 
@@ -135,11 +136,11 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &fun
   }
 
   std::string codefile = json["path"];
-  auto targets = json["targets_line"];
+  auto targets_block = json["targets_block"];
   
-  for (const auto& line : targets) {
-    if (line.is_number()) {
-      bb_targets[codefile].insert(line.get<int>());
+  for (const auto& block : targets_block) {
+    if (block.is_number()) {
+      block_targets[codefile].insert(block.get<int>());
     }
   }
 }
@@ -147,7 +148,7 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &fun
 /***
  * Check if current location is target: 1 for BB, 2 for function, 0 for not targets, -1 for not checking
  ***/
-u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets)
+u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets)
 {
   if (bb_targets.count(codefile))
   {
@@ -175,6 +176,19 @@ u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE 
     }
   }
 
+  if (block_targets.count(codefile))
+  {
+    std::set<int> locs = block_targets[codefile];
+    for (auto ep = locs.begin(); ep != locs.end(); ep++)
+    {
+      if (*ep == line)
+      {
+        block_targets[codefile].erase(line);
+        return 3;
+      }
+    }
+  }
+  
   return 0;
 }
 
@@ -288,6 +302,12 @@ void AFLCoverage::printBBLog(std::string filename, unsigned line, u16 evtID)
   OKF("Instrument %u at %s: at line %u for block", evtID, filename.c_str(), line);
 }
 
+void AFLCoverage::printBlockLog(std::string filename, unsigned line, u16 evtID)
+{
+  bbToID << evtID << ": at " << filename << " ; at line " << line << " for block" << std::endl;
+  OKF("Instrument %u at %s: at line %u for block", evtID, filename.c_str(), line);
+}
+
 char AFLCoverage::ID = 0;
 
 bool AFLCoverage::runOnModule(Module &M)
@@ -352,12 +372,11 @@ bool AFLCoverage::runOnModule(Module &M)
   }
 
   int inst_blocks = 0;
-  TARGETS_TYPE bb_targets, func_targets;
-  load_instr_targets(bb_targets, func_targets);
+  TARGETS_TYPE bb_targets, func_targets, block_targets;
+  load_instr_targets(bb_targets, func_targets, block_targets);
   u8 codeLang = 0;
 
   static const std::string Xlibs("/usr/");
-  // static const std::string Clibs("/rustc/");
 
   for (auto &F : M)
   {
@@ -373,7 +392,7 @@ bool AFLCoverage::runOnModule(Module &M)
       BasicBlock::iterator IP = BB.getFirstInsertionPt();
 
       // in each basic block, check if it is a target
-      bool isTargetBB = false;
+      bool isTargetBlockEvent = false;
 
       for (auto &I : BB)
       {
@@ -384,41 +403,39 @@ bool AFLCoverage::runOnModule(Module &M)
         {
           continue;
         }
-        // printf("filename: %s, line: %u\n", filename.c_str(), line);
 
-        /* check if target locations */
-        u8 isTarget = is_target_loc(filename, line, bb_targets, func_targets);
-        if (isTarget == 1)
-        {
-          isTargetBB = true;
-        }
-        else if (isTarget == 2)
+        u8 isTarget = is_target_loc(filename, line, bb_targets, func_targets, block_targets);
+        if (isTarget == 2)
         {
           isTargetFunc = true;
+        }
+        else if (isTarget == 3)
+        {
+          isTargetBlockEvent = true;
         }
       }
 
       /* skip if no target found or instrumented, and also not selected */
-      if (!isTargetBB && AFL_R(100) >= inst_ratio)
+      if (!isTargetBlockEvent && AFL_R(100) >= inst_ratio)
       {
         continue;
       }
 
       /* instrument starting block point */
       IRBuilder<> IRB(&(*IP));
-      if (isTargetBB)
+      if (isTargetBlockEvent)
       {
         u16 *evtIDPtr = get_ID_ptr();
         u16 evtID = *evtIDPtr;
         Value *evtValue = ConstantInt::get(Int16Ty, evtID);
 
         auto *helperTy_stack = FunctionType::get(VoidTy, Int16Ty);
-        auto helper_stack_start = M.getOrInsertFunction("track_blocks", helperTy_stack);
+        auto helper_stack_start = M.getOrInsertFunction("trigger_block_event", helperTy_stack);
 
         IRB.CreateCall(helper_stack_start, {evtValue});
 
         /* store BB ID info */
-        printBBLog(filename, line, evtID);
+        printBlockLog(filename, line, evtID);
 
         /* increase counter */
         *evtIDPtr = ++evtID;
