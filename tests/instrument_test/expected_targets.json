@@ -1,0 +1,17 @@
+[
+  {
+    "path": "src/math_utils.c",
+    "targets_const": {},
+    "targets_block": [
+      5,
+      10
+    ]
+  },
+  {
+    "path": "main.c",
+    "targets_const": {},
+    "targets_block": [
+      6
+    ]
+  }
+]

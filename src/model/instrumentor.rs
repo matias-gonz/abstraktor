@@ -30,7 +30,7 @@ impl Instrumentor {
         self.block_start_regex.is_match(trimmed)
     }
 
-    pub fn get_targets(self: &Self, content: &str, path: &str) -> InstrumentationTargets {
+    fn get_targets_single(&self, content: &str, path: &str) -> InstrumentationTargets {
         let mut targets = InstrumentationTargets {
             path: path.to_string(),
             ..Default::default()
@@ -63,6 +63,12 @@ impl Instrumentor {
         
         targets
     }
+
+    pub fn get_targets(&self, files: Vec<(String, String)>) -> Vec<InstrumentationTargets> {
+        files.into_iter()
+            .map(|(content, path)| self.get_targets_single(&content, &path))
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -75,8 +81,8 @@ mod tests {
         let content = r"
         let x = 1;
         ";
-        let path = "test.rs";
-        let targets = instrumentor.get_targets(&content, &path);
+        let path = "test.c";
+        let targets = instrumentor.get_targets_single(&content, &path);
         assert!(targets.targets_block.is_empty());
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -93,8 +99,8 @@ mod tests {
         // ABSTRAKTOR_CONST: z
         let z = 3;
         ";
-        let path = "test.rs";
-        let targets = instrumentor.get_targets(&content, &path);
+        let path = "test.c";
+        let targets = instrumentor.get_targets_single(&content, &path);
 
         let expected = HashMap::from([(2, "x".to_string()), (4, "y".to_string()), (6, "z".to_string())]);
         assert_eq!(targets.targets_const, expected);
@@ -113,8 +119,8 @@ mod tests {
         // ABSTRAKTOR_BLOCK_EVENT
         let z = 3;
         ";
-        let path = "test.rs";
-        let targets = instrumentor.get_targets(&content, &path);
+        let path = "test.c";
+        let targets = instrumentor.get_targets_single(&content, &path);
         let expected_block = vec![3, 7];
         let expected_const = HashMap::from([(4, "y".to_string())]);
         assert_eq!(targets.targets_block, expected_block);
@@ -133,8 +139,8 @@ mod tests {
         // ABSTRAKTOR_BLOCK_EVENT
         let z = 3;
         ";
-        let path = "test.rs";
-        let targets = instrumentor.get_targets(&content, &path);
+        let path = "test.c";
+        let targets = instrumentor.get_targets_single(&content, &path);
         assert_eq!(targets.targets_block, vec![3, 5, 7]);
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -152,8 +158,8 @@ mod tests {
 
         let y = 2;
         ";
-        let path = "test.rs";
-        let targets = instrumentor.get_targets(&content, &path);
+        let path = "test.c";
+        let targets = instrumentor.get_targets_single(&content, &path);
         assert_eq!(targets.targets_block, vec![4, 8]);
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -171,8 +177,8 @@ mod tests {
         // Some other comment
         let y = 2;
         ";
-        let path = "test.rs";
-        let targets = instrumentor.get_targets(&content, &path);
+        let path = "test.c";
+        let targets = instrumentor.get_targets_single(&content, &path);
         assert_eq!(targets.targets_block, vec![5, 8]);
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -187,8 +193,8 @@ mod tests {
         let y = 2;
         // ABSTRAKTOR_BLOCK_EVENT
         ";
-        let path = "test.rs";
-        let targets = instrumentor.get_targets(&content, &path);
+        let path = "test.c";
+        let targets = instrumentor.get_targets_single(&content, &path);
         assert_eq!(targets.targets_block, vec![4]);
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -202,8 +208,8 @@ mod tests {
         // Only comments here
         // No actual code
         ";
-        let path = "test.rs";
-        let targets = instrumentor.get_targets(&content, &path);
+        let path = "test.c";
+        let targets = instrumentor.get_targets_single(&content, &path);
         assert!(targets.targets_block.is_empty());
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -218,10 +224,48 @@ mod tests {
         // ABSTRAKTOR_BLOCK_EVENT
         { // start of new block
         ";
-        let path = "test.rs";
-        let targets = instrumentor.get_targets(&content, &path);
+        let path = "test.c";
+        let targets = instrumentor.get_targets_single(&content, &path);
         assert_eq!(targets.targets_block, vec![3]);
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
+    }
+
+    #[test]
+    fn test_parse_targets_multiple_files() {
+        let instrumentor = Instrumentor::new();
+        let files = vec![
+            (
+                r"
+                // ABSTRAKTOR_BLOCK_EVENT
+                let x = 1;
+                // ABSTRAKTOR_CONST: y
+                let y = 2;
+                ".to_string(),
+                "file1.c".to_string()
+            ),
+            (
+                r"
+                // ABSTRAKTOR_BLOCK_EVENT
+                let z = 3;
+                // ABSTRAKTOR_CONST: w
+                let w = 4;
+                ".to_string(),
+                "file2.c".to_string()
+            ),
+        ];
+
+        let targets = instrumentor.get_targets(files);
+        assert_eq!(targets.len(), 2);
+
+        // Check first file
+        assert_eq!(targets[0].path, "file1.c");
+        assert_eq!(targets[0].targets_block, vec![3]);
+        assert_eq!(targets[0].targets_const, HashMap::from([(4, "y".to_string())]));
+
+        // Check second file
+        assert_eq!(targets[1].path, "file2.c");
+        assert_eq!(targets[1].targets_block, vec![3]);
+        assert_eq!(targets[1].targets_const, HashMap::from([(4, "w".to_string())]));
     }
 }
