@@ -61,6 +61,22 @@ mod tests {
     use super::*;
     use crate::logger::LogLevel;
 
+    fn normalize_paths(value: &mut serde_json::Value, base_dir: &Path) {
+        if let Some(array) = value.as_array_mut() {
+            for item in array {
+                if let Some(obj) = item.as_object_mut() {
+                    if let Some(path_val) = obj.get_mut("path") {
+                        if let Some(p) = path_val.as_str() {
+                            if let Some(rel_path) = pathdiff::diff_paths(Path::new(p), base_dir) {
+                                *path_val = serde_json::Value::String(rel_path.to_string_lossy().into_owned());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn test_get_targets_command() {
         let test_dir = Path::new("./tests/instrument_test");
@@ -82,8 +98,13 @@ mod tests {
         let output = fs::read_to_string(&output_file).unwrap();
         let expected = fs::read_to_string(&expected_file).unwrap();
 
-        let output_json: serde_json::Value = serde_json::from_str(&output).unwrap();
-        let expected_json: serde_json::Value = serde_json::from_str(&expected).unwrap();
+        let mut output_json: serde_json::Value = serde_json::from_str(&output).unwrap();
+        let mut expected_json: serde_json::Value = serde_json::from_str(&expected).unwrap();
+        
+        let base_dir = test_dir.canonicalize().unwrap();
+        normalize_paths(&mut output_json, &base_dir);
+        normalize_paths(&mut expected_json, &base_dir);
+        
         assert_eq!(output_json, expected_json);
 
         fs::remove_file(&output_file).unwrap();
