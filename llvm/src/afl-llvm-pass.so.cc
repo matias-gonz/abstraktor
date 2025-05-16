@@ -110,37 +110,38 @@ namespace
 void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets)
 {
   char *target_file = getenv("TARGETS_FILE");
+  if (!target_file) {
+    outs() << "[!!] TARGETS_FILE environment variable not set\n";
+    return;
+  }
 
   std::ifstream file(target_file);
   if (!file.is_open()) {
-    outs() << "[!!] Fail to open targets file\n";
+    outs() << "[!!] Could not open " << target_file << "\n";
     return;
   }
 
-  std::string json_str;
-  file.seekg(0, std::ios::end);
-  json_str.reserve(file.tellg());
-  file.seekg(0, std::ios::beg);
-  json_str.assign((std::istreambuf_iterator<char>(file)),
-                  std::istreambuf_iterator<char>());
+  nlohmann::json json;
+  file >> json;
 
-  auto json = nlohmann::json::parse(json_str, nullptr, false);
-  if (json.is_discarded()) {
-    outs() << "[!!] JSON parsing error\n";
+  if (!json.is_array()) {
+    outs() << "[!!] JSON must be an array\n";
     return;
   }
 
-  if (!json.contains("path") || !json.contains("targets_line")) {
-    outs() << "[!!] Missing required JSON fields\n";
-    return;
-  }
+  for (const auto& target : json) {
+    if (!target.contains("path") || !target.contains("targets_block")) {
+      outs() << "[!!] Missing required JSON fields in target object\n";
+      continue;
+    }
 
-  std::string codefile = json["path"];
-  auto targets_block = json["targets_block"];
-  
-  for (const auto& block : targets_block) {
-    if (block.is_number()) {
-      block_targets[codefile].insert(block.get<int>());
+    std::string codefile = target["path"];
+    auto targets_block = target["targets_block"];
+    
+    for (const auto& block : targets_block) {
+      if (block.is_number()) {
+        block_targets[codefile].insert(block.get<int>());
+      }
     }
   }
 }

@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{self, Path};
 
 use clap::Parser;
 use xshell::Shell;
@@ -16,31 +16,37 @@ pub struct LlvmArgs {
     pub path: String,
     #[arg(short, long)]
     pub targets_path: String,
-    #[arg(short, long)]
-    pub output: String,
 }
 
 pub fn run(args: LlvmArgs, logger: &Logger) {
     logger.log(format!("Instrumenting {}", args.path));
     let sh = Shell::new().unwrap();
-    let instrumentor_path = Path::new(LLVM_INSTRUMENTOR_PATH);
+    let instrumentor_path = path::absolute(Path::new(LLVM_INSTRUMENTOR_PATH)).unwrap();
     let path = Path::new(&args.path);
-    let targets_path = Path::new(&args.targets_path);
-    let output_path = Path::new(&args.output);
+    let targets_path = path::absolute(Path::new(&args.targets_path)).unwrap();
     if !instrumentor_path.exists() {
         logger.error(format!("instrumentor not found at {}", instrumentor_path.to_str().unwrap()));
         return;
     }
-    sh.cmd(instrumentor_path)
-    .args(&["-o", output_path.to_str().unwrap(), path.to_str().unwrap()])
+    if !path.exists() {
+        logger.error(format!("path not found at {}", path.to_str().unwrap()));
+        return;
+    }
+    if !targets_path.exists() {
+        logger.error(format!("targets not found at {}", targets_path.to_str().unwrap()));
+        return;
+    }
+
+    sh.change_dir(path);
+    sh.cmd("make")
     .envs([
+        ("CC", instrumentor_path.to_str().unwrap()),
         ("TARGETS_FILE", targets_path.to_str().unwrap()),
-        ("AFL_QUIET", AFL_QUIET),
         ("AFL_CC", AFL_CC)
         ])
         .quiet()
         .run()
         .unwrap();
-    logger.success(format!("Instrumented binary saved to {}", args.output));
+    logger.success("Instrumented binary");
 }
 

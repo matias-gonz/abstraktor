@@ -1,0 +1,17 @@
+[
+  {
+    "path": "/home/panthera/abstraktor/tests/instrument_test/src/math_utils.c",
+    "targets_const": {},
+    "targets_block": [
+      5,
+      10
+    ]
+  },
+  {
+    "path": "/home/panthera/abstraktor/tests/instrument_test/main.c",
+    "targets_const": {},
+    "targets_block": [
+      6
+    ]
+  }
+]

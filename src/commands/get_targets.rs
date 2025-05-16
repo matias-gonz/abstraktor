@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::fs;
+use std::{fs, path};
 use std::path::Path;
 
 use crate::{logger::Logger, model::instrumentor::Instrumentor};
@@ -14,10 +14,10 @@ pub struct GetTargetsArgs {
 
 fn get_files_content(path: &str) -> Vec<(String, String)> {
     let mut files = Vec::new();
-    let path = Path::new(path);
+    let path = path::absolute(Path::new(path)).unwrap();
 
     if path.is_file() {
-        if let Ok(content) = fs::read_to_string(path) {
+        if let Ok(content) = fs::read_to_string(&path) {
             files.push((content, path.to_string_lossy().into_owned()));
         }
     } else if path.is_dir() {
@@ -39,7 +39,7 @@ fn get_files_content(path: &str) -> Vec<(String, String)> {
                 }
             }
         }
-        visit_dirs(path, &mut files);
+        visit_dirs(&path, &mut files);
     }
 
     files

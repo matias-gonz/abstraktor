@@ -10,11 +10,8 @@ int main() {
     
     printf("Result: %d\n", result);
 
-    {
-        // ABSTRAKTOR_BLOCK_EVENT
-        int square_result = square(result);
-        printf("Square: %d\n", square_result);
-    }
+    int square_result = square(result);
+    printf("Square: %d\n", square_result);
 
     return 0;
 } 
