@@ -71,7 +71,7 @@ mod tests {
             fs::remove_file(&output_file).unwrap();
         }
 
-        let logger = Logger::new(LogLevel::Debug);
+        let logger = Logger::new(LogLevel::Quiet);
 
         let args = GetTargetsArgs {
             path: test_dir.to_string_lossy().into_owned(),
