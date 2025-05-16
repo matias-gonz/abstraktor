@@ -64,9 +64,9 @@ impl Instrumentor {
         targets
     }
 
-    pub fn get_targets(&self, files: &[(&str, &str)]) -> Vec<InstrumentationTargets> {
-        files.iter()
-            .map(|(content, path)| self.get_targets_single(content, path))
+    pub fn get_targets(&self, files: Vec<(String, String)>) -> Vec<InstrumentationTargets> {
+        files.into_iter()
+            .map(|(content, path)| self.get_targets_single(&content, &path))
             .collect()
     }
 }
@@ -241,8 +241,8 @@ mod tests {
                 let x = 1;
                 // ABSTRAKTOR_CONST: y
                 let y = 2;
-                ",
-                "file1.c"
+                ".to_string(),
+                "file1.c".to_string()
             ),
             (
                 r"
@@ -250,12 +250,12 @@ mod tests {
                 let z = 3;
                 // ABSTRAKTOR_CONST: w
                 let w = 4;
-                ",
-                "file2.c"
+                ".to_string(),
+                "file2.c".to_string()
             ),
         ];
 
-        let targets = instrumentor.get_targets(&files);
+        let targets = instrumentor.get_targets(files);
         assert_eq!(targets.len(), 2);
 
         // Check first file
