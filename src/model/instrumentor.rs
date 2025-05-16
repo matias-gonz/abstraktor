@@ -176,4 +176,101 @@ mod tests {
         assert_eq!(targets.targets_const, expected_const);
         assert_eq!(targets.path, path);
     }
+
+    #[test]
+    fn test_parse_targets_with_consecutive_block_annotations() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_BLOCK_EVENT
+        let x = 1;
+        // ABSTRAKTOR_BLOCK_EVENT
+        let y = 2;
+        // ABSTRAKTOR_BLOCK_EVENT
+        let z = 3;
+        ";
+        let path = "test.rs";
+        let targets = instrumentor.get_targets(&content, &path);
+        assert_eq!(targets.targets_block, vec![3, 5, 7]);
+        assert_eq!(targets.path, path);
+    }
+
+    #[test]
+    fn test_parse_targets_with_empty_lines_between_blocks() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_BLOCK_EVENT
+
+        let x = 1;
+
+        // ABSTRAKTOR_BLOCK_EVENT
+
+        let y = 2;
+        ";
+        let path = "test.rs";
+        let targets = instrumentor.get_targets(&content, &path);
+        assert_eq!(targets.targets_block, vec![4, 8]);
+        assert_eq!(targets.path, path);
+    }
+
+    #[test]
+    fn test_parse_targets_with_comments_between_blocks() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_BLOCK_EVENT
+        // This is a comment
+        // Another comment
+        let x = 1;
+        // ABSTRAKTOR_BLOCK_EVENT
+        // Some other comment
+        let y = 2;
+        ";
+        let path = "test.rs";
+        let targets = instrumentor.get_targets(&content, &path);
+        assert_eq!(targets.targets_block, vec![5, 8]);
+        assert_eq!(targets.path, path);
+    }
+
+    #[test]
+    fn test_parse_targets_with_block_at_end_of_file() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        let x = 1;
+        // ABSTRAKTOR_BLOCK_EVENT
+        let y = 2;
+        // ABSTRAKTOR_BLOCK_EVENT
+        ";
+        let path = "test.rs";
+        let targets = instrumentor.get_targets(&content, &path);
+        assert_eq!(targets.targets_block, vec![4]);
+        assert_eq!(targets.path, path);
+    }
+
+    #[test]
+    fn test_parse_targets_with_no_valid_block_start() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_BLOCK_EVENT
+        // Only comments here
+        // No actual code
+        ";
+        let path = "test.rs";
+        let targets = instrumentor.get_targets(&content, &path);
+        assert!(targets.targets_block.is_empty());
+        assert_eq!(targets.path, path);
+    }
+
+    #[test]
+    fn test_parse_targets_with_block_starting_with_brace() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_BLOCK_EVENT
+        } // end of previous block
+        // ABSTRAKTOR_BLOCK_EVENT
+        { // start of new block
+        ";
+        let path = "test.rs";
+        let targets = instrumentor.get_targets(&content, &path);
+        assert_eq!(targets.targets_block, vec![3]);
+        assert_eq!(targets.path, path);
+    }
 }
