@@ -26,3 +26,34 @@ Run tests using:
 ```
 cargo test
 ```
+
+## Workflow
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant CLI as Abstraktor CLI
+    participant LLVM as LLVM Instrumenter
+    participant Mallory as Mallory Engine
+    participant EPAGen as EPA Generator
+
+    Dev->>Dev: Annotate source code
+    Dev->>CLI: Run prepare-binary
+    CLI->>LLVM: Instrument code using annotations
+    LLVM-->>CLI: Instrumented binary ready
+
+    Dev->>CLI: Run run-mallory
+    CLI->>Mallory: Execute instrumented binary
+    Mallory-->>CLI: Collect runtime events
+
+    Dev->>CLI: Run generate-epas
+    CLI->>EPAGen: Generate EPAs from collected events
+    EPAGen-->>Dev: Output EPAs
+```
+
+### Description
+
+1. **Annotate Source Code**: Manually add comments to relevant parts of your application logic to mark key points for analysis.  
+2. **prepare-binary**: Instruments the source code using LLVM based on the provided annotations.  
+3. **run-mallory**: Executes the instrumented binary under Mallory to simulate network conditions and collect runtime events.  
+4. **generate-epas**: Processes the collected data to automatically construct enabling-preserving abstractions (EPAs).
