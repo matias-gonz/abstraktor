@@ -1,4 +1,5 @@
 # abstraktor
+[![test](https://github.com/matias-gonz/abstraktor/actions/workflows/test.yml/badge.svg)](https://github.com/matias-gonz/abstraktor/actions/workflows/test.yml)[![codecov](https://codecov.io/gh/matias-gonz/abstraktor/graph/badge.svg?token=F5T2XM8TOA)](https://codecov.io/gh/matias-gonz/abstraktor)
 
 **Abstraktor** is a tool designed to assist in the validation of distributed protocol implementations by automatically generating enabling-preserving abstractions (EPAs). Unlike existing tools that only detect runtime errors, **Abstraktor** aims to uncover issues in the business logic of implementations.
 
