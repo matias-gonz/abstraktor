@@ -12,13 +12,15 @@ TARGET = test_program
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+$(TARGET): $(OBJS) FORCE
+	$(CC) $(CFLAGS) -o $@ $(OBJS)
 
-%.o: %.c
+%.o: %.c FORCE
 	TARGETS_FILE=$(TARGETS_FILE) $(CC) $(CFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(TARGET) $(OBJS)
 
-.PHONY: all clean 
+FORCE:
+
+.PHONY: all clean FORCE 

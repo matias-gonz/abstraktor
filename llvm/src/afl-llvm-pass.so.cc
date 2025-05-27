@@ -59,6 +59,7 @@
 using namespace llvm;
 
 #define TARGETS_TYPE std::unordered_map<std::string, std::set<int>>
+#define CONST_TARGETS_TYPE std::unordered_map<std::string, std::unordered_map<int, std::string>>
 
 namespace
 {
@@ -91,15 +92,16 @@ namespace
 
     u16 *get_ID_ptr();
     static void get_debug_loc(const Instruction *I, std::string &Filename, unsigned &Line);
-    static void load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets);
+    static void load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets);
 
-    // -1: not checking, 0: not targets, 1: target BBs, 2: target functions, 3: target blocks
-    static u8 is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets);
+    // -1: not checking, 0: not targets, 1: target BBs, 2: target functions, 3: target blocks, 4: target consts
+    static u8 is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets);
 
     u8 check_code_language(std::string codefile);
     void printFuncLog(std::string filename, unsigned line, u16 evtID, std::string func_name);
     void printBBLog(std::string filename, unsigned line, u16 evtID);
     void printBlockLog(std::string filename, unsigned line, u16 evtID);
+    void printConstLog(std::string filename, unsigned line, u16 evtID, std::string const_name);
   };
 
 }
@@ -107,7 +109,7 @@ namespace
 /***
  * Load identified interesting basicblocks(targets) to instrument
  ***/
-void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets)
+void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets)
 {
   char *target_file = getenv("TARGETS_FILE");
   if (!target_file) {
@@ -136,20 +138,29 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &fun
     }
 
     std::string codefile = target["path"];
+
     auto targets_block = target["targets_block"];
-    
     for (const auto& block : targets_block) {
       if (block.is_number()) {
         block_targets[codefile].insert(block.get<int>());
+      }
+    }
+
+    auto targets_const = target["targets_const"];
+    if (targets_const.is_object()) {
+      for (auto it = targets_const.begin(); it != targets_const.end(); ++it) {
+        int line_num = std::stoi(it.key());
+        std::string const_name = it.value().get<std::string>();
+        const_targets[codefile][line_num] = const_name;
       }
     }
   }
 }
 
 /***
- * Check if current location is target: 1 for BB, 2 for function, 0 for not targets, -1 for not checking
+ * Check if current location is target: 1 for BB, 2 for function, 3 for block, 4 for const, 0 for not targets, -1 for not checking
  ***/
-u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets)
+u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets)
 {
   if (bb_targets.count(codefile))
   {
@@ -187,6 +198,15 @@ u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE 
         block_targets[codefile].erase(line);
         return 3;
       }
+    }
+  }
+
+  if (const_targets.count(codefile))
+  {
+    auto& const_map = const_targets[codefile];
+    if (const_map.count(line))
+    {
+      return 4;
     }
   }
   
@@ -309,6 +329,12 @@ void AFLCoverage::printBlockLog(std::string filename, unsigned line, u16 evtID)
   OKF("Instrument %u at %s: at line %u for block", evtID, filename.c_str(), line);
 }
 
+void AFLCoverage::printConstLog(std::string filename, unsigned line, u16 evtID, std::string const_name)
+{
+  bbToID << evtID << ": at " << filename << " ; at line " << line << " for const " << const_name << std::endl;
+  OKF("Instrument %u at %s: at line %u for const %s", evtID, filename.c_str(), line, const_name.c_str());
+}
+
 char AFLCoverage::ID = 0;
 
 bool AFLCoverage::runOnModule(Module &M)
@@ -374,7 +400,9 @@ bool AFLCoverage::runOnModule(Module &M)
 
   int inst_blocks = 0;
   TARGETS_TYPE bb_targets, func_targets, block_targets;
-  load_instr_targets(bb_targets, func_targets, block_targets);
+  CONST_TARGETS_TYPE const_targets;
+  std::set<std::pair<std::string, int>> instrumented_const_targets;
+  load_instr_targets(bb_targets, func_targets, block_targets, const_targets);
   u8 codeLang = 0;
 
   static const std::string Xlibs("/usr/");
@@ -394,6 +422,7 @@ bool AFLCoverage::runOnModule(Module &M)
 
       // in each basic block, check if it is a target
       bool isTargetBlockEvent = false;
+      bool isTargetConstEvent = false;
 
       for (auto &I : BB)
       {
@@ -405,7 +434,7 @@ bool AFLCoverage::runOnModule(Module &M)
           continue;
         }
 
-        u8 isTarget = is_target_loc(filename, line, bb_targets, func_targets, block_targets);
+        u8 isTarget = is_target_loc(filename, line, bb_targets, func_targets, block_targets, const_targets);
         if (isTarget == 2)
         {
           isTargetFunc = true;
@@ -414,10 +443,14 @@ bool AFLCoverage::runOnModule(Module &M)
         {
           isTargetBlockEvent = true;
         }
+        else if (isTarget == 4)
+        {
+          isTargetConstEvent = true;
+        }
       }
 
       /* skip if no target found or instrumented, and also not selected */
-      if (!isTargetBlockEvent && AFL_R(100) >= inst_ratio)
+      if (!isTargetBlockEvent && !isTargetConstEvent && AFL_R(100) >= inst_ratio)
       {
         continue;
       }
@@ -440,6 +473,34 @@ bool AFLCoverage::runOnModule(Module &M)
 
         /* increase counter */
         *evtIDPtr = ++evtID;
+      }
+
+      if (isTargetConstEvent)
+      {
+        std::pair<std::string, int> const_key = std::make_pair(filename, line);
+        if (instrumented_const_targets.find(const_key) == instrumented_const_targets.end())
+        {
+          instrumented_const_targets.insert(const_key);
+          
+          std::string const_name = const_targets[filename][line];
+          u16 *evtIDPtr = get_ID_ptr();
+          u16 evtID = *evtIDPtr;
+          Value *evtValue = ConstantInt::get(Int16Ty, evtID);
+
+          // Create a global string constant for the const name
+          Value *constNameValue = IRB.CreateGlobalStringPtr(const_name);
+
+          auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy}, false);
+          auto helper_const = M.getOrInsertFunction("trigger_const_event", helperTy_const);
+
+          IRB.CreateCall(helper_const, {evtValue, constNameValue});
+
+          /* store const ID info */
+          printConstLog(filename, line, evtID, const_name);
+
+          /* increase counter */
+          *evtIDPtr = ++evtID;
+        }
       }
 
       if (getenv("USE_TRADITIONAL_BRANCH")){
