@@ -1,4 +1,4 @@
-use clap::{command, Parser, Subcommand};
+use clap::{Parser, Subcommand, command};
 
 pub mod get_targets;
 pub use get_targets::GetTargetsArgs;

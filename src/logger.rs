@@ -1,6 +1,6 @@
-use std::fmt::Display;
 use cliclack::{intro, log, outro};
 use console::style;
+use std::fmt::Display;
 
 #[derive(PartialEq)]
 pub enum LogLevel {
@@ -40,7 +40,12 @@ impl Logger {
             return;
         }
 
-        intro(style(format!("Abstraktor - v{}", env!("CARGO_PKG_VERSION"))).bold().cyan()).unwrap();
+        intro(
+            style(format!("Abstraktor - v{}", env!("CARGO_PKG_VERSION")))
+                .bold()
+                .cyan(),
+        )
+        .unwrap();
     }
 
     pub fn outro(&self) {
@@ -56,7 +61,12 @@ impl Logger {
             return;
         }
 
-        log::error(format!("{} {}", style("Error:").bold().red(), style(message).red())).unwrap();
+        log::error(format!(
+            "{} {}",
+            style("Error:").bold().red(),
+            style(message).red()
+        ))
+        .unwrap();
     }
 }
 
