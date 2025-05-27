@@ -30,6 +30,17 @@ impl Instrumentor {
         self.block_start_regex.is_match(trimmed)
     }
 
+    fn find_next_block_start(&self, lines: &[&str], start_line_num: usize) -> Option<usize> {
+        let mut next_line_num = start_line_num;
+        while next_line_num < lines.len() {
+            if self.is_block_start(lines[next_line_num]) {
+                return Some(next_line_num + 1);
+            }
+            next_line_num += 1;
+        }
+        None
+    }
+
     fn get_targets_single(&self, content: &str, path: &str) -> InstrumentationTargets {
         let mut targets = InstrumentationTargets {
             path: path.to_string(),
@@ -46,25 +57,13 @@ impl Instrumentor {
                 let captures = self.target_const_regex.captures(line).unwrap();
                 let const_name = captures[1].to_string();
                 
-                // Look ahead for the next line that starts with a letter or closing brace
-                let mut next_line_num = line_num;
-                while next_line_num < lines.len() {
-                    if self.is_block_start(lines[next_line_num]) {
-                        targets.targets_const.insert(next_line_num + 1, const_name);
-                        break;
-                    }
-                    next_line_num += 1;
+                if let Some(block_line) = self.find_next_block_start(&lines, line_num) {
+                    targets.targets_const.insert(block_line, const_name);
                 }
             }
             if self.target_block_regex.is_match(line) {
-                // Look ahead for the next line that starts with a letter or closing brace
-                let mut next_line_num = line_num;
-                while next_line_num < lines.len() {
-                    if self.is_block_start(lines[next_line_num]) {
-                        targets.targets_block.push(next_line_num + 1);
-                        break;
-                    }
-                    next_line_num += 1;
+                if let Some(block_line) = self.find_next_block_start(&lines, line_num) {
+                    targets.targets_block.push(block_line);
                 }
             }
             i += 1;
@@ -83,6 +82,62 @@ impl Instrumentor {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_find_next_block_start_with_immediate_code() {
+        let instrumentor = Instrumentor::new();
+        let lines = vec!["// comment", "let x = 1;", "let y = 2;"];
+        let result = instrumentor.find_next_block_start(&lines, 0);
+        assert_eq!(result, Some(2)); // line 2 (1-indexed)
+    }
+
+    #[test]
+    fn test_find_next_block_start_with_empty_lines() {
+        let instrumentor = Instrumentor::new();
+        let lines = vec!["// comment", "", "  ", "let x = 1;"];
+        let result = instrumentor.find_next_block_start(&lines, 0);
+        assert_eq!(result, Some(4)); // line 4 (1-indexed)
+    }
+
+    #[test]
+    fn test_find_next_block_start_with_closing_brace() {
+        let instrumentor = Instrumentor::new();
+        let lines = vec!["// comment", "  // another comment", "}", "let x = 1;"];
+        let result = instrumentor.find_next_block_start(&lines, 0);
+        assert_eq!(result, Some(3)); // line 3 (1-indexed) - the closing brace
+    }
+
+    #[test]
+    fn test_find_next_block_start_no_valid_start() {
+        let instrumentor = Instrumentor::new();
+        let lines = vec!["// comment", "  // another comment", "  /* block comment */"];
+        let result = instrumentor.find_next_block_start(&lines, 0);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_find_next_block_start_from_middle() {
+        let instrumentor = Instrumentor::new();
+        let lines = vec!["let a = 1;", "// comment", "", "let x = 1;"];
+        let result = instrumentor.find_next_block_start(&lines, 1); // start from line 1 (0-indexed)
+        assert_eq!(result, Some(4)); // line 4 (1-indexed)
+    }
+
+    #[test]
+    fn test_find_next_block_start_at_end_of_file() {
+        let instrumentor = Instrumentor::new();
+        let lines = vec!["let a = 1;", "// comment"];
+        let result = instrumentor.find_next_block_start(&lines, 1); // start from line 1 (0-indexed)
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_find_next_block_start_with_indented_code() {
+        let instrumentor = Instrumentor::new();
+        let lines = vec!["// comment", "    if (condition) {", "        let x = 1;"];
+        let result = instrumentor.find_next_block_start(&lines, 0);
+        assert_eq!(result, Some(2)); // line 2 (1-indexed) - indented code should work
+    }
 
     #[test]
     fn test_parse_targets_with_no_instrumentation() {
