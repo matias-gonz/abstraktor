@@ -44,7 +44,6 @@ pub fn run(args: LlvmArgs, logger: &Logger) {
         ("TARGETS_FILE", targets_path.to_str().unwrap()),
         ("AFL_CC", AFL_CC)
         ])
-        .quiet()
         .run()
         .unwrap();
     logger.success("Instrumented binary");
