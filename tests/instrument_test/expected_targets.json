@@ -1,9 +1,10 @@
 [
   {
     "path": "src/math_utils.c",
-    "targets_const": {},
+    "targets_const": {
+      "5": "add"
+    },
     "targets_block": [
-      5,
       10
     ]
   },

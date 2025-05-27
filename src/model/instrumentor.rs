@@ -45,7 +45,16 @@ impl Instrumentor {
             if self.target_const_regex.is_match(line) {
                 let captures = self.target_const_regex.captures(line).unwrap();
                 let const_name = captures[1].to_string();
-                targets.targets_const.insert(line_num, const_name);
+                
+                // Look ahead for the next line that starts with a letter or closing brace
+                let mut next_line_num = line_num;
+                while next_line_num < lines.len() {
+                    if self.is_block_start(lines[next_line_num]) {
+                        targets.targets_const.insert(next_line_num + 1, const_name);
+                        break;
+                    }
+                    next_line_num += 1;
+                }
             }
             if self.target_block_regex.is_match(line) {
                 // Look ahead for the next line that starts with a letter or closing brace
@@ -102,7 +111,7 @@ mod tests {
         let path = "test.c";
         let targets = instrumentor.get_targets_single(&content, &path);
 
-        let expected = HashMap::from([(2, "x".to_string()), (4, "y".to_string()), (6, "z".to_string())]);
+        let expected = HashMap::from([(3, "x".to_string()), (5, "y".to_string()), (7, "z".to_string())]);
         assert_eq!(targets.targets_const, expected);
         assert!(targets.targets_block.is_empty());
         assert_eq!(targets.path, path);
@@ -122,7 +131,7 @@ mod tests {
         let path = "test.c";
         let targets = instrumentor.get_targets_single(&content, &path);
         let expected_block = vec![3, 7];
-        let expected_const = HashMap::from([(4, "y".to_string())]);
+        let expected_const = HashMap::from([(5, "y".to_string())]);
         assert_eq!(targets.targets_block, expected_block);
         assert_eq!(targets.targets_const, expected_const);
         assert_eq!(targets.path, path);
@@ -216,6 +225,21 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_targets_with_no_valid_const_block_start() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_CONST: myconst
+        // Only comments here
+        // No actual code
+        ";
+        let path = "test.c";
+        let targets = instrumentor.get_targets_single(&content, &path);
+        assert!(targets.targets_block.is_empty());
+        assert!(targets.targets_const.is_empty());
+        assert_eq!(targets.path, path);
+    }
+
+    #[test]
     fn test_parse_targets_with_block_starting_with_brace() {
         let instrumentor = Instrumentor::new();
         let content = r"
@@ -261,11 +285,11 @@ mod tests {
         // Check first file
         assert_eq!(targets[0].path, "file1.c");
         assert_eq!(targets[0].targets_block, vec![3]);
-        assert_eq!(targets[0].targets_const, HashMap::from([(4, "y".to_string())]));
+        assert_eq!(targets[0].targets_const, HashMap::from([(5, "y".to_string())]));
 
         // Check second file
         assert_eq!(targets[1].path, "file2.c");
         assert_eq!(targets[1].targets_block, vec![3]);
-        assert_eq!(targets[1].targets_const, HashMap::from([(4, "w".to_string())]));
+        assert_eq!(targets[1].targets_const, HashMap::from([(5, "w".to_string())]));
     }
 }
