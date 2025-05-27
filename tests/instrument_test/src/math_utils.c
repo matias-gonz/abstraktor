@@ -1,7 +1,7 @@
 #include "../math_utils.h"
 
 int add(int a, int b) {
-    // ABSTRAKTOR_BLOCK_EVENT
+    // ABSTRAKTOR_CONST: add
     return a + b;
 }
 
