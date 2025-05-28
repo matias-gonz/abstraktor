@@ -15,12 +15,8 @@ export PATH=/usr/local/bin:$PATH
 
 echo "Checking llvm-config version:"
 llvm-config-12 --version
-
-echo "Updating apt"
-sudo apt-get update
-
-echo "Installing clang-12"
-sudo apt-get install clang-12
+clang --version
+clang-12 --version
 
 echo "Installing nlohmann-json3-dev"
 sudo apt-get install nlohmann-json3-dev
