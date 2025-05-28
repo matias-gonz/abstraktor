@@ -11,4 +11,4 @@ echo "Adding /usr/local/bin to PATH"
 export PATH=/usr/local/bin:$PATH
 
 echo "Checking llvm-config version:"
-llvm-config --version
+llvm-config-12 --version
