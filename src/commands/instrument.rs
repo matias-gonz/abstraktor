@@ -4,10 +4,9 @@ use clap::Parser;
 
 use crate::{commands::GetTargetsArgs, logger::Logger};
 
-use super::{get_targets, llvm, LlvmArgs};
+use super::{LlvmArgs, get_targets, llvm};
 
 const TEMP_TARGETS_PATH: &str = "temp_targets.json";
-
 
 #[derive(Parser, Debug)]
 pub struct InstrumentArgs {

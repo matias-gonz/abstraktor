@@ -1,6 +1,6 @@
 use clap::Parser;
-use std::{fs, path};
 use std::path::Path;
+use std::{fs, path};
 
 use crate::{logger::Logger, model::instrumentor::Instrumentor};
 
@@ -69,16 +69,18 @@ mod tests {
                         if let Some(p) = path_val.as_str() {
                             let path = Path::new(p);
                             let rel = if path.is_absolute() {
-                                pathdiff::diff_paths(path, base_dir).unwrap_or_else(|| path.to_path_buf())
+                                pathdiff::diff_paths(path, base_dir)
+                                    .unwrap_or_else(|| path.to_path_buf())
                             } else {
                                 path.to_path_buf()
                             };
-                            *path_val = serde_json::Value::String(rel.to_string_lossy().into_owned());
+                            *path_val =
+                                serde_json::Value::String(rel.to_string_lossy().into_owned());
                         }
                     }
                 }
             }
-    
+
             array.sort_by(|a, b| {
                 let a_path = a.get("path").and_then(|v| v.as_str()).unwrap_or("");
                 let b_path = b.get("path").and_then(|v| v.as_str()).unwrap_or("");
@@ -111,11 +113,11 @@ mod tests {
 
         let mut output_json: serde_json::Value = serde_json::from_str(&output).unwrap();
         let mut expected_json: serde_json::Value = serde_json::from_str(&expected).unwrap();
-        
+
         let base_dir = test_dir.canonicalize().unwrap();
         output_json = normalize_and_sort(output_json, &base_dir);
         expected_json = normalize_and_sort(expected_json, &base_dir);
-        
+
         assert_eq!(output_json, expected_json);
 
         fs::remove_file(&output_file).unwrap();

@@ -1,6 +1,6 @@
 mod commands;
-mod model;
 mod logger;
+mod model;
 use clap::Parser;
 use commands::{Abstraktor, AbstraktorSubcommand};
 use logger::Logger;

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use regex::Regex;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct InstrumentationTargets {
@@ -56,7 +56,7 @@ impl Instrumentor {
             if self.target_const_regex.is_match(line) {
                 let captures = self.target_const_regex.captures(line).unwrap();
                 let const_name = captures[1].to_string();
-                
+
                 if let Some(block_line) = self.find_next_block_start(&lines, line_num) {
                     targets.targets_const.insert(block_line, const_name);
                 }
@@ -68,12 +68,13 @@ impl Instrumentor {
             }
             i += 1;
         }
-        
+
         targets
     }
 
     pub fn get_targets(&self, files: Vec<(String, String)>) -> Vec<InstrumentationTargets> {
-        files.into_iter()
+        files
+            .into_iter()
             .map(|(content, path)| self.get_targets_single(&content, &path))
             .collect()
     }
@@ -110,7 +111,11 @@ mod tests {
     #[test]
     fn test_find_next_block_start_no_valid_start() {
         let instrumentor = Instrumentor::new();
-        let lines = vec!["// comment", "  // another comment", "  /* block comment */"];
+        let lines = vec![
+            "// comment",
+            "  // another comment",
+            "  /* block comment */",
+        ];
         let result = instrumentor.find_next_block_start(&lines, 0);
         assert_eq!(result, None);
     }
@@ -166,7 +171,11 @@ mod tests {
         let path = "test.c";
         let targets = instrumentor.get_targets_single(&content, &path);
 
-        let expected = HashMap::from([(3, "x".to_string()), (5, "y".to_string()), (7, "z".to_string())]);
+        let expected = HashMap::from([
+            (3, "x".to_string()),
+            (5, "y".to_string()),
+            (7, "z".to_string()),
+        ]);
         assert_eq!(targets.targets_const, expected);
         assert!(targets.targets_block.is_empty());
         assert_eq!(targets.path, path);
@@ -320,8 +329,9 @@ mod tests {
                 let x = 1;
                 // ABSTRAKTOR_CONST: y
                 let y = 2;
-                ".to_string(),
-                "file1.c".to_string()
+                "
+                .to_string(),
+                "file1.c".to_string(),
             ),
             (
                 r"
@@ -329,8 +339,9 @@ mod tests {
                 let z = 3;
                 // ABSTRAKTOR_CONST: w
                 let w = 4;
-                ".to_string(),
-                "file2.c".to_string()
+                "
+                .to_string(),
+                "file2.c".to_string(),
             ),
         ];
 
@@ -340,11 +351,17 @@ mod tests {
         // Check first file
         assert_eq!(targets[0].path, "file1.c");
         assert_eq!(targets[0].targets_block, vec![3]);
-        assert_eq!(targets[0].targets_const, HashMap::from([(5, "y".to_string())]));
+        assert_eq!(
+            targets[0].targets_const,
+            HashMap::from([(5, "y".to_string())])
+        );
 
         // Check second file
         assert_eq!(targets[1].path, "file2.c");
         assert_eq!(targets[1].targets_block, vec![3]);
-        assert_eq!(targets[1].targets_const, HashMap::from([(5, "w".to_string())]));
+        assert_eq!(
+            targets[1].targets_const,
+            HashMap::from([(5, "w".to_string())])
+        );
     }
 }

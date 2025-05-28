@@ -25,7 +25,10 @@ pub fn run(args: LlvmArgs, logger: &Logger) {
     let path = Path::new(&args.path);
     let targets_path = path::absolute(Path::new(&args.targets_path)).unwrap();
     if !instrumentor_path.exists() {
-        logger.error(format!("instrumentor not found at {}", instrumentor_path.to_str().unwrap()));
+        logger.error(format!(
+            "instrumentor not found at {}",
+            instrumentor_path.to_str().unwrap()
+        ));
         return;
     }
     if !path.exists() {
@@ -33,19 +36,21 @@ pub fn run(args: LlvmArgs, logger: &Logger) {
         return;
     }
     if !targets_path.exists() {
-        logger.error(format!("targets not found at {}", targets_path.to_str().unwrap()));
+        logger.error(format!(
+            "targets not found at {}",
+            targets_path.to_str().unwrap()
+        ));
         return;
     }
 
     sh.change_dir(path);
     sh.cmd("make")
-    .envs([
-        ("CC", instrumentor_path.to_str().unwrap()),
-        ("TARGETS_FILE", targets_path.to_str().unwrap()),
-        ("AFL_CC", AFL_CC)
+        .envs([
+            ("CC", instrumentor_path.to_str().unwrap()),
+            ("TARGETS_FILE", targets_path.to_str().unwrap()),
+            ("AFL_CC", AFL_CC),
         ])
         .run()
         .unwrap();
     logger.success("Instrumented binary");
 }
-
