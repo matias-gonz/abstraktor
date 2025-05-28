@@ -1,18 +1,22 @@
 #!/bin/bash
 set -euo pipefail
 
-# Add jammy repo with trusted=yes to skip Release file checks
-echo "deb [trusted=yes] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-12 main" | sudo tee /etc/apt/sources.list.d/llvm12.list
+LLVM_VERSION=12.0.1
+INSTALL_DIR=/opt/llvm-$LLVM_VERSION
+LLVM_TAR=clang+llvm-$LLVM_VERSION-x86_64-linux-gnu-ubuntu-20.04.tar.xz
+LLVM_URL=https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/$LLVM_TAR
 
-# Update package index
-sudo apt-get update
+# Download and extract LLVM
+mkdir -p "$INSTALL_DIR"
+curl -L "$LLVM_URL" | tar -xJ --strip-components=1 -C "$INSTALL_DIR"
 
-# Install LLVM 12 and Clang 12
-sudo apt-get install -y llvm-12 llvm-12-dev llvm-12-tools clang-12
+# Export paths
+export PATH="$INSTALL_DIR/bin:$PATH"
+export LD_LIBRARY_PATH="$INSTALL_DIR/lib:$LD_LIBRARY_PATH"
+export LLVM_CONFIG="$INSTALL_DIR/bin/llvm-config"
+export CC=clang
+export CXX=clang++
 
-# Set environment variables for builds
-export LLVM_CONFIG=/usr/bin/llvm-config-12
-export CC=clang-12
-export CXX=clang++-12
-
-echo "✅ LLVM 12 installed and configured"
+# Print version info
+clang --version
+llvm-config --version
