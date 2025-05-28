@@ -15,8 +15,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install LLVM dependencies
         run: bash llvm/deps.sh
-      - name: Install Rust
-        run: rustup update stable
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
