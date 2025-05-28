@@ -1,22 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
-# Install dependencies
-sudo apt update
-sudo apt install -y \
-  llvm-12 \
-  llvm-12-dev \
-  llvm-12-linker-tools \
-  llvm-12-runtime \
-  llvm-12-tools \
-  clang-12
+# Add official LLVM apt repo for older versions
+wget https://apt.llvm.org/llvm.sh
+chmod +x llvm.sh
+sudo ./llvm.sh 12
 
-# Configure environment for LLVM 12
+# Set up environment for LLVM 12
 export LLVM_CONFIG=/usr/bin/llvm-config-12
 export CC=clang-12
 export CXX=clang++-12
 
-# Optional: verify setup
-echo "Using LLVM config: $($LLVM_CONFIG --version)"
-echo "Using CC: $CC"
-echo "Using CXX: $CXX"
+# Confirm
+echo "Installed LLVM version: $($LLVM_CONFIG --version)"
+echo "Using CC=$CC"
+echo "Using CXX=$CXX"
