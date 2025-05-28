@@ -10,6 +10,12 @@ sudo tar -xf clang+llvm-12.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz -C /usr/loca
 echo "Moving llvm-config to llvm-config-12"
 sudo mv /usr/local/bin/llvm-config /usr/local/bin/llvm-config-12
 
+echo "Downloading clang-12"
+curl -L -o clang-12.0.1.src.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-12.0.1/clang-12.0.1.src.tar.xz
+
+echo "Extracting clang-12"
+sudo tar -xf clang-12.0.1.src.tar.xz -C /usr/local --strip-components=1
+
 echo "Adding /usr/local/bin to PATH"
 export PATH=/usr/local/bin:$PATH
 
