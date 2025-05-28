@@ -10,13 +10,14 @@ sudo tar -xf clang+llvm-12.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz -C /usr/loca
 echo "Moving llvm-config to llvm-config-12"
 sudo mv /usr/local/bin/llvm-config /usr/local/bin/llvm-config-12
 
+echo "Moving clang++ to clang++-12"
+sudo mv /usr/local/bin/clang++ /usr/local/bin/clang++-12
+
 echo "Adding /usr/local/bin to PATH"
 export PATH=/usr/local/bin:$PATH
 
 echo "Checking llvm-config version:"
 llvm-config-12 --version
-clang --version
-clang++ --version
 clang++-12 --version
 
 echo "Installing nlohmann-json3-dev"
