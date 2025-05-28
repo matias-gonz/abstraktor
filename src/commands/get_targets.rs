@@ -1,8 +1,8 @@
+use crate::{logger::Logger, model::instrumentor::Instrumentor};
+use anyhow::{Context, Result};
 use clap::Parser;
 use std::path::Path;
 use std::{fs, path};
-
-use crate::{logger::Logger, model::instrumentor::Instrumentor};
 
 #[derive(Parser, Debug)]
 pub struct GetTargetsArgs {
@@ -45,15 +45,17 @@ fn get_files_content(path: &str) -> Vec<(String, String)> {
     files
 }
 
-pub fn run(args: GetTargetsArgs, logger: &Logger) {
+pub fn run(args: GetTargetsArgs, logger: &Logger) -> Result<()> {
     logger.log(format!("Getting targets from {}", args.path));
 
     let files = get_files_content(&args.path);
     let instrumentor = Instrumentor::new();
     let targets = instrumentor.get_targets(files);
-    let targets_json = serde_json::to_string_pretty(&targets).unwrap();
-    std::fs::write(&args.output, targets_json).unwrap();
+    let targets_json =
+        serde_json::to_string_pretty(&targets).context("Failed to serialize targets")?;
+    std::fs::write(&args.output, targets_json).context("Failed to write targets to file")?;
     logger.success(format!("Targets saved to {}", args.output));
+    Ok(())
 }
 
 #[cfg(test)]
