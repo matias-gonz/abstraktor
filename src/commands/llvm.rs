@@ -1,9 +1,9 @@
 use std::path::{self, Path};
 
+use crate::logger::Logger;
+use anyhow::{Context, Result};
 use clap::Parser;
 use xshell::Shell;
-
-use crate::logger::Logger;
 
 const LLVM_INSTRUMENTOR_PATH: &str = "./llvm/afl-clang-fast";
 
@@ -18,29 +18,40 @@ pub struct LlvmArgs {
     pub targets_path: String,
 }
 
-pub fn run(args: LlvmArgs, logger: &Logger) {
+pub fn run(args: LlvmArgs, logger: &Logger) -> Result<()> {
     logger.log(format!("Instrumenting {}", args.path));
-    let sh = Shell::new().unwrap();
-    let instrumentor_path = path::absolute(Path::new(LLVM_INSTRUMENTOR_PATH)).unwrap();
+    let sh = Shell::new()?;
+    let instrumentor_path = path::absolute(Path::new(LLVM_INSTRUMENTOR_PATH))
+        .context("Failed to absolutize instrumentor path")?;
     let path = Path::new(&args.path);
-    let targets_path = path::absolute(Path::new(&args.targets_path)).unwrap();
+    let targets_path = path::absolute(Path::new(&args.targets_path))
+        .context("Failed to absolutize targets path")?;
     if !instrumentor_path.exists() {
         logger.error(format!(
             "instrumentor not found at {}",
             instrumentor_path.to_str().unwrap()
         ));
-        return;
+        return Err(anyhow::anyhow!(
+            "instrumentor not found at {}",
+            instrumentor_path.to_str().unwrap()
+        ));
     }
     if !path.exists() {
         logger.error(format!("path not found at {}", path.to_str().unwrap()));
-        return;
+        return Err(anyhow::anyhow!(
+            "path not found at {}",
+            path.to_str().unwrap()
+        ));
     }
     if !targets_path.exists() {
         logger.error(format!(
             "targets not found at {}",
             targets_path.to_str().unwrap()
         ));
-        return;
+        return Err(anyhow::anyhow!(
+            "targets not found at {}",
+            targets_path.to_str().unwrap()
+        ));
     }
 
     sh.change_dir(path);
@@ -51,6 +62,7 @@ pub fn run(args: LlvmArgs, logger: &Logger) {
             ("AFL_CC", AFL_CC),
         ])
         .run()
-        .unwrap();
+        .context("Failed to run instrumentor")?;
     logger.success("Instrumented binary");
+    Ok(())
 }
