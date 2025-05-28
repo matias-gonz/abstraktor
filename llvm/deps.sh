@@ -1,17 +1,19 @@
 #!/bin/bash
 set -euo pipefail
 
-# Add official LLVM apt repo for older versions
-wget https://apt.llvm.org/llvm.sh
-chmod +x llvm.sh
-sudo ./llvm.sh 12
+# Add LLVM GPG key
+wget -qO - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
 
-# Set up environment for LLVM 12
+# Force jammy repo on noble
+echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-12 main" | sudo tee /etc/apt/sources.list.d/llvm12.list
+
+# Update and install
+sudo apt update
+sudo apt install -y llvm-12 llvm-12-dev llvm-12-tools clang-12
+
+# Set environment for builds
 export LLVM_CONFIG=/usr/bin/llvm-config-12
 export CC=clang-12
 export CXX=clang++-12
 
-# Confirm
-echo "Installed LLVM version: $($LLVM_CONFIG --version)"
-echo "Using CC=$CC"
-echo "Using CXX=$CXX"
+echo "LLVM 12 setup complete"
