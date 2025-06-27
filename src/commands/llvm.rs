@@ -1,4 +1,5 @@
 use std::path::{self, Path};
+use std::env;
 
 use crate::logger::Logger;
 use anyhow::{Context, Result};
@@ -53,9 +54,9 @@ pub fn run(args: LlvmArgs, logger: &Logger) -> Result<()> {
             targets_path.to_str().unwrap()
         ));
     }
-
-    sh.change_dir(path);
-    sh.cmd("make")
+    env::set_current_dir(path).expect("Can't change to folder");
+    sh.cmd("sh")
+        .args(["-c", "./install.sh"])
         .envs([
             ("CC", instrumentor_path.to_str().unwrap()),
             ("TARGETS_FILE", targets_path.to_str().unwrap()),
