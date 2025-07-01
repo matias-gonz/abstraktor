@@ -1,3 +1,0 @@
-================ SUMMARY OF ANALYSIS ================
-1. scanned 165 files
-2. 13 files contains 41 targets in total

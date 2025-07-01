@@ -1,6 +1,0 @@
-afl-clang-fast
-afl-clang-fast++
-afl-showmap
-*.so
-*.o
-test-instr
