@@ -116,11 +116,12 @@ RUN update-alternatives --set iptables /usr/sbin/iptables-legacy
 RUN update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
 
 # end coverage
+RUN apt-get install -y libsqlite3-dev libdqlite-dev libuv1-dev libraft-dev
 
 # This is ugly: we need to copy raw_packet.rs because Docker doesn't follow symlinks outside build context
 WORKDIR /opt
 COPY jepsen/abstraktor abstraktor
-COPY jepsen/dqlite dqlite
+COPY jepsen/abstraktor/SUT/dqlite dqlite
 RUN cd abstraktor/llvm && make && cd .. && cargo run get-targets --path ../dqlite/dqlite-raft/src --output ../dqlite/instr-targets.json 
 RUN cd abstraktor && cargo run llvm --path ../dqlite/dqlite-raft/ --targets-path ../dqlite/instr-targets.json
 # end build tools
@@ -162,7 +163,6 @@ RUN cd abstraktor && cargo run llvm --path ../dqlite/dqlite-raft/ --targets-path
 #ENV CXX=clang++
 #ENV CC=clang
 
-RUN apt-get install -y libsqlite3-dev libdqlite-dev libuv1-dev libraft-dev
 # raft-c: v0.17.1, dqlite: v1.14.0
 #RUN git clone -b newer-jepsen-testing https://github.com/mengrj/raft-c.git dqlite-raft
 #RUN git clone -b newer-jepsen-testing https://github.com/mengrj/dqlite.git dqlite
@@ -216,7 +216,8 @@ ENV CXX=clang++
 ENV CC=clang
 RUN go mod init app
 RUN go get -tags libsqlite3 github.com/canonical/go-dqlite/app@${DQLITE_VER}
-RUN export CGO_LDFLAGS_ALLOW="-Wl,-z,now" \
+ENV CGO_LDFLAGS="-L/usr/local/lib -ldqlite"
+RUN export LD_LIBRARY_PATH=/usr/local/lib && export CGO_LDFLAGS_ALLOW="-Wl,-z,now" \
     && go build -o app -asan app.go
 
 # RedisRaft
