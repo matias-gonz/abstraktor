@@ -20,7 +20,7 @@ pub struct LlvmArgs {
 
 pub fn run(args: LlvmArgs, logger: &Logger) -> Result<()> {
     logger.log(format!("Instrumenting {}", args.path));
-    let sh = Shell::new()?;
+    let mut cmd = Command::new("sh");
     let instrumentor_path = path::absolute(Path::new(LLVM_INSTRUMENTOR_PATH))
         .context("Failed to absolutize instrumentor path")?;
     let path = Path::new(&args.path);
@@ -53,16 +53,21 @@ pub fn run(args: LlvmArgs, logger: &Logger) -> Result<()> {
             targets_path.to_str().unwrap()
         ));
     }
-    sh.change_dir(path);
-    sh.cmd("sh")
-        .args(["-c", "./install.sh"])
-        .envs([
-            ("CC", instrumentor_path.to_str().unwrap()),
-            ("TARGETS_FILE", targets_path.to_str().unwrap()),
-            ("AFL_CC", AFL_CC),
-        ])
-        .run()
+    cmd.current_dir(path)
+        .arg("-c")
+        .arg("./install.sh")
+        .env("CC", instrumentor_path.to_str().unwrap())
+        .env("TARGETS_FILE", targets_path.to_str().unwrap())
+        .env("AFL_CC", AFL_CC);
+
+    let status = cmd
+        .status()
         .context("Failed to run instrumentor")?;
+
+    if !status.success() {
+        anyhow::bail!("Instrumentor exited with status: {}", status);
+    }
+
     logger.success("Instrumented binary");
     Ok(())
 }

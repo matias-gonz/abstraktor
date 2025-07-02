@@ -5,4 +5,4 @@ lcov.info
 tests/instrument_test/test_program
 tests/instrument_test/src/math_utils.o
 tests/instrument_test/main.o
-.vagrant/
+**/.vagrant/**
