@@ -4,6 +4,7 @@ use crate::logger::Logger;
 use anyhow::{Context, Result};
 use clap::Parser;
 use xshell::Shell;
+use std::process::Command;
 
 const LLVM_INSTRUMENTOR_PATH: &str = "./llvm/afl-clang-fast";
 
