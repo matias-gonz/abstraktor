@@ -43,6 +43,12 @@ Vagrant.configure("2") do |config|
     sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
     sudo systemctl enable --now docker
 
+    # Install Rust and Cargo for the vagrant user
+    sudo -u vagrant curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sudo -u vagrant sh -s -- -y
+    sudo -u vagrant echo 'source $HOME/.cargo/env' >> /home/vagrant/.bashrc
+    sudo -u vagrant echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> /home/vagrant/.bashrc
+    sudo -u vagrant /home/vagrant/.cargo/bin/rustup default stable
+
     # https://serverfault.com/a/1083451
     echo 'GRUB_CMDLINE_LINUX_DEFAULT=systemd.unified_cgroup_hierarchy=false' > /etc/default/grub.d/cgroup.cfg
     update-grub
