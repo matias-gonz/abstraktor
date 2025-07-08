@@ -3,7 +3,7 @@ set -e
 
 echo "Installing required dependencies..."
 sudo apt-get update
-sudo apt-get install -y libtinfo5 libncurses5
+sudo apt-get install -y libtinfo* libncurses*
 
 echo "Downloading LLVM 11.0.1 archive..."
 curl -L -o clang+llvm-11.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-11.0.1/clang+llvm-11.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz
