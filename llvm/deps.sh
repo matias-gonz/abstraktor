@@ -10,7 +10,7 @@ fi
 
 echo "Installing required dependencies..."
 $SUDO apt-get update
-$SUDO apt-get install -y libtinfo5 libncurses5 curl
+$SUDO apt-get install -y libtinfo5 libncurses5 curl xz-utils
 
 # Install Rust if not already present
 if ! command -v cargo &> /dev/null; then
