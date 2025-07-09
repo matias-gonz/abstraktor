@@ -15,6 +15,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y git
       - name: Install LLVM dependencies
         run: bash llvm/deps.sh
       - name: Install Rust
