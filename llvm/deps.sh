@@ -12,16 +12,6 @@ echo "Installing required dependencies..."
 $SUDO apt-get update
 $SUDO apt-get install -y libtinfo5 libncurses5 curl xz-utils
 
-# Install Rust if not already present
-if ! command -v cargo &> /dev/null; then
-    echo "Installing Rust..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    export PATH="$HOME/.cargo/bin:$PATH"
-    source "$HOME/.cargo/env"
-else
-    echo "Rust already installed"
-fi
-
 echo "Downloading LLVM 11.0.1 archive..."
 curl -L -o clang+llvm-11.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-11.0.1/clang+llvm-11.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz
 
