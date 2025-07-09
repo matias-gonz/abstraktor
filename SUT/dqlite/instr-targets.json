@@ -1,0 +1,247 @@
+[
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/lifecycle.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/fixture.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/byte.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/syscall.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/convert.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/recv_timeout_now.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/snapshot.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/recv.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_list.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_truncate.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_encoding.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_prepare.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/tick.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_tcp_connect.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_recv.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_ip.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/replication.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/recv_append_entries.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_send.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_snapshot.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/recv_request_vote_result.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/heap.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/compress.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_work.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_writer.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/state.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/client.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/election.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_tcp.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/recv_request_vote.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_metadata.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/entry.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/progress.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/log.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/tracing.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/recv_install_snapshot.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/configuration.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/raft.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/err.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_append.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_fs.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_segment.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_os.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/membership.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_finalize.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/uv_tcp_listen.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/recv_append_entries_result.c",
+    "targets_const": {},
+    "targets_block": []
+  },
+  {
+    "path": "/home/user/Descargas/mallory/abstraktor/../dqlite/dqlite-raft/src/start.c",
+    "targets_const": {},
+    "targets_block": []
+  }
+]
