@@ -9,6 +9,7 @@ use std::fmt;
 /// Event type changes into u16 for history summary with the AFL strategy.
 pub type BlockId = u16;
 pub type FunctionId = u16;
+pub type ConstantId = u16;
 
 pub type BranchHitCount = u8;
 pub type BranchId = u16;
@@ -75,6 +76,9 @@ pub enum Event {
     },
     FunctionExecute {
         function_id: FunctionId,
+    },
+    ContantExecute {
+        const_id: ConstantId,
     },
     AFLHitCount {
         branch_events: Vec<BranchHitCount>,

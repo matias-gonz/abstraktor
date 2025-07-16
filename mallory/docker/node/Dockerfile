@@ -1,6 +1,6 @@
 # See https://github.com/jgoerzen/docker-debian-base
 # See https://hub.docker.com/r/jgoerzen/debian-base-standard
-FROM docker.io/jgoerzen/debian-base-standard:bookworm
+FROM docker.io/jgoerzen/debian-base-standard:buster
 
 # I think this is a bug--debian-base-setup crashes because policy-rc.d isn't
 # present in this image, and if you create it, exim crashes... do we actually NEED this? Maybe not...
@@ -8,12 +8,13 @@ FROM docker.io/jgoerzen/debian-base-standard:bookworm
 #RUN run-parts --exit-on-error --verbose /usr/local/debian-base-setup
 
 # Basic system stuff
+RUN sed -i s/deb.debian.org/archive.debian.org/g /etc/apt/sources.list && sed -i s/security.debian.org/archive.debian.org/g /etc/apt/sources.list
 RUN apt-get update
 RUN apt-get install -qy apt-transport-https
 
 # Install packages
 RUN apt-get -qy update && \
-    apt-get -qy install dos2unix openssh-server pwgen iptables traceroute netcat-traditional \ 
+    apt-get -qy install dos2unix openssh-server pwgen iptables traceroute netcat \ 
     nmap tshark tcpdump libpcap-dev silversearcher-ag
 
 # When run, boot-debian-base will call this script, which does final
@@ -41,26 +42,24 @@ RUN chmod +x /etc/rc.local
 
 EXPOSE 22
 
-# build tools
-RUN apt-get install -qy libuv1-dev liblz4-dev autoconf libtool make pkg-config git automake
-
-RUN curl -L -o clang+llvm-12.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-12.0.1/clang+llvm-12.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-RUN sudo tar -xf clang+llvm-12.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz -C /usr/local --strip-components=1
-RUN echo "export PATH=/usr/local/bin:$PATH" >> /root/.bashrc
-
-RUN sudo cp /usr/local/bin/llvm-config /usr/local/bin/llvm-config-12 && sudo cp /usr/local/bin/clang++ /usr/local/bin/clang++-12
-ENV PATH=/usr/local/bin:$PATH
-RUN sudo apt-get install nlohmann-json3-dev && llvm-config --version
-# end build tools
-
 # Install coverage dependencies
-WORKDIR /opt
-RUN apt-get install -y valgrind tmux gdb libuv1-dev liblz4-dev autoconf git\
-    libtool make pkg-config
 
 #########################
 # Dependencies for SUTs #
 #########################
+
+WORKDIR /opt
+RUN apt-get install -qy libuv1-dev liblz4-dev autoconf libtool make pkg-config git automake
+RUN echo "deb http://apt.llvm.org/buster/ llvm-toolchain-buster-12 main" >> /etc/apt/sources.list
+RUN echo "deb-src http://apt.llvm.org/buster/ llvm-toolchain-buster-12 main" >> /etc/apt/sources.list
+RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
+RUN apt-get update -qy
+RUN apt install -qy clang-11 lld-11
+RUN ln -s /usr/bin/clang-11 /usr/bin/clang && ln -s /usr/bin/clang++-11 /usr/bin/clang++ && \
+    ln -s /usr/bin/llvm-config-11 /usr/bin/llvm-config
+
+RUN apt-get install -y valgrind tmux gdb libuv1-dev liblz4-dev autoconf git\
+    libtool make pkg-config
 
 # install BRPC
 ENV CXX=clang++
@@ -116,13 +115,15 @@ RUN update-alternatives --set iptables /usr/sbin/iptables-legacy
 RUN update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
 
 # end coverage
-RUN apt-get install -y libsqlite3-dev libdqlite-dev libuv1-dev libraft-dev
+RUN apt-get install -y libsqlite3-dev libuv1-dev
 
 # This is ugly: we need to copy raw_packet.rs because Docker doesn't follow symlinks outside build context
 WORKDIR /opt
 COPY jepsen/abstraktor abstraktor
 COPY jepsen/abstraktor/SUT/dqlite dqlite
-RUN cd abstraktor/llvm && make && cd .. && cargo run get-targets --path ../dqlite/dqlite-raft/src --output ../dqlite/instr-targets.json 
+RUN apt-get install nlohmann-json3-dev
+RUN cd abstraktor/llvm && make
+RUN cd abstraktor && rustup target add x86_64-unknown-linux-musl && cargo build --target=x86_64-unknown-linux-musl && cargo run get-targets --path ../dqlite/dqlite-raft/src --output ../dqlite/instr-targets.json 
 RUN cd abstraktor && cargo run llvm --path ../dqlite/dqlite-raft/ --targets-path ../dqlite/instr-targets.json
 # end build tools
 
@@ -217,7 +218,7 @@ ENV CC=clang
 RUN go mod init app
 RUN go get -tags libsqlite3 github.com/canonical/go-dqlite/app@${DQLITE_VER}
 ENV CGO_LDFLAGS="-L/usr/local/lib -ldqlite"
-RUN export LD_LIBRARY_PATH=/usr/local/lib && export CGO_LDFLAGS_ALLOW="-Wl,-z,now" \
+RUN export CGO_LDFLAGS_ALLOW="-Wl,-z,now" \
     && go build -o app -asan app.go
 
 # RedisRaft
@@ -273,8 +274,8 @@ RUN export LD_LIBRARY_PATH=/usr/local/lib && export CGO_LDFLAGS_ALLOW="-Wl,-z,no
 # ENV CXX=clang++
 # ENV CC=clang
 
-# RUN curl -sL "https://adoptopenjdk.jfrog.io/adoptopenjdk/api/gpg/key/public" | apt-key add - && \
-#     echo "deb  [arch=amd64] https://adoptopenjdk.jfrog.io/adoptopenjdk/deb/ buster main" > /etc/apt/sources.list.d/adoptopenjdk.list && \
+# RUN curl -sL "https://adoptopenjdk.jfrog.io/adoptopenjdk/api/gpg/key/public" | apt-key add - && \echo "deb  [arch=amd64] https://adoptopenjdk.jfrog.io/adoptopenjdk/deb/ buster main" > /etc/apt/sources.list
+#     .d/adoptopenjdk.list && \
 #     apt-get update && \
 #     apt-get install -qy adoptopenjdk-8-hotspot-jre python2
 

@@ -15,7 +15,9 @@
 
 const u64 BLOCK_EVENT_TYPE = 1;
 const u64 FUNC_EVENT_TYPE = 2;
-const u64 CONST_EVENT_TYPE = 3;
+// 3 = packet send; 
+// 4 = packet receive
+const u64 CONST_EVENT_TYPE = 5;
 
 #pragma pack(8) // 8-byte memory alignment
 /** Event entry **/
@@ -42,10 +44,10 @@ struct Event
     };
     struct
     {
-      u64 constEventType; // 3: constant
+      u64 constEventType; // 5: constant
       s64 constEventTimestamp;
       u64 constEventID;
-      char constEventName[20];
+      char constEventName[64];
     };
     struct
     {

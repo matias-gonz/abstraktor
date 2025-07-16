@@ -1,9 +1,9 @@
 autoreconf -i  && \
-sudo ./configure --enable-debug --enable-sanitize 
-sudo make -j$(getconf _NPROCESSORS_ONLN) && \
-sudo make install
+./configure --enable-debug --enable-sanitize &&
+make -j$(getconf _NPROCESSORS_ONLN) && \
+make install
 cd ../dqlite
 autoreconf -i && \ 
-sudo ./configure --enable-debug --enable-sanitize && \ 
-sudo make -j$(getconf _NPROCESSORS_ONLN) && \
-sudo make install
+./configure --enable-debug --enable-sanitize && \ 
+make -j$(getconf _NPROCESSORS_ONLN) && \
+make install

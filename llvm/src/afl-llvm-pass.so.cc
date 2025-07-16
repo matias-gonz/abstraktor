@@ -132,7 +132,7 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &fun
   }
 
   for (const auto& target : json) {
-    if (!target.contains("path") || !target.contains("targets_block")) {
+    if (target.find("path") == target.end() || target.find("targets_block") == target.end()) {
       outs() << "[!!] Missing required JSON fields in target object\n";
       continue;
     }
