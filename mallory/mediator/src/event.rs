@@ -77,7 +77,7 @@ pub enum Event {
     FunctionExecute {
         function_id: FunctionId,
     },
-    ContantExecute {
+    ConstantExecute {
         const_id: ConstantId,
     },
     AFLHitCount {

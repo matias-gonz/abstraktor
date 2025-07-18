@@ -389,6 +389,11 @@ impl FeedbackManager {
         // Add DB events.
         for db_entry_index in 1..=db_evt_counter {
             let etype = db_rdr.read_u64::<BOrd>().unwrap();
+            log::info!(
+            "[FEEDBACKK] El tipo es: {}",
+                etype
+            );
+
             let ts = MonotonicTimestamp::from(db_rdr.read_u64::<BOrd>().unwrap(), node_id);
 
             // Maintain watermark timestamp
@@ -455,7 +460,7 @@ impl FeedbackManager {
                         const_id,
                         result_str
                     );
-                    Event::ContantExecute {
+                    Event::ConstantExecute {
                         const_id: const_id as u16
                     }
                 }
