@@ -127,7 +127,7 @@ static void convertClear(struct raft *r)
     }
 }
 
-// INSTRUMENT_FUNC
+// ABSTRAKTOR_CONST: constante
 void convertToFollower(struct raft *r)
 {
     convertClear(r);
@@ -140,7 +140,7 @@ void convertToFollower(struct raft *r)
     r->follower_state.current_leader.address = NULL;
 }
 
-// INSTRUMENT_FUNC
+// ABSTRAKTOR_CONST: constante
 int convertToCandidate(struct raft *r, bool disrupt_leader)
 {
     const struct raft_server *server;
@@ -188,7 +188,7 @@ void convertInitialBarrierCb(struct raft_barrier *req, int status)
     raft_free(req);
 }
 
-// INSTRUMENT_FUNC
+// ABSTRAKTOR_CONST: constante
 int convertToLeader(struct raft *r)
 {
     int rv;
@@ -242,7 +242,7 @@ int convertToLeader(struct raft *r)
     return rv;
 }
 
-// INSTRUMENT_FUNC
+// ABSTRAKTOR_CONST: constante
 void convertToUnavailable(struct raft *r)
 {
     /* Abort any pending leadership transfer request. */

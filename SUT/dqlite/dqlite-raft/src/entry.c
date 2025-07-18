@@ -4,7 +4,7 @@
 #include "assert.h"
 #include "entry.h"
 
-// INSTRUMENT_FUNC
+// ABSTRAKTOR_CONST: constante
 void entryBatchesDestroy(struct raft_entry *entries, const size_t n)
 {
     void *batch = NULL;
@@ -24,7 +24,7 @@ void entryBatchesDestroy(struct raft_entry *entries, const size_t n)
     raft_free(entries);
 }
 
-// INSTRUMENT_FUNC
+// ABSTRAKTOR_CONST: constante
 int entryCopy(const struct raft_entry *src, struct raft_entry *dst)
 {
     dst->term = src->term;
@@ -39,7 +39,7 @@ int entryCopy(const struct raft_entry *src, struct raft_entry *dst)
     return 0;
 }
 
-// INSTRUMENT_FUNC
+// ABSTRAKTOR_CONST: constante
 int entryBatchCopy(const struct raft_entry *src,
                    struct raft_entry **dst,
                    const size_t n)
