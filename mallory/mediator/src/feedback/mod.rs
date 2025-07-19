@@ -389,11 +389,6 @@ impl FeedbackManager {
         // Add DB events.
         for db_entry_index in 1..=db_evt_counter {
             let etype = db_rdr.read_u64::<BOrd>().unwrap();
-            log::info!(
-            "[FEEDBACKK] El tipo es: {}",
-                etype
-            );
-
             let ts = MonotonicTimestamp::from(db_rdr.read_u64::<BOrd>().unwrap(), node_id);
 
             // Maintain watermark timestamp
@@ -452,7 +447,7 @@ impl FeedbackManager {
                     let str_end = buffer.iter().position(|&b| b == 0).unwrap_or(64);
                     let result_str = String::from_utf8_lossy(&buffer[..str_end]);
                     log::info!(
-                        "[CONST_EVENT_TYPE][Node {} Batch {} Entry {} / {}] ConstantExecute {} @ Constant String {}",
+                        "[CONST_EVENT_TYPE][Node {} Batch {} Entry {} / {}] ConstantExecute {} @ Constant {}",
                         node_id,
                         batch_id,
                         db_entry_index,
