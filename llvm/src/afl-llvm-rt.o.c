@@ -15,7 +15,9 @@
 
 const u64 BLOCK_EVENT_TYPE = 1;
 const u64 FUNC_EVENT_TYPE = 2;
-const u64 CONST_EVENT_TYPE = 3;
+// 3 = packet send; 
+// 4 = packet receive
+const u64 CONST_EVENT_TYPE = 5;
 
 #pragma pack(8) // 8-byte memory alignment
 /** Event entry **/
@@ -42,10 +44,10 @@ struct Event
     };
     struct
     {
-      u64 constEventType; // 3: constant
+      u64 constEventType; // 5: constant
       s64 constEventTimestamp;
       u64 constEventID;
-      char constEventName[20];
+      char constEventName[64];
     };
     struct
     {
@@ -84,7 +86,7 @@ void trigger_block_event(u16 evtID)
   evtVec_ptr[loc].blockEventTimestamp = time;
 }
 
-void trigger_const_event(u16 evtID, const char *const_name)
+void trigger_const_event(u16 evtID, char *const_name)
 {
   /* find location to record this event */
   u16 loc = __atomic_add_fetch(&evtVec_ptr[0].evtCounter, 1, __ATOMIC_RELAXED);
@@ -98,7 +100,7 @@ void trigger_const_event(u16 evtID, const char *const_name)
   evtVec_ptr[loc].constEventType = CONST_EVENT_TYPE;
   evtVec_ptr[loc].constEventTimestamp = time;
   evtVec_ptr[loc].constEventID = evtID;
-  strncpy(evtVec_ptr[loc].constEventName, const_name, 20);
+  strcpy(evtVec_ptr[loc].constEventName, const_name);
 }
 
 /***
