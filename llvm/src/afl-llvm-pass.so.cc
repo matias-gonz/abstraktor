@@ -44,6 +44,7 @@
 #include <set>
 #include <sys/shm.h>
 #include <cxxabi.h>
+#include <iostream>
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRBuilder.h"
@@ -132,7 +133,7 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &fun
   }
 
   for (const auto& target : json) {
-    if (!target.contains("path") || !target.contains("targets_block")) {
+    if (target.find("path") == target.end() || target.find("targets_block") == target.end()) {
       outs() << "[!!] Missing required JSON fields in target object\n";
       continue;
     }
@@ -149,8 +150,9 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &fun
     auto targets_const = target["targets_const"];
     if (targets_const.is_object()) {
       for (auto it = targets_const.begin(); it != targets_const.end(); ++it) {
-        int line_num = std::stoi(it.key());
+        unsigned line_num = std::stoul(it.key());
         std::string const_name = it.value().get<std::string>();
+        
         const_targets[codefile][line_num] = const_name;
       }
     }
@@ -200,7 +202,6 @@ u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE 
       }
     }
   }
-
   if (const_targets.count(codefile))
   {
     auto& const_map = const_targets[codefile];
@@ -414,6 +415,7 @@ bool AFLCoverage::runOnModule(Module &M)
 
     std::string filename;
     unsigned line = 0;
+    unsigned const_line = 0;
 
     for (auto &BB : F)
     {
@@ -434,7 +436,8 @@ bool AFLCoverage::runOnModule(Module &M)
           continue;
         }
 
-        u8 isTarget = is_target_loc(filename, line, bb_targets, func_targets, block_targets, const_targets);
+        u16 isTarget = is_target_loc(filename, line, bb_targets, func_targets, block_targets, const_targets);
+  
         if (isTarget == 2)
         {
           isTargetFunc = true;
@@ -446,6 +449,7 @@ bool AFLCoverage::runOnModule(Module &M)
         else if (isTarget == 4)
         {
           isTargetConstEvent = true;
+          const_line = line;
         }
       }
 
@@ -477,18 +481,18 @@ bool AFLCoverage::runOnModule(Module &M)
 
       if (isTargetConstEvent)
       {
-        std::pair<std::string, int> const_key = std::make_pair(filename, line);
+        std::pair<std::string, int> const_key = std::make_pair(filename, const_line);
         if (instrumented_const_targets.find(const_key) == instrumented_const_targets.end())
         {
           instrumented_const_targets.insert(const_key);
           
-          std::string const_name = const_targets[filename][line];
+          std::string constName = const_targets[filename][const_line];
           u16 *evtIDPtr = get_ID_ptr();
           u16 evtID = *evtIDPtr;
           Value *evtValue = ConstantInt::get(Int16Ty, evtID);
 
           // Create a global string constant for the const name
-          Value *constNameValue = IRB.CreateGlobalStringPtr(const_name);
+          Value *constNameValue = IRB.CreateGlobalString(StringRef(constName), "const_name");
 
           auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy}, false);
           auto helper_const = M.getOrInsertFunction("trigger_const_event", helperTy_const);
@@ -496,7 +500,7 @@ bool AFLCoverage::runOnModule(Module &M)
           IRB.CreateCall(helper_const, {evtValue, constNameValue});
 
           /* store const ID info */
-          printConstLog(filename, line, evtID, const_name);
+          printConstLog(filename, const_line, evtID, constName);
 
           /* increase counter */
           *evtIDPtr = ++evtID;

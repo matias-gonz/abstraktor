@@ -10,7 +10,7 @@
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
-// INSTRUMENT_FUNC
+// ABSTRAKTOR_CONST: constante
 int recvRequestVoteResult(struct raft *r,
                           raft_id id,
                           const char *address,

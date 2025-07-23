@@ -5,6 +5,7 @@ ENV LEIN_ROOT true
 #
 # Jepsen dependencies and other dependencies
 #
+RUN sed -i s/deb.debian.org/archive.debian.org/g /etc/apt/sources.list && sed -i s/security.debian.org/archive.debian.org/g /etc/apt/sources.list
 RUN apt-get -y -q update
 RUN apt-get install -qy openjdk-11-jdk-headless \
     libjna-java \

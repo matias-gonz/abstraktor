@@ -19,17 +19,17 @@ echo "Extracting LLVM..."
 $SUDO tar -xf clang+llvm-11.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz -C /usr/local --strip-components=1
 
 echo "Moving llvm-config to llvm-config-11"
-$SUDO mv /usr/local/bin/llvm-config /usr/local/bin/llvm-config-11
+$SUDO ln -s /usr/bin/llvm-config-11 /usr/bin/llvm-config
 
 echo "Moving clang++ to clang++-11"
-$SUDO mv /usr/local/bin/clang++ /usr/local/bin/clang++-11
+$SUDO ln -s /usr/bin/clang-11 /usr/bin/clang && ln -s /usr/bin/clang++-11 /usr/bin/clang++
 
 echo "Adding /usr/local/bin to PATH"
 export PATH=/usr/local/bin:$PATH
 
 echo "Checking llvm-config version:"
-llvm-config-11 --version
-clang++-11 --version
+llvm-config --version
+clang++ --version
 
 echo "Installing nlohmann-json3-dev"
 $SUDO apt-get install nlohmann-json3-dev

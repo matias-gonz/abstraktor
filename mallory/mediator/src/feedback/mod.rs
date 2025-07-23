@@ -37,6 +37,7 @@ const BLOCK_EVENT_TYPE: u64 = 1;
 const FUNC_EVENT_TYPE: u64 = 2;
 const PACKET_SEND_EVENT_TYPE: u64 = 3;
 const PACKET_RECV_EVENT_TYPE: u64 = 4;
+const CONST_EVENT_TYPE: u64 = 5;
 
 const LOCAL_EVENT_SIZE: u16 = 96;
 
@@ -416,26 +417,46 @@ impl FeedbackManager {
                 // FunctionExecute
                 FUNC_EVENT_TYPE => {
                     let function_id = db_rdr.read_u64::<BOrd>().unwrap();
-                    let state = db_rdr.read_u64::<BOrd>().unwrap();
-                    let state_str = RaftState::try_from(state).unwrap_or(RaftState::Unavailable);
-                    let mut buffer = vec![0; 64];
-                    db_rdr.read_exact(&mut buffer).unwrap();
-                    let str_end = buffer.iter().position(|&b| b == 0).unwrap_or(64);
-                    let result_str = String::from_utf8_lossy(&buffer[..str_end]);
+                    //let state = db_rdr.read_u64::<BOrd>().unwrap();
+                    //let state_str = RaftState::try_from(state).unwrap_or(RaftState::Unavailable);
+                    //let mut buffer = vec![0; 64];
+                    //db_rdr.read_exact(&mut buffer).unwrap();
+                    //let str_end = buffer.iter().position(|&b| b == 0).unwrap_or(64);
+                    //let result_str = String::from_utf8_lossy(&buffer[..str_end]);
 
                     log::info!(
-                        "[FUNC_EVENT_TYPE][Node {} Batch {} Entry {} / {}] FunctionExecute {} @ {} @ FunctionName {} @ State {}",
+                        "[FUNC_EVENT_TYPE][Node {} Batch {} Entry {} / {}] FunctionExecute {}",
                         node_id,
                         batch_id,
                         db_entry_index,
                         db_evt_counter,
                         function_id,
-                        ts,
-                        result_str,
-                        state_str
+                        //ts,
+                        //result_str,
+                        //state_str
                     );
                     Event::FunctionExecute {
                         function_id: function_id as u16
+                    }
+                }
+
+                CONST_EVENT_TYPE => {
+                    let const_id = db_rdr.read_u64::<BOrd>().unwrap();
+                    let mut buffer = vec![0; 64];
+                    db_rdr.read_exact(&mut buffer).unwrap();
+                    let str_end = buffer.iter().position(|&b| b == 0).unwrap_or(64);
+                    let result_str = String::from_utf8_lossy(&buffer[..str_end]);
+                    log::info!(
+                        "[CONST_EVENT_TYPE][Node {} Batch {} Entry {} / {}] ConstantExecute {} @ Constant {}",
+                        node_id,
+                        batch_id,
+                        db_entry_index,
+                        db_evt_counter,
+                        const_id,
+                        result_str
+                    );
+                    Event::ConstantExecute {
+                        const_id: const_id as u16
                     }
                 }
 
