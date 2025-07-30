@@ -14,6 +14,7 @@ fn main() -> Result<()> {
         AbstraktorSubcommand::GetTargets(args) => commands::get_targets::run(args, &logger)?,
         AbstraktorSubcommand::Llvm(args) => commands::llvm::run(args, &logger)?,
         AbstraktorSubcommand::Instrument(args) => commands::instrument::run(args, &logger)?,
+        AbstraktorSubcommand::Setup(args) => commands::setup::run(args, &logger)?,
     };
     logger.outro();
     Ok(())

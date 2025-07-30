@@ -9,6 +9,9 @@ pub use llvm::LlvmArgs;
 pub mod instrument;
 pub use instrument::InstrumentArgs;
 
+pub mod setup;
+pub use setup::SetupArgs;
+
 #[derive(Parser, Debug)]
 #[command(
     name = "abstraktor",
@@ -26,4 +29,5 @@ pub enum AbstraktorSubcommand {
     GetTargets(GetTargetsArgs),
     Llvm(LlvmArgs),
     Instrument(InstrumentArgs),
+    Setup(SetupArgs),
 }
