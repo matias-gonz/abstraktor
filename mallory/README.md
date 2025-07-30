@@ -72,8 +72,61 @@ This may take over 10 minutes on the first run.
 Once Jepsen is set up, you can run the mediator. This module intercepts messages between nodes and sends them to Mallory. Open a new terminal tab, log into Vagrant again, and run:
 
 ```
-cd /jepsen/mediator && target/x86_64-unknown-linux-musl/release/mediator qlearning event_history 0.7
+cd /jepsen/mediator && sudo target/x86_64-unknown-linux-musl/debug/mediator qlearning event_history 0.7
 ```
+
+**Note**: The mediator must be run with `sudo` privileges to access network interfaces and iptables.
+
+### Troubleshooting
+
+If you encounter issues when running the mediator or Docker setup, here are common problems and their solutions:
+
+#### Docker Compose Issues
+
+**Problem**: `KeyError: 'ContainerConfig'` when running `sudo ./bin/up`
+
+**Solution**: Clean up old containers and rebuild:
+```bash
+cd /jepsen/docker
+docker-compose down --volumes --remove-orphans
+docker rm -f $(docker ps -aq --filter "name=jepsen")
+docker rmi jepsen_control jepsen_node
+sudo ./bin/up
+```
+
+#### Iptables Compatibility Issues
+
+**Problem**: `unknown option "--queue-num"` error when running the mediator
+
+**Solution**: Switch to legacy iptables backend:
+```bash
+sudo update-alternatives --set iptables /usr/sbin/iptables-legacy
+sudo update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
+```
+
+#### Permission Issues
+
+**Problem**: Permission denied errors when writing log files
+
+**Solution**: Create a directory with proper permissions:
+```bash
+sudo mkdir -p /tmp/mediator-logs
+sudo chmod 777 /tmp/mediator-logs
+```
+
+The mediator configuration has been updated to use `/tmp/mediator-logs/` for all log files.
+
+#### Port Conflicts
+
+**Problem**: `Address in use` error when starting the mediator
+
+**Solution**: The mediator has been configured to use port 5001 instead of 5000 to avoid conflicts with the Docker control container. If you need to change the port, edit `mallory/mediator/Rocket.toml`.
+
+#### Network Interface Issues
+
+**Problem**: Mediator can't find experiment network interfaces
+
+**Solution**: Ensure the experiment network configuration in `mallory/mediator/Mediator.toml` matches your Docker network setup. The default is `10.1.0.0/16`.
 
 ### Running Jepsen Tests
 
