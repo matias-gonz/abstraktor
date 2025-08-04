@@ -119,13 +119,13 @@ RUN apt-get install -y libsqlite3-dev libuv1-dev
 
 # This is ugly: we need to copy raw_packet.rs because Docker doesn't follow symlinks outside build context
 WORKDIR /opt
-COPY jepsen/abstraktor abstraktor
-COPY jepsen/abstraktor/SUT/dqlite dqlite
-RUN apt-get install nlohmann-json3-dev
-RUN cd abstraktor/llvm && make
-RUN cd abstraktor && rustup target add x86_64-unknown-linux-musl && cargo build --target=x86_64-unknown-linux-musl && cargo run get-targets --path /opt/dqlite/dqlite-raft/src --output /opt/dqlite/instr-targets.json \
-&& cargo run get-targets --path /opt/dqlite/dqlite/src --output /opt/dqlite/instr-targets-dqlite.json
-RUN cd abstraktor && cargo run llvm --path /opt/dqlite/dqlite-raft/ --targets-path /opt/dqlite/instr-targets.json && cargo run llvm --path /opt/dqlite/dqlite/ --targets-path /opt/dqlite/instr-targets-dqlite.json
+# COPY jepsen/abstraktor abstraktor
+# COPY jepsen/abstraktor/SUT/dqlite dqlite
+# RUN apt-get install nlohmann-json3-dev
+# RUN cd abstraktor/llvm && make
+# RUN cd abstraktor && rustup target add x86_64-unknown-linux-musl && cargo build --target=x86_64-unknown-linux-musl && cargo run get-targets --path /opt/dqlite/dqlite-raft/src --output /opt/dqlite/instr-targets.json \
+# && cargo run get-targets --path /opt/dqlite/dqlite/src --output /opt/dqlite/instr-targets-dqlite.json
+# RUN cd abstraktor && cargo run llvm --path /opt/dqlite/dqlite-raft/ --targets-path /opt/dqlite/instr-targets.json && cargo run llvm --path /opt/dqlite/dqlite/ --targets-path /opt/dqlite/instr-targets-dqlite.json
 # end build tools
 
 ######################
@@ -161,7 +161,7 @@ RUN cd abstraktor && cargo run llvm --path /opt/dqlite/dqlite-raft/ --targets-pa
 # COPY jepsen/tests/mallory/braft/resources/jepsen_control.sh /opt/fs/braft/example/atomic/jepsen_control.sh
 
 # Dqlite (based on Canonical Raft, which we build again from upstream)
-##WORKDIR /opt/fs
+#WORKDIR /opt/fs
 #ENV CXX=clang++
 #ENV CC=clang
 
@@ -169,7 +169,7 @@ RUN cd abstraktor && cargo run llvm --path /opt/dqlite/dqlite-raft/ --targets-pa
 #RUN git clone -b newer-jepsen-testing https://github.com/mengrj/raft-c.git dqlite-raft
 #RUN git clone -b newer-jepsen-testing https://github.com/mengrj/dqlite.git dqlite
 
-ENV DQLITE_VER=v1.11.7
+#ENV DQLITE_VER=v1.11.7
 
 #WORKDIR /opt/fs
 #RUN cd dqlite-raft \
@@ -200,27 +200,27 @@ ENV DQLITE_VER=v1.11.7
 #RUN mv /opt/instrumentor/BB2ID.txt /opt/instrumentor/dqlite_CodeLocToBBID.txt || true
 
 # This fixes some certificate-related issues (by installing a new version of GnuTLS?)
-RUN apt-get update -y
-RUN apt-get upgrade -y
+#RUN apt-get update -y
+#RUN apt-get upgrade -y
 # We install a recent version of Go
-WORKDIR /root
-RUN curl -L -O https://go.dev/dl/go1.18.4.linux-amd64.tar.gz \
-    && tar xvf go1.18.4.linux-amd64.tar.gz \
-    && chown -R root:root ./go \
-    && mv go /usr/local
-RUN echo "export PATH=$PATH:/usr/local/go/bin" >> /root/.bashrc
-ENV PATH="$PATH:/usr/local/go/bin" 
+#WORKDIR /root
+#RUN curl -L -O https://go.dev/dl/go1.18.4.linux-amd64.tar.gz \
+#    && tar xvf go1.18.4.linux-amd64.tar.gz \
+#    && chown -R root:root ./go \
+#    && mv go /usr/local
+#RUN echo "export PATH=$PATH:/usr/local/go/bin" >> /root/.bashrc
+#ENV PATH="$PATH:/usr/local/go/bin" 
 
-COPY jepsen/tests/mallory/dqlite/resources/app.go /opt/fs/dqlite/app.go
-WORKDIR /opt/fs/dqlite
+#COPY jepsen/tests/mallory/dqlite/resources/app.go /opt/fs/dqlite/app.go
+#WORKDIR /opt/fs/dqlite
 
-ENV CXX=clang++
-ENV CC=clang
-RUN go mod init app
-RUN go get -tags libsqlite3 github.com/canonical/go-dqlite/app@${DQLITE_VER}
-ENV CGO_LDFLAGS="-L/usr/local/lib -ldqlite"
-RUN export CGO_LDFLAGS_ALLOW="-Wl,-z,now" \
-    && go build -o app -asan app.go
+#ENV CXX=clang++
+#ENV CC=clang
+#RUN go mod init app
+#RUN go get -tags libsqlite3 github.com/canonical/go-dqlite/app@${DQLITE_VER}
+#ENV CGO_LDFLAGS="-L/usr/local/lib -ldqlite"
+#RUN export CGO_LDFLAGS_ALLOW="-Wl,-z,now" \
+#    && go build -o app -asan app.go
 
 # RedisRaft
 # WORKDIR /opt
