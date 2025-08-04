@@ -9,10 +9,11 @@ pub struct DockerArgs {
 }
 
 pub fn run(_args: DockerArgs, logger: &Logger) -> Result<()> {
-    logger.log("Setting up Docker environment...");
+    logger.log("Building Docker images...");
     
     let status = Command::new("bash")
         .arg("mallory/docker/bin/up")
+        .arg("--build-only")
         .current_dir(".")
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
@@ -21,9 +22,9 @@ pub fn run(_args: DockerArgs, logger: &Logger) -> Result<()> {
         .context("Failed to execute mallory/docker/bin/up script")?;
 
     if status.success() {
-        logger.success("Docker environment setup completed successfully!");
+        logger.success("Docker images built successfully!");
     } else {
-        anyhow::bail!("Docker setup failed with exit code: {}", status);
+        anyhow::bail!("Docker build failed with exit code: {}", status);
     }
 
     Ok(())
