@@ -21,14 +21,14 @@ pub struct SetupArgs {
 pub enum SetupSubcommand {
     Docker(DockerArgs),
     Mediator(MediatorArgs),
-    SetupAll(SetupAllArgs),
+    All(SetupAllArgs),
 }
 
 pub fn run(args: SetupArgs, logger: &Logger) -> Result<()> {
     match args.command {
         SetupSubcommand::Docker(args) => docker::run(args, logger)?,
         SetupSubcommand::Mediator(args) => mediator::run(args, logger)?,
-        SetupSubcommand::SetupAll(args) => all::run(args, logger)?,
+        SetupSubcommand::All(args) => all::run(args, logger)?,
     }
     Ok(())
 } 
