@@ -161,7 +161,7 @@ WORKDIR /opt
 # COPY jepsen/tests/mallory/braft/resources/jepsen_control.sh /opt/fs/braft/example/atomic/jepsen_control.sh
 
 # Dqlite (based on Canonical Raft, which we build again from upstream)
-##WORKDIR /opt/fs
+#WORKDIR /opt/fs
 #ENV CXX=clang++
 #ENV CC=clang
 
@@ -169,7 +169,7 @@ WORKDIR /opt
 #RUN git clone -b newer-jepsen-testing https://github.com/mengrj/raft-c.git dqlite-raft
 #RUN git clone -b newer-jepsen-testing https://github.com/mengrj/dqlite.git dqlite
 
-ENV DQLITE_VER=v1.11.7
+#ENV DQLITE_VER=v1.11.7
 
 #WORKDIR /opt/fs
 #RUN cd dqlite-raft \
@@ -200,27 +200,27 @@ ENV DQLITE_VER=v1.11.7
 #RUN mv /opt/instrumentor/BB2ID.txt /opt/instrumentor/dqlite_CodeLocToBBID.txt || true
 
 # This fixes some certificate-related issues (by installing a new version of GnuTLS?)
-RUN apt-get update -y
-RUN apt-get upgrade -y
+#RUN apt-get update -y
+#RUN apt-get upgrade -y
 # We install a recent version of Go
-WORKDIR /root
-RUN curl -L -O https://go.dev/dl/go1.18.4.linux-amd64.tar.gz \
-    && tar xvf go1.18.4.linux-amd64.tar.gz \
-    && chown -R root:root ./go \
-    && mv go /usr/local
-RUN echo "export PATH=$PATH:/usr/local/go/bin" >> /root/.bashrc
-ENV PATH="$PATH:/usr/local/go/bin" 
+#WORKDIR /root
+#RUN curl -L -O https://go.dev/dl/go1.18.4.linux-amd64.tar.gz \
+#    && tar xvf go1.18.4.linux-amd64.tar.gz \
+#    && chown -R root:root ./go \
+#    && mv go /usr/local
+#RUN echo "export PATH=$PATH:/usr/local/go/bin" >> /root/.bashrc
+#ENV PATH="$PATH:/usr/local/go/bin" 
 
-COPY jepsen/tests/mallory/dqlite/resources/app.go /opt/fs/dqlite/app.go
-WORKDIR /opt/fs/dqlite
+#COPY jepsen/tests/mallory/dqlite/resources/app.go /opt/fs/dqlite/app.go
+#WORKDIR /opt/fs/dqlite
 
-ENV CXX=clang++
-ENV CC=clang
-RUN go mod init app
-RUN go get -tags libsqlite3 github.com/canonical/go-dqlite/app@${DQLITE_VER}
-ENV CGO_LDFLAGS="-L/usr/local/lib -ldqlite"
-RUN export CGO_LDFLAGS_ALLOW="-Wl,-z,now" \
-    && go build -o app -asan app.go
+#ENV CXX=clang++
+#ENV CC=clang
+#RUN go mod init app
+#RUN go get -tags libsqlite3 github.com/canonical/go-dqlite/app@${DQLITE_VER}
+#ENV CGO_LDFLAGS="-L/usr/local/lib -ldqlite"
+#RUN export CGO_LDFLAGS_ALLOW="-Wl,-z,now" \
+#    && go build -o app -asan app.go
 
 # RedisRaft
 # WORKDIR /opt
