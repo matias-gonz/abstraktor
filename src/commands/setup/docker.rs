@@ -12,9 +12,9 @@ pub fn run(_args: DockerArgs, logger: &Logger) -> Result<()> {
     logger.log("Building Docker images...");
     
     let status = Command::new("bash")
-        .arg("mallory/docker/bin/up")
+        .arg("bin/up")
         .arg("--build-only")
-        .current_dir(".")
+        .current_dir("mallory/docker")
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())

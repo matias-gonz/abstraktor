@@ -14,9 +14,11 @@ $SUDO apt-get install -y libtinfo5 libncurses5 curl xz-utils build-essential
 
 echo "Downloading LLVM 11.0.1 archive..."
 curl -L -o clang+llvm-11.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-11.0.1/clang+llvm-11.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-
 echo "Extracting LLVM..."
 $SUDO tar -xf clang+llvm-11.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz -C /usr/local --strip-components=1
+
+echo "Removing existing symlinks if they exist..."
+$SUDO rm -f /usr/bin/llvm-config /usr/bin/clang /usr/bin/clang++
 
 echo "Moving llvm-config to llvm-config-11"
 $SUDO ln -s /usr/bin/llvm-config-11 /usr/bin/llvm-config
@@ -32,4 +34,4 @@ llvm-config --version
 clang++ --version
 
 echo "Installing nlohmann-json3-dev"
-$SUDO apt-get install nlohmann-json3-dev
+$SUDO apt-get install -y nlohmann-json3-dev

@@ -119,13 +119,8 @@ RUN apt-get install -y libsqlite3-dev libuv1-dev
 
 # This is ugly: we need to copy raw_packet.rs because Docker doesn't follow symlinks outside build context
 WORKDIR /opt
-# COPY jepsen/abstraktor abstraktor
-# COPY jepsen/abstraktor/SUT/dqlite dqlite
-# RUN apt-get install nlohmann-json3-dev
-# RUN cd abstraktor/llvm && make
-# RUN cd abstraktor && rustup target add x86_64-unknown-linux-musl && cargo build --target=x86_64-unknown-linux-musl && cargo run get-targets --path /opt/dqlite/dqlite-raft/src --output /opt/dqlite/instr-targets.json \
-# && cargo run get-targets --path /opt/dqlite/dqlite/src --output /opt/dqlite/instr-targets-dqlite.json
-# RUN cd abstraktor && cargo run llvm --path /opt/dqlite/dqlite-raft/ --targets-path /opt/dqlite/instr-targets.json && cargo run llvm --path /opt/dqlite/dqlite/ --targets-path /opt/dqlite/instr-targets-dqlite.json
+COPY jepsen/abstraktor/llvm llvm
+RUN cd llvm && make clean && ./deps.sh && make
 # end build tools
 
 ######################

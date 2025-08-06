@@ -1,3 +1,7 @@
+// DEPRECATED: This build script has been deprecated and is no longer used.
+// It has been kept as a reference implementation.
+// Original functionality: Builds LLVM components using make command
+
 use std::env;
 use std::path::Path;
 use std::process::Command;
