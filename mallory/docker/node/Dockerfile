@@ -123,6 +123,10 @@ COPY jepsen/abstraktor/llvm llvm
 RUN cd llvm && make clean && ./deps.sh && make
 # end build tools
 
+# Copy SUT (Systems Under Test) directories added by copy-to-docker command
+COPY SUT /opt/SUT
+# end copied sources
+
 ######################
 # SYSTEMS UNDER TEST #
 ######################

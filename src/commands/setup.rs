@@ -11,6 +11,9 @@ pub use mediator::MediatorArgs;
 pub mod all;
 pub use all::SetupAllArgs;
 
+pub mod sut;
+pub use sut::SutArgs;
+
 #[derive(Parser, Debug)]
 pub struct SetupArgs {
     #[command(subcommand)]
@@ -22,6 +25,7 @@ pub enum SetupSubcommand {
     Docker(DockerArgs),
     Mediator(MediatorArgs),
     All(SetupAllArgs),
+    Sut(SutArgs),
 }
 
 pub fn run(args: SetupArgs, logger: &Logger) -> Result<()> {
@@ -29,6 +33,7 @@ pub fn run(args: SetupArgs, logger: &Logger) -> Result<()> {
         SetupSubcommand::Docker(args) => docker::run(args, logger)?,
         SetupSubcommand::Mediator(args) => mediator::run(args, logger)?,
         SetupSubcommand::All(args) => all::run(args, logger)?,
+        SetupSubcommand::Sut(args) => sut::run(args, logger)?,
     }
     Ok(())
 } 
