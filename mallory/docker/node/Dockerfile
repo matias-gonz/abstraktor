@@ -133,12 +133,16 @@ RUN cargo build --release
 # Make abstraktor available in PATH
 ENV PATH="/opt/abstraktor/target/release:${PATH}"
 
-# Copy SUT (Systems Under Test) directories added by copy-to-docker command
+# Create empty SUT directory (will be populated by setup sut command)
 WORKDIR /opt
+RUN mkdir -p /opt/SUT
+
+# Copy SUT directories if they exist in build context
+# This step will copy any SUT directories that were added via 'setup sut' commands
 COPY SUT /opt/SUT
 
-# Generate targets for all SUT directories
-RUN if [ -d "/opt/SUT" ]; then \
+# Generate targets for all SUT directories (if any exist)
+RUN if [ -d "/opt/SUT" ] && [ "$(ls -A /opt/SUT 2>/dev/null)" ]; then \
     for sut_dir in /opt/SUT/*/; do \
         if [ -d "$sut_dir" ]; then \
             sut_name=$(basename "$sut_dir"); \
@@ -146,6 +150,8 @@ RUN if [ -d "/opt/SUT" ]; then \
             abstraktor get-targets --path "$sut_dir" --output "$sut_dir/targets.json" || echo "Failed to generate targets for $sut_name"; \
         fi; \
     done; \
+else \
+    echo "No SUT directories found - skipping target generation"; \
 fi
 # end copied sources
 
