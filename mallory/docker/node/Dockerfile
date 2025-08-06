@@ -141,17 +141,18 @@ RUN mkdir -p /opt/SUT
 # This step will copy any SUT directories that were added via 'setup sut' commands
 COPY SUT /opt/SUT
 
-# Generate targets for all SUT directories (if any exist)
+# Generate targets and instrument SUT directories using LLVM compiler
 RUN if [ -d "/opt/SUT" ] && [ "$(ls -A /opt/SUT 2>/dev/null)" ]; then \
     for sut_dir in /opt/SUT/*/; do \
         if [ -d "$sut_dir" ]; then \
             sut_name=$(basename "$sut_dir"); \
-            echo "Generating targets for SUT: $sut_name"; \
-            abstraktor get-targets --path "$sut_dir" --output "$sut_dir/targets.json" || echo "Failed to generate targets for $sut_name"; \
+            echo "Instrumenting SUT with LLVM: $sut_name"; \
+            cd "$sut_dir" && \
+            abstraktor instrument --path . --llvm-path /opt/llvm/afl-clang-fast || echo "Failed to instrument $sut_name"; \
         fi; \
     done; \
 else \
-    echo "No SUT directories found - skipping target generation"; \
+    echo "No SUT directories found - skipping instrumentation"; \
 fi
 # end copied sources
 
