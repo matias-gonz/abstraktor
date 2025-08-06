@@ -123,8 +123,30 @@ COPY jepsen/abstraktor/llvm llvm
 RUN cd llvm && make clean && ./deps.sh && make
 # end build tools
 
+# Copy and build abstraktor tool (source files only)
+RUN mkdir -p /opt/abstraktor
+COPY jepsen/abstraktor/Cargo.toml /opt/abstraktor/
+COPY jepsen/abstraktor/Cargo.lock /opt/abstraktor/
+COPY jepsen/abstraktor/src/ /opt/abstraktor/src/
+WORKDIR /opt/abstraktor
+RUN cargo build --release
+# Make abstraktor available in PATH
+ENV PATH="/opt/abstraktor/target/release:${PATH}"
+
 # Copy SUT (Systems Under Test) directories added by copy-to-docker command
+WORKDIR /opt
 COPY SUT /opt/SUT
+
+# Generate targets for all SUT directories
+RUN if [ -d "/opt/SUT" ]; then \
+    for sut_dir in /opt/SUT/*/; do \
+        if [ -d "$sut_dir" ]; then \
+            sut_name=$(basename "$sut_dir"); \
+            echo "Generating targets for SUT: $sut_name"; \
+            abstraktor get-targets --path "$sut_dir" --output "$sut_dir/targets.json" || echo "Failed to generate targets for $sut_name"; \
+        fi; \
+    done; \
+fi
 # end copied sources
 
 ######################
