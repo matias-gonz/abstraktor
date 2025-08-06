@@ -153,15 +153,21 @@ if [ -z "${DEV}" ]; then
             exclude_params+=(--exclude-ignore=.gitignore)
             ;;
     esac
+    # Get the absolute paths to avoid rsync security violations
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+    DOCKER_DIR="$(dirname "$SCRIPT_DIR")"
+    JEPSEN_DIR="$(dirname "$DOCKER_DIR")"
+    ABSTRAKTOR_DIR="$(dirname "$JEPSEN_DIR")"
+    
     # Dockerfile does not allow `ADD ..`. So we need to copy it here in setup.
-    INFO "Copying ../jepsen to control/jepsen"
+    INFO "Copying $JEPSEN_DIR to control/jepsen"
     (
         mkdir -p ./control/jepsen/jepsen
         mkdir -p ./node/jepsen
-        rsync -a --delete --exclude='docker/' .. ./control/jepsen/
+        rsync -a --delete --exclude='docker/' "$JEPSEN_DIR/" ./control/jepsen/
         
         #Copying abstraktor folder
-        rsync -a --delete --exclude='mallory/' ../.. ./control/jepsen/abstraktor
+        rsync -a --delete --exclude='mallory/' "$ABSTRAKTOR_DIR/" ./control/jepsen/abstraktor
 
         cp -r ../jepsen/src/jepsen/store/* ./control/jepsen/jepsen/src/jepsen/store/
         # Copiar archivos específicos de la carpeta store
