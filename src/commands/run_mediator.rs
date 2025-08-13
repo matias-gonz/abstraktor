@@ -1,8 +1,8 @@
 use std::path::{self, Path};
-use std::process::Command;
 
 use anyhow::{Context, Result};
 use clap::Parser;
+use xshell::Shell;
 
 use crate::logger::Logger;
 
@@ -14,7 +14,7 @@ const REWARD: &str = "0.7";
 #[derive(Parser, Debug)]
 pub struct RunMediatorArgs {}
 
-pub fn run(_args: RunMediatorArgs, logger: &Logger) -> Result<()> {
+pub fn run(_args: RunMediatorArgs, logger: &Logger, sh: &Shell) -> Result<()> {
 	let bin_path = path::absolute(Path::new(MEDIATOR_BIN_REL))
 		.context("Failed to absolutize mediator binary path")?;
 	if !bin_path.exists() {
@@ -35,17 +35,13 @@ pub fn run(_args: RunMediatorArgs, logger: &Logger) -> Result<()> {
 		TABLE,
 		REWARD
 	));
-	let status = Command::new("sudo")
-		.arg(&bin_path)
+	sh.cmd("sudo")
+		.arg(bin_path.to_string_lossy().as_ref())
 		.arg(ALGORITHM)
 		.arg(TABLE)
 		.arg(REWARD)
-		.status()
+		.run()
 		.context("Failed to run mediator")?;
-
-	if !status.success() {
-		anyhow::bail!("mediator exited with status: {}", status);
-	}
 
 	logger.success("Mediator started");
 	Ok(())

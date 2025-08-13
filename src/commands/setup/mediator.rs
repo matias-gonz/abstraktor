@@ -1,7 +1,7 @@
-use std::process::{Command, Stdio};
 use anyhow::{Context, Result};
 use clap::Parser;
 use crate::logger::Logger;
+use xshell::Shell;
 
 #[derive(Parser, Debug)]
 pub struct MediatorArgs {
@@ -15,56 +15,40 @@ pub struct MediatorArgs {
     logsaving: bool,
 }
 
-pub fn run(args: MediatorArgs, logger: &Logger) -> Result<()> {
+pub fn run(args: MediatorArgs, logger: &Logger, sh: &Shell) -> Result<()> {
     logger.log("Setting up Mediator...");
     
     let mediator_dir = "mallory/mediator";
     if !std::path::Path::new(mediator_dir).exists() {
         anyhow::bail!("Mediator directory not found at: {}", mediator_dir);
     }
-    
-    let mut cargo_cmd = Command::new("cargo");
-    cargo_cmd.arg("build");
-    
-    if args.release {
-        cargo_cmd.arg("--release");
-        logger.log("Building in release mode...");
-    }
-    
-    let mut features = Vec::new();
+
+    let _dir = sh.push_dir(mediator_dir);
+
+    let mut feature_flags: Vec<&str> = Vec::new();
     if args.selfcheck {
-        features.push("selfcheck");
+        feature_flags.push("selfcheck");
         logger.log("Adding selfcheck feature...");
     }
     if args.logsaving {
-        features.push("logsaving");
+        feature_flags.push("logsaving");
         logger.log("Adding logsaving feature...");
     }
-    
-    if !features.is_empty() {
-        cargo_cmd.arg("--features");
-        cargo_cmd.arg(features.join(","));
+
+    let mut cmd = sh.cmd("cargo");
+    cmd = cmd.arg("build");
+    if args.release {
+        cmd = cmd.arg("--release");
+        logger.log("Building in release mode...");
     }
-    
-    cargo_cmd.env("RUSTFLAGS", "-C target-cpu=native");
-    cargo_cmd.current_dir(mediator_dir);
-    
-    cargo_cmd
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit());
-    
+    if !feature_flags.is_empty() {
+        cmd = cmd.arg("--features").arg(feature_flags.join(","));
+    }
+    cmd = cmd.env("RUSTFLAGS", "-C target-cpu=native");
+
     logger.log("Building mediator with cargo...");
-    
-    let status = cargo_cmd
-        .status()
-        .context("Failed to execute cargo build for mediator")?;
+    cmd.run().context("Failed to execute cargo build for mediator")?;
 
-    if status.success() {
-        logger.success("Mediator build completed successfully!");
-    } else {
-        anyhow::bail!("Mediator build failed with exit code: {}", status);
-    }
-
+    logger.success("Mediator build completed successfully!");
     Ok(())
 } 
