@@ -16,6 +16,7 @@ fn main() -> Result<()> {
 		AbstraktorSubcommand::Instrument(args) => commands::instrument::run(args, &logger)?,
 		AbstraktorSubcommand::Setup(args) => commands::setup::run(args, &logger)?,
 		AbstraktorSubcommand::RunMallory(args) => commands::run_mallory::run(args, &logger)?,
+		AbstraktorSubcommand::RunMediator(args) => commands::run_mediator::run(args, &logger)?,
 	};
 	logger.outro();
 	Ok(())

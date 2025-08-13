@@ -15,6 +15,9 @@ pub use setup::SetupArgs;
 pub mod run_mallory;
 pub use run_mallory::RunMalloryArgs;
 
+pub mod run_mediator;
+pub use run_mediator::RunMediatorArgs;
+
 #[derive(Parser, Debug)]
 #[command(
 	name = "abstraktor",
@@ -34,4 +37,5 @@ pub enum AbstraktorSubcommand {
 	Instrument(InstrumentArgs),
 	Setup(SetupArgs),
 	RunMallory(RunMalloryArgs),
+	RunMediator(RunMediatorArgs),
 }
