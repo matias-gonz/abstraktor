@@ -17,8 +17,7 @@ fn main() -> Result<()> {
 		AbstraktorSubcommand::Llvm(args) => commands::llvm::run(args, &logger, &sh)?,
 		AbstraktorSubcommand::Instrument(args) => commands::instrument::run(args, &logger, &sh)?,
 		AbstraktorSubcommand::Setup(args) => commands::setup::run(args, &logger, &sh)?,
-		AbstraktorSubcommand::RunMallory(args) => commands::run_mallory::run(args, &logger, &sh)?,
-		AbstraktorSubcommand::RunMediator(args) => commands::run_mediator::run(args, &logger, &sh)?,
+		AbstraktorSubcommand::Run(args) => commands::run::run(args, &logger, &sh)?,
 	};
 	logger.outro();
 	Ok(())
