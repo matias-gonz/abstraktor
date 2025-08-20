@@ -77,4 +77,19 @@ ADD ./init.sh /init.sh
 RUN dos2unix /init.sh /root/.bashrc \
     && chmod +x /init.sh
 
+COPY SUT /SUT
+
+RUN if [ -d "/SUT" ] && [ "$(ls -A /SUT 2>/dev/null)" ]; then \
+    for sut_dir in /SUT/*/; do \
+        if [ -d "$sut_dir" ]; then \
+            sut_name=$(basename "$sut_dir"); \
+            echo "Setting up jepsen in SUT: $sut_name"; \
+            cd "$sut_dir" && \
+            ./setup.sh || echo "Failed to setup jepsen in $sut_name"; \
+        fi; \
+    done; \
+else \
+    echo "No SUT directories found - skipping jepsen setup"; \
+fi
+
 CMD /init.sh
