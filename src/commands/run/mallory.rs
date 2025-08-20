@@ -31,4 +31,5 @@ pub fn run(_args: RunMalloryArgs, logger: &Logger, sh: &Shell) -> Result<()> {
 
 	logger.success("Mallory is up");
 	Ok(())
-} 
+}
+

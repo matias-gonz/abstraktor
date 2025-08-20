@@ -45,4 +45,5 @@ pub fn run(_args: RunMediatorArgs, logger: &Logger, sh: &Shell) -> Result<()> {
 
 	logger.success("Mediator started");
 	Ok(())
-} 
+}
+
