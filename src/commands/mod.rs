@@ -12,22 +12,30 @@ pub use instrument::InstrumentArgs;
 pub mod setup;
 pub use setup::SetupArgs;
 
+pub mod run_mallory;
+pub use run_mallory::RunMalloryArgs;
+
+pub mod run_mediator;
+pub use run_mediator::RunMediatorArgs;
+
 #[derive(Parser, Debug)]
 #[command(
-    name = "abstraktor",
-    version = "1.0",
-    author = "Matias Gonzalez <maigonzalez@fi.uba.ar>",
-    about = "Abstraktor"
+	name = "abstraktor",
+	version = "1.0",
+	author = "Matias Gonzalez <maigonzalez@fi.uba.ar>",
+	about = "Abstraktor"
 )]
 pub struct Abstraktor {
-    #[command(subcommand)]
-    pub command: AbstraktorSubcommand,
+	#[command(subcommand)]
+	pub command: AbstraktorSubcommand,
 }
 
 #[derive(Subcommand, Debug)]
 pub enum AbstraktorSubcommand {
-    GetTargets(GetTargetsArgs),
-    Llvm(LlvmArgs),
-    Instrument(InstrumentArgs),
-    Setup(SetupArgs),
+	GetTargets(GetTargetsArgs),
+	Llvm(LlvmArgs),
+	Instrument(InstrumentArgs),
+	Setup(SetupArgs),
+	RunMallory(RunMalloryArgs),
+	RunMediator(RunMediatorArgs),
 }
