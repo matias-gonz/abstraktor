@@ -163,6 +163,7 @@ if [ -z "${DEV}" ]; then
     INFO "Copying $JEPSEN_DIR to control/jepsen"
     (
         mkdir -p ./control/jepsen/jepsen
+        mkdir -p ./control/SUT
         mkdir -p ./node/jepsen
         rsync -a --delete --exclude='docker/' "$JEPSEN_DIR/" ./control/jepsen/
         
@@ -173,7 +174,7 @@ if [ -z "${DEV}" ]; then
         # Copiar archivos específicos de la carpeta store
         #rsync -av ../jepsen/src/jepsen/store/ ./control/jepsen/jepsen/src/jepsen/store/
         rsync -a --delete ./control/jepsen/ ./node/jepsen
-
+        rsync -a --delete ./node/SUT/ ./control/SUT
     )
     #INFO "Copying ../jepsen to node/jepsen"
     #(
