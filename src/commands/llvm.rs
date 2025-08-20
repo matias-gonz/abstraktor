@@ -8,7 +8,6 @@ use xshell::Shell;
 const LLVM_INSTRUMENTOR_PATH: &str = "./llvm/afl-clang-fast";
 
 const AFL_CC: &str = "clang-11";
-const AFL_QUIET: &str = "1";
 
 #[derive(Parser, Debug)]
 pub struct LlvmArgs {
