@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use anyhow::Result;
 use crate::logger::Logger;
+use xshell::Shell;
 
 pub mod docker;
 pub use docker::DockerArgs;
@@ -28,12 +29,12 @@ pub enum SetupSubcommand {
     Sut(SutArgs),
 }
 
-pub fn run(args: SetupArgs, logger: &Logger) -> Result<()> {
+pub fn run(args: SetupArgs, logger: &Logger, sh: &Shell) -> Result<()> {
     match args.command {
-        SetupSubcommand::Docker(args) => docker::run(args, logger)?,
-        SetupSubcommand::Mediator(args) => mediator::run(args, logger)?,
-        SetupSubcommand::All(args) => all::run(args, logger)?,
-        SetupSubcommand::Sut(args) => sut::run(args, logger)?,
+        SetupSubcommand::Docker(args) => docker::run(args, logger, sh)?,
+        SetupSubcommand::Mediator(args) => mediator::run(args, logger, sh)?,
+        SetupSubcommand::All(args) => all::run(args, logger, sh)?,
+        SetupSubcommand::Sut(args) => sut::run(args, logger, sh)?,
     }
     Ok(())
 } 

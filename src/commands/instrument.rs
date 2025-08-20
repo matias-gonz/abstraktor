@@ -3,6 +3,7 @@ use std::path::Path;
 use crate::{commands::GetTargetsArgs, logger::Logger};
 use anyhow::{Context, Result};
 use clap::Parser;
+use xshell::Shell;
 
 use super::{LlvmArgs, get_targets, llvm};
 
@@ -17,7 +18,7 @@ pub struct InstrumentArgs {
     llvm_path: Option<String>,
 }
 
-pub fn run(args: InstrumentArgs, logger: &Logger) -> Result<()> {
+pub fn run(args: InstrumentArgs, logger: &Logger, sh: &Shell) -> Result<()> {
     let temp_targets_path = Path::new(TEMP_TARGETS_PATH);
     let temp_targets_path_str = temp_targets_path
         .to_str()
@@ -34,7 +35,7 @@ pub fn run(args: InstrumentArgs, logger: &Logger) -> Result<()> {
         targets_path: temp_targets_path_str.clone(),
         llvm_path: args.llvm_path,
     };
-    llvm::run(llvm_args, logger)?;
+    llvm::run(llvm_args, logger, sh)?;
     std::fs::remove_file(temp_targets_path).context("Failed to remove temp targets file")?;
     Ok(())
 }

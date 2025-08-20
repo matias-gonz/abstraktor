@@ -1,9 +1,9 @@
 use std::path::Path;
-use std::process::Command;
 use std::fs;
 use crate::logger::Logger;
 use anyhow::{Context, Result};
 use clap::Parser;
+use xshell::Shell;
 
 const SUT_DIR_NAME: &str = "SUT";
 const DOCKER_BUILD_DIR: &str = "mallory/docker/node";
@@ -20,7 +20,7 @@ pub struct SutArgs {
     pub rebuild: bool,
 }
 
-pub fn run(args: SutArgs, logger: &Logger) -> Result<()> {
+pub fn run(args: SutArgs, logger: &Logger, sh: &Shell) -> Result<()> {
     logger.log(format!("Copying directory {} to Docker SUT directory", args.path));
     
     let source_path = Path::new(&args.path);
@@ -47,7 +47,7 @@ pub fn run(args: SutArgs, logger: &Logger) -> Result<()> {
     copy_to_sut_directory(source_path, &sut_subdir_name, logger)?;
     
     if args.rebuild {
-        rebuild_docker_image(logger)?;
+        rebuild_docker_image(logger, sh)?;
     } else {
         logger.log("Files copied to SUT directory. Use --rebuild flag to rebuild the Docker image with the new files.");
     }
@@ -118,21 +118,18 @@ fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<()> {
     Ok(())
 }
 
-fn rebuild_docker_image(logger: &Logger) -> Result<()> {
+fn rebuild_docker_image(logger: &Logger, sh: &Shell) -> Result<()> {
     logger.log("Rebuilding Docker image with copied files...");
     
-    let status = Command::new("docker")
+    let build_dir = Path::new(DOCKER_BUILD_DIR);
+    let _dir = sh.push_dir(build_dir);
+    sh.cmd("docker")
         .arg("build")
         .arg("-t")
         .arg("jepsen_node")
         .arg(".")
-        .current_dir(Path::new(DOCKER_BUILD_DIR))
-        .status()
+        .run()
         .context("Failed to rebuild Docker image")?;
-    
-    if !status.success() {
-        anyhow::bail!("Failed to rebuild Docker image");
-    }
     
     logger.success("Docker image rebuilt successfully!");
     Ok(())

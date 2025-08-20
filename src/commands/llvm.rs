@@ -4,7 +4,6 @@ use crate::logger::Logger;
 use anyhow::{Context, Result};
 use clap::Parser;
 use xshell::Shell;
-use std::process::Command;
 
 const LLVM_INSTRUMENTOR_PATH: &str = "./llvm/afl-clang-fast";
 
@@ -21,10 +20,9 @@ pub struct LlvmArgs {
     pub llvm_path: Option<String>,
 }
 
-pub fn run(args: LlvmArgs, logger: &Logger) -> Result<()> {
+pub fn run(args: LlvmArgs, logger: &Logger, sh: &Shell) -> Result<()> {
     logger.log(format!("Instrumenting {}", args.path));
-    let mut cmd = Command::new("sh");
-    
+
     let llvm_instrumentor_path = args.llvm_path.unwrap_or_else(|| LLVM_INSTRUMENTOR_PATH.to_string());
     let instrumentor_path = path::absolute(Path::new(&llvm_instrumentor_path))
         .context("Failed to absolutize instrumentor path")?;
@@ -58,20 +56,17 @@ pub fn run(args: LlvmArgs, logger: &Logger) -> Result<()> {
             targets_path.to_str().unwrap()
         ));
     }
-    cmd.current_dir(path)
+
+    let _dir = sh.push_dir(path);
+    let _cc = sh.push_env("CC", instrumentor_path.to_str().unwrap());
+    let _targets = sh.push_env("TARGETS_FILE", targets_path.to_str().unwrap());
+    let _afl_cc = sh.push_env("AFL_CC", AFL_CC);
+
+    sh.cmd("sh")
         .arg("-c")
         .arg("./install.sh")
-        .env("CC", instrumentor_path.to_str().unwrap())
-        .env("TARGETS_FILE", targets_path.to_str().unwrap())
-        .env("AFL_CC", AFL_CC);
-
-    let status = cmd
-        .status()
+        .run()
         .context("Failed to run instrumentor")?;
-
-    if !status.success() {
-        anyhow::bail!("Instrumentor exited with status: {}", status);
-    }
 
     logger.success("Instrumented binary");
     Ok(())
