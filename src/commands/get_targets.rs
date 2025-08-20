@@ -108,7 +108,7 @@ mod tests {
             path: test_dir.to_string_lossy().into_owned(),
             output: output_file.to_string_lossy().into_owned(),
         };
-        run(args, &logger);
+        let _ = run(args, &logger);
 
         let output = fs::read_to_string(&output_file).unwrap();
         let expected = fs::read_to_string(&expected_file).unwrap();
