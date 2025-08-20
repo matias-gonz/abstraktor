@@ -123,6 +123,39 @@ COPY jepsen/abstraktor/llvm llvm
 RUN cd llvm && make clean && ./deps.sh && make
 # end build tools
 
+# Copy and build abstraktor tool (source files only)
+RUN mkdir -p /opt/abstraktor
+COPY jepsen/abstraktor/Cargo.toml /opt/abstraktor/
+COPY jepsen/abstraktor/Cargo.lock /opt/abstraktor/
+COPY jepsen/abstraktor/src/ /opt/abstraktor/src/
+WORKDIR /opt/abstraktor
+RUN cargo build --release
+# Make abstraktor available in PATH
+ENV PATH="/opt/abstraktor/target/release:${PATH}"
+
+# Create empty SUT directory (will be populated by setup sut command)
+WORKDIR /opt
+RUN mkdir -p /opt/SUT
+
+# Copy SUT directories if they exist in build context
+# This step will copy any SUT directories that were added via 'setup sut' commands
+COPY SUT /opt/SUT
+
+# Generate targets and instrument SUT directories using LLVM compiler
+RUN if [ -d "/opt/SUT" ] && [ "$(ls -A /opt/SUT 2>/dev/null)" ]; then \
+    for sut_dir in /opt/SUT/*/; do \
+        if [ -d "$sut_dir" ]; then \
+            sut_name=$(basename "$sut_dir"); \
+            echo "Instrumenting SUT with LLVM: $sut_name"; \
+            cd "$sut_dir" && \
+            abstraktor instrument --path . --llvm-path /opt/llvm/afl-clang-fast || echo "Failed to instrument $sut_name"; \
+        fi; \
+    done; \
+else \
+    echo "No SUT directories found - skipping instrumentation"; \
+fi
+# end copied sources
+
 ######################
 # SYSTEMS UNDER TEST #
 ######################

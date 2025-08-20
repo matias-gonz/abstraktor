@@ -12,6 +12,9 @@ const TEMP_TARGETS_PATH: &str = "temp_targets.json";
 pub struct InstrumentArgs {
     #[arg(short, long)]
     path: String,
+    
+    #[arg(short, long)]
+    llvm_path: Option<String>,
 }
 
 pub fn run(args: InstrumentArgs, logger: &Logger) -> Result<()> {
@@ -29,6 +32,7 @@ pub fn run(args: InstrumentArgs, logger: &Logger) -> Result<()> {
     let llvm_args = LlvmArgs {
         path: args.path.clone(),
         targets_path: temp_targets_path_str.clone(),
+        llvm_path: args.llvm_path,
     };
     llvm::run(llvm_args, logger)?;
     std::fs::remove_file(temp_targets_path).context("Failed to remove temp targets file")?;

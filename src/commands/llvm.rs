@@ -17,12 +17,16 @@ pub struct LlvmArgs {
     pub path: String,
     #[arg(short, long)]
     pub targets_path: String,
+    #[arg(short, long)]
+    pub llvm_path: Option<String>,
 }
 
 pub fn run(args: LlvmArgs, logger: &Logger) -> Result<()> {
     logger.log(format!("Instrumenting {}", args.path));
     let mut cmd = Command::new("sh");
-    let instrumentor_path = path::absolute(Path::new(LLVM_INSTRUMENTOR_PATH))
+    
+    let llvm_instrumentor_path = args.llvm_path.unwrap_or_else(|| LLVM_INSTRUMENTOR_PATH.to_string());
+    let instrumentor_path = path::absolute(Path::new(&llvm_instrumentor_path))
         .context("Failed to absolutize instrumentor path")?;
     let path = Path::new(&args.path);
     let targets_path = path::absolute(Path::new(&args.targets_path))
