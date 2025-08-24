@@ -18,10 +18,10 @@ nemesis_schedule_duration_ms    = 30000 # how long is a nemesis "run"?
 nemesis_schedule_interval_ms    = 2500   # there is a "choice" every X ms
 nemesis_reset_duration_ms       = 2500  # how long do we wait after a reset before starting a new run?
 
-mediator_log_filename = "/tmp/mediator-logs/mediator.log"
-shiviz_log_filename = "/tmp/mediator-logs/shiviz.log"
-event_log_filename = "/tmp/mediator-logs/events.log"
-iptables_rules_filename = '/tmp/mediator-logs/iptables-rules.txt'
+mediator_log_filename = "../../mediator-logs/mediator.log"
+shiviz_log_filename = "../../mediator-logs/shiviz.log"
+event_log_filename = "../../mediator-logs/events.log"
+iptables_rules_filename = '../../mediator-logs/iptables-rules.txt'
 
 mediator_store_folder = "mediator" # relative to the Jepsen test directory
 transmit_pcap_filename = "transmit.pcap"
