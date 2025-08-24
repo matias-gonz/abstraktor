@@ -35,6 +35,7 @@ pub fn run(_args: RunMediatorArgs, logger: &Logger, sh: &Shell) -> Result<()> {
 		TABLE,
 		REWARD
 	));
+	let _dir = sh.push_dir("mallory/mediator");
 	sh.cmd("sudo")
 		.arg(bin_path.to_string_lossy().as_ref())
 		.arg(ALGORITHM)
