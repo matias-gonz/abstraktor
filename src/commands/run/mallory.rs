@@ -24,7 +24,7 @@ pub fn run(_args: RunMalloryArgs, logger: &Logger, sh: &Shell) -> Result<()> {
 	}
 
 	logger.log(format!("Running {}", up_path.to_string_lossy()));
-	sh.cmd("sh")
+	sh.cmd("bash")
 		.arg(up_path.to_string_lossy().as_ref())
 		.run()
 		.context("Failed to run mallory up")?;
