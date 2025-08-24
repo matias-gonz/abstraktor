@@ -6,9 +6,6 @@ use xshell::Shell;
 #[derive(Parser, Debug)]
 pub struct MediatorArgs {
     #[arg(long, default_value = "false")]
-    release: bool,
-    
-    #[arg(long, default_value = "false")]
     selfcheck: bool,
     
     #[arg(long, default_value = "false")]
@@ -37,10 +34,8 @@ pub fn run(args: MediatorArgs, logger: &Logger, sh: &Shell) -> Result<()> {
 
     let mut cmd = sh.cmd("cargo");
     cmd = cmd.arg("build");
-    if args.release {
-        cmd = cmd.arg("--release");
-        logger.log("Building in release mode...");
-    }
+    cmd = cmd.arg("--release");
+
     if !feature_flags.is_empty() {
         cmd = cmd.arg("--features").arg(feature_flags.join(","));
     }
