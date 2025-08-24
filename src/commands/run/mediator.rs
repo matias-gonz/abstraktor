@@ -6,7 +6,7 @@ use xshell::Shell;
 
 use crate::logger::Logger;
 
-const MEDIATOR_BIN_REL: &str = "mallory/mediator/target/x86_64-unknown-linux-musl/release/mediator";
+const MEDIATOR_BIN_REL: &str = "mallory/mediator/target/release/mediator";
 const ALGORITHM: &str = "qlearning";
 const TABLE: &str = "event_history";
 const REWARD: &str = "0.7";
