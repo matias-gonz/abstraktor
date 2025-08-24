@@ -15,6 +15,11 @@ pub use all::SetupAllArgs;
 pub mod sut;
 pub use sut::SutArgs;
 
+pub mod sut_common;
+
+pub mod jepsen;
+pub use jepsen::JepsenArgs;
+
 #[derive(Parser, Debug)]
 pub struct SetupArgs {
     #[command(subcommand)]
@@ -27,6 +32,7 @@ pub enum SetupSubcommand {
     Mediator(MediatorArgs),
     All(SetupAllArgs),
     Sut(SutArgs),
+    Jepsen(JepsenArgs),
 }
 
 pub fn run(args: SetupArgs, logger: &Logger, sh: &Shell) -> Result<()> {
@@ -35,6 +41,7 @@ pub fn run(args: SetupArgs, logger: &Logger, sh: &Shell) -> Result<()> {
         SetupSubcommand::Mediator(args) => mediator::run(args, logger, sh)?,
         SetupSubcommand::All(args) => all::run(args, logger, sh)?,
         SetupSubcommand::Sut(args) => sut::run(args, logger, sh)?,
+        SetupSubcommand::Jepsen(args) => jepsen::run(args, logger, sh)?,
     }
     Ok(())
 } 
