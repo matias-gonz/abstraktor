@@ -66,6 +66,7 @@ setup-inner() {
 }
 
 setup() {
+	apt install lxc debootstrap bridge-utils libvirt-clients libvirt-daemon-system iptables ebtables dnsmasq-base libxml2-utils iproute2
 	lxc launch ubuntu:ubuntu/22.04 jepsen -c limits.kernel.core=-1
 	sleep 5
 	push-this-repo
