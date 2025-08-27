@@ -1,20 +1,20 @@
+use crate::logger::Logger;
 use anyhow::{Context, Result};
 use clap::Parser;
-use crate::logger::Logger;
 use xshell::Shell;
 
 #[derive(Parser, Debug)]
 pub struct MediatorArgs {
     #[arg(long, default_value = "false")]
     selfcheck: bool,
-    
+
     #[arg(long, default_value = "false")]
     logsaving: bool,
 }
 
 pub fn run(args: MediatorArgs, logger: &Logger, sh: &Shell) -> Result<()> {
     logger.log("Setting up Mediator...");
-    
+
     let mediator_dir = "mallory/mediator";
     if !std::path::Path::new(mediator_dir).exists() {
         anyhow::bail!("Mediator directory not found at: {}", mediator_dir);
@@ -42,8 +42,9 @@ pub fn run(args: MediatorArgs, logger: &Logger, sh: &Shell) -> Result<()> {
     cmd = cmd.env("RUSTFLAGS", "-C target-cpu=native");
 
     logger.log("Building mediator with cargo...");
-    cmd.run().context("Failed to execute cargo build for mediator")?;
+    cmd.run()
+        .context("Failed to execute cargo build for mediator")?;
 
     logger.success("Mediator build completed successfully!");
     Ok(())
-} 
+}

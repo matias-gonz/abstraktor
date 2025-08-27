@@ -15,23 +15,27 @@ pub use setup::SetupArgs;
 pub mod run;
 pub use run::RunArgs;
 
+pub mod clean;
+pub use clean::CleanArgs;
+
 #[derive(Parser, Debug)]
 #[command(
-	name = "abstraktor",
-	version = "1.0",
-	author = "Matias Gonzalez <maigonzalez@fi.uba.ar>",
-	about = "Abstraktor"
+    name = "abstraktor",
+    version = "1.0",
+    author = "Matias Gonzalez <maigonzalez@fi.uba.ar>",
+    about = "Abstraktor"
 )]
 pub struct Abstraktor {
-	#[command(subcommand)]
-	pub command: AbstraktorSubcommand,
+    #[command(subcommand)]
+    pub command: AbstraktorSubcommand,
 }
 
 #[derive(Subcommand, Debug)]
 pub enum AbstraktorSubcommand {
-	GetTargets(GetTargetsArgs),
-	Llvm(LlvmArgs),
-	Instrument(InstrumentArgs),
-	Setup(SetupArgs),
-	Run(RunArgs),
+    GetTargets(GetTargetsArgs),
+    Llvm(LlvmArgs),
+    Instrument(InstrumentArgs),
+    Setup(SetupArgs),
+    Run(RunArgs),
+    Clean(CleanArgs),
 }

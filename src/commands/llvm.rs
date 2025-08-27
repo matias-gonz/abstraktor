@@ -22,7 +22,9 @@ pub struct LlvmArgs {
 pub fn run(args: LlvmArgs, logger: &Logger, sh: &Shell) -> Result<()> {
     logger.log(format!("Instrumenting {}", args.path));
 
-    let llvm_instrumentor_path = args.llvm_path.unwrap_or_else(|| LLVM_INSTRUMENTOR_PATH.to_string());
+    let llvm_instrumentor_path = args
+        .llvm_path
+        .unwrap_or_else(|| LLVM_INSTRUMENTOR_PATH.to_string());
     let instrumentor_path = path::absolute(Path::new(&llvm_instrumentor_path))
         .context("Failed to absolutize instrumentor path")?;
     let path = Path::new(&args.path);

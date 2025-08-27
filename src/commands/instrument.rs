@@ -13,7 +13,7 @@ const TEMP_TARGETS_PATH: &str = "temp_targets.json";
 pub struct InstrumentArgs {
     #[arg(short, long)]
     path: String,
-    
+
     #[arg(short, long)]
     llvm_path: Option<String>,
 }

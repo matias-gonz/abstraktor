@@ -1,9 +1,9 @@
-use std::path::Path;
+use super::sut_common;
+use crate::logger::Logger;
 use anyhow::Result;
 use clap::Parser;
+use std::path::Path;
 use xshell::Shell;
-use crate::logger::Logger;
-use super::sut_common;
 
 const DOCKER_BUILD_DIR: &str = "mallory/docker/control";
 
@@ -20,7 +20,10 @@ pub struct JepsenArgs {
 }
 
 pub fn run(args: JepsenArgs, logger: &Logger, sh: &Shell) -> Result<()> {
-    logger.log(format!("Copying directory {} to Docker Jepsen SUT directory", args.path));
+    logger.log(format!(
+        "Copying directory {} to Docker Jepsen SUT directory",
+        args.path
+    ));
 
     let source_path = Path::new(&args.path);
     if !source_path.exists() {
@@ -51,8 +54,9 @@ pub fn run(args: JepsenArgs, logger: &Logger, sh: &Shell) -> Result<()> {
         logger.log("Files copied to Jepsen SUT directory. Use --rebuild flag to rebuild the Docker image with the new files.");
     }
 
-    logger.success(format!("Directory copied to SUT/{} for Jepsen control image", sut_subdir_name));
+    logger.success(format!(
+        "Directory copied to SUT/{} for Jepsen control image",
+        sut_subdir_name
+    ));
     Ok(())
 }
-
-

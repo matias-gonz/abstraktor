@@ -1,9 +1,9 @@
-use std::path::Path;
+use super::sut_common;
 use crate::logger::Logger;
 use anyhow::Result;
 use clap::Parser;
+use std::path::Path;
 use xshell::Shell;
-use super::sut_common;
 
 const DOCKER_BUILD_DIR: &str = "mallory/docker/node";
 
@@ -11,28 +11,31 @@ const DOCKER_BUILD_DIR: &str = "mallory/docker/node";
 pub struct SutArgs {
     #[arg(short, long)]
     pub path: String,
-    
+
     #[arg(short, long)]
     pub destination: Option<String>,
-    
+
     #[arg(long, default_value = "false")]
     pub rebuild: bool,
 }
 
 pub fn run(args: SutArgs, logger: &Logger, sh: &Shell) -> Result<()> {
-    logger.log(format!("Copying directory {} to Docker SUT directory", args.path));
-    
+    logger.log(format!(
+        "Copying directory {} to Docker SUT directory",
+        args.path
+    ));
+
     let source_path = Path::new(&args.path);
     if !source_path.exists() {
         logger.error(format!("Source path not found at {}", args.path));
         return Err(anyhow::anyhow!("Source path not found at {}", args.path));
     }
-    
+
     if !source_path.is_dir() {
         logger.error(format!("Path {} is not a directory", args.path));
         return Err(anyhow::anyhow!("Path {} is not a directory", args.path));
     }
-    
+
     let sut_subdir_name = if let Some(dest) = args.destination {
         dest
     } else {
@@ -42,15 +45,15 @@ pub fn run(args: SutArgs, logger: &Logger, sh: &Shell) -> Result<()> {
             .unwrap_or("source")
             .to_string()
     };
-    
+
     sut_common::copy_to_build_sut_dir(DOCKER_BUILD_DIR, source_path, &sut_subdir_name, logger)?;
-    
+
     if args.rebuild {
         sut_common::rebuild_docker_image(DOCKER_BUILD_DIR, "jepsen_node", logger, sh)?;
     } else {
         logger.log("Files copied to SUT directory. Use --rebuild flag to rebuild the Docker image with the new files.");
     }
-    
+
     logger.success(format!("Directory copied to SUT/{}", sut_subdir_name));
     Ok(())
 }

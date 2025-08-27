@@ -1,6 +1,6 @@
-use clap::{Parser, Subcommand};
-use anyhow::Result;
 use crate::logger::Logger;
+use anyhow::Result;
+use clap::{Parser, Subcommand};
 use xshell::Shell;
 
 pub mod docker;
@@ -44,4 +44,4 @@ pub fn run(args: SetupArgs, logger: &Logger, sh: &Shell) -> Result<()> {
         SetupSubcommand::Jepsen(args) => jepsen::run(args, logger, sh)?,
     }
     Ok(())
-} 
+}
