@@ -1,0 +1,8 @@
+recvTimeoutNow Restart
+electionSend RequestVote
+recvRequestVote	HRqVRqLESQCurrentTerm
+recvRequestVoteResult HRqVRpNotGrantedEQCurrentTerm
+electionTally HRqVRpGrantedEQCurrentTerm
+convertToLeader	BecomeLeader
+sendAppendEntries AppendEntries
+replicationAppend AcceptAppEnRq
