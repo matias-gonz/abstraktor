@@ -27,6 +27,9 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stddef.h>
 
 typedef uint8_t  u8;
 typedef uint16_t u16;

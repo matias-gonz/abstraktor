@@ -53,6 +53,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/IR/TypeFinder.h"
 
 #include "../rustc-demangle/crates/capi/include/rustc_demangle.h"
 #include <nlohmann/json.hpp>
@@ -407,7 +408,11 @@ bool AFLCoverage::runOnModule(Module &M)
   u8 codeLang = 0;
 
   static const std::string Xlibs("/usr/");
-
+  std::ofstream file2("mipass.log", std::ios::app);
+  if (!file2) {
+    std::cerr << "Error abriendo el archivo\n";
+    return 1;
+  }
   for (auto &F : M)
   {
     // Label if this function is instrumented
@@ -417,8 +422,36 @@ bool AFLCoverage::runOnModule(Module &M)
     unsigned line = 0;
     unsigned const_line = 0;
 
+    file2 << "Funcion: " << F.getName().str() << "\n";
+    unsigned idx = 0;
+    for(auto &Arg : F.args()){
+      if(Arg.hasName()) {
+        std::string typeStr;
+        llvm::raw_string_ostream rso(typeStr);
+        Arg.getType()->print(rso);
+        rso.flush();
+        file2 << " Param " << idx++ << " (" << typeStr << " " << Arg.getName().str() << "): " << "\n";
+        Type* ty2 = Arg.getType();
+        if(ty2->isPointerTy()){
+          PointerType* PT = dyn_cast<PointerType>(ty2);
+          Type* elementType = PT->getElementType();
+          if(auto* st = dyn_cast<StructType>(elementType)){
+            file2 << st->getNumElements() << "\n";
+          }
+
+        }
+      }
+    }
     for (auto &BB : F)
     {
+      
+    
+      // Tipos de parámetros
+      //if (F.hasName()) file2 << "Struct en parámetro de " << F.getName().str() << "\n";
+  
+
+      //file << "Hola mundo!\n";
+      //file << "Otra línea de log\n";
 
       BasicBlock::iterator IP = BB.getFirstInsertionPt();
 
@@ -596,7 +629,7 @@ bool AFLCoverage::runOnModule(Module &M)
       inst_blocks++;
     }
   }
-
+  file2.close();
   return true;
 }
 
