@@ -6,11 +6,8 @@
              [cli :as cli]
              [generator :as gen]
              [tests :as tests]
-             [control :as c]
              [client :as jclient]]
             [jepsen.os.debian :as debian]
-            [jepsen.os.container :as container]
-            [jepsen.mediator.wrapper :as med]
             [jepsen.simple [db :as sdb]
              [client :as scli]]))
 
@@ -43,23 +40,18 @@
                               :state (checker-state-cycle)})})
 
 (defn test [opts]
-  (let [local (:dummy? (:ssh opts))
-        os (if local container/os debian/os)]
-    (merge tests/noop-test
-           opts
-           {:name "simple-fsm"
-            :pure-generators true
-            :local local
-            :os os
-            :net med/network
-            :remote (if local c/nsenter c/ssh)
-            :concurrency 1
-            :db (sdb/db)
-            :client (:client (workload opts))
-            :checker (:checker (workload opts))
-            :generator (->> (:generator (workload opts))
-                            (gen/stagger 1)
-                            (gen/time-limit (:time-limit opts)))})))
+  (merge tests/noop-test
+         opts
+         {:name "simple-fsm"
+          :pure-generators true
+          :os debian/os
+          :concurrency 1
+          :db (sdb/db)
+          :client (:client (workload opts))
+          :checker (:checker (workload opts))
+          :generator (->> (:generator (workload opts))
+                          (gen/stagger 1)
+                          (gen/time-limit (:time-limit opts)))}))
 
 (def cli-opts
   [["-r" "--rate HZ" "Approximate request rate, in hz" :default 5 :parse-fn parse-long]
