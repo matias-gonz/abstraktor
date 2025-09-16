@@ -14,7 +14,7 @@
             [jepsen.store :as store]
             [slingshot.slingshot :refer [try+ throw+]]))
 
-(def control-url "http://127.0.0.1:5000")
+(def control-url "http://127.0.0.1:5001")
 (defn control-endpoint [endpoint] (str control-url endpoint))
 
 (defn inform-mediator
