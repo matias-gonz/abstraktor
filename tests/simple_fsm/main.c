@@ -23,6 +23,44 @@ typedef struct {
   int idx;
 } fsm_t;
 
+static void on_state_A(void) {
+  // ABSTRAKTOR_CONST: A
+  printf("state: A\n");
+  fflush(stdout);
+}
+
+static void on_state_B(void) { 
+  // ABSTRAKTOR_CONST: B
+  printf("state: B\n"); fflush(stdout);
+}
+
+static void on_state_C(void) { 
+  // ABSTRAKTOR_CONST: C
+  printf("state: C\n"); fflush(stdout);
+}
+
+static void on_state_D(void) { 
+  // ABSTRAKTOR_CONST: D
+  printf("state: D\n"); fflush(stdout);
+}
+
+static void on_state_E(void) { 
+  // ABSTRAKTOR_CONST: E
+  printf("state: E\n"); fflush(stdout);
+}
+
+static void on_state_entered(const char *s) {
+  if (!s || !*s) return;
+  switch (s[0]) {
+    case 'A': on_state_A(); break;
+    case 'B': on_state_B(); break;
+    case 'C': on_state_C(); break;
+    case 'D': on_state_D(); break;
+    case 'E': on_state_E(); break;
+    default: break;
+  }
+}
+
 static void fsm_init(fsm_t *f) {
   f->states[0] = "A";
   f->states[1] = "B";
@@ -36,7 +74,9 @@ static const char *fsm_state(fsm_t *f) { return f->states[f->idx]; }
 
 static const char *fsm_next(fsm_t *f) {
   f->idx = (f->idx + 1) % 5;
-  return f->states[f->idx];
+  const char *s = f->states[f->idx];
+  on_state_entered(s);
+  return s;
 }
 
 static void send_response(int fd, int status, const char *body) {
