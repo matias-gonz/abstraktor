@@ -408,40 +408,39 @@ bool AFLCoverage::runOnModule(Module &M)
   u8 codeLang = 0;
 
   static const std::string Xlibs("/usr/");
-  std::ofstream file2("mipass.log", std::ios::app);
-  if (!file2) {
-    std::cerr << "Error abriendo el archivo\n";
-    return 1;
-  }
-  for (auto &F : M)
-  {
-    // Label if this function is instrumented
-    bool isTargetFunc = false;
+  // std::ofstream file2("mipass.log", std::ios::app);
+  // if (!file2) {
+  //     llvm::errs() << "No se pudo abrir mipass.log\n";
+  //     llvm::report_fatal_error("Abortando por error de archivo");  // aborta con core dump (más "ruidoso" que exit)
+  // }
+  for (auto &F : M) {
+  //   // Label if this function is instrumented
+     bool isTargetFunc = false;
 
-    std::string filename;
-    unsigned line = 0;
-    unsigned const_line = 0;
+     std::string filename;
+     unsigned line = 0;
+     unsigned const_line = 0;
 
-    file2 << "Funcion: " << F.getName().str() << "\n";
-    unsigned idx = 0;
-    for(auto &Arg : F.args()){
-      if(Arg.hasName()) {
-        std::string typeStr;
-        llvm::raw_string_ostream rso(typeStr);
-        Arg.getType()->print(rso);
-        rso.flush();
-        file2 << " Param " << idx++ << " (" << typeStr << " " << Arg.getName().str() << "): " << "\n";
-        Type* ty2 = Arg.getType();
-        if(ty2->isPointerTy()){
-          PointerType* PT = dyn_cast<PointerType>(ty2);
-          Type* elementType = PT->getElementType();
-          if(auto* st = dyn_cast<StructType>(elementType)){
-            file2 << st->getNumElements() << "\n";
-          }
+  //   file2 << "Funcion: " << F.getName().str() << "\n";
+  //   unsigned idx = 0;
+  //   for(auto &Arg : F.args()){
+  //     if(Arg.hasName()) {
+  //       std::string typeStr;
+  //       llvm::raw_string_ostream rso(typeStr);
+  //       Arg.getType()->print(rso);
+  //       rso.flush();
+  //       file2 << " Param " << idx++ << " (" << typeStr << " " << Arg.getName().str() << "): " << "\n";
+  //       Type* ty2 = Arg.getType();
+  //       if(ty2->isPointerTy()){
+  //         PointerType* PT = dyn_cast<PointerType>(ty2);
+  //         Type* elementType = PT->getElementType();
+  //         if(auto* st = dyn_cast<StructType>(elementType)){
+  //           file2 << st->getNumElements() << "\n";
+  //         }
 
-        }
-      }
-    }
+  //       }
+  //     }
+  //   }
     for (auto &BB : F)
     {
       
@@ -629,7 +628,7 @@ bool AFLCoverage::runOnModule(Module &M)
       inst_blocks++;
     }
   }
-  file2.close();
+  //file2.close();
   return true;
 }
 
