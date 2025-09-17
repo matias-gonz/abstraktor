@@ -18,7 +18,9 @@ fn main() -> Result<()> {
         AbstraktorSubcommand::Instrument(args) => commands::instrument::run(args, &logger, &sh)?,
         AbstraktorSubcommand::Setup(args) => commands::setup::run(args, &logger, &sh)?,
         AbstraktorSubcommand::Run(args) => commands::run::run(args, &logger, &sh)?,
-        AbstraktorSubcommand::ExportGraphs(args) => commands::export_graphs::run(args, &logger)?,
+        AbstraktorSubcommand::ExportGraphs(args) => {
+            commands::export_graphs::run(args, &logger, &sh)?
+        }
     };
     logger.outro();
     Ok(())

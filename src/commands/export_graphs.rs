@@ -2,10 +2,18 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
+use xshell::Shell;
 
 use crate::logger::Logger;
 use crate::model::{build_event_graph, dot_for_node_graph};
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
+pub enum OutputFormat {
+    Dot,
+    Png,
+    Pdf,
+}
 
 #[derive(Parser, Debug)]
 pub struct ExportGraphsArgs {
@@ -14,9 +22,12 @@ pub struct ExportGraphsArgs {
 
     #[arg(short = 'o', long = "out", default_value = "abstractions")]
     pub output_dir: String,
+
+    #[arg(short = 'f', long = "format", value_enum, default_value = "png")]
+    pub format: OutputFormat,
 }
 
-pub fn run(args: ExportGraphsArgs, logger: &Logger) -> Result<()> {
+pub fn run(args: ExportGraphsArgs, logger: &Logger, sh: &Shell) -> Result<()> {
     let log_content = fs::read_to_string(&args.log_path)
         .with_context(|| format!("reading log from {}", &args.log_path))?;
 
@@ -30,9 +41,36 @@ pub fn run(args: ExportGraphsArgs, logger: &Logger) -> Result<()> {
 
     for (node_id, node_graph) in &graph.nodes {
         let dot = dot_for_node_graph(node_graph);
-        let file_path = out_dir.join(format!("node_{}.dot", node_id));
-        fs::write(&file_path, dot).with_context(|| format!("writing {}", file_path.display()))?;
-        logger.success(format!("wrote {}", file_path.display()));
+        match args.format {
+            OutputFormat::Dot => {
+                let file_path = out_dir.join(format!("node_{}.dot", node_id));
+                fs::write(&file_path, dot)
+                    .with_context(|| format!("writing {}", file_path.display()))?;
+                logger.success(format!("wrote {}", file_path.display()));
+            }
+            OutputFormat::Png | OutputFormat::Pdf => {
+                let tmp_dot = out_dir.join(format!("node_{}.dot", node_id));
+                fs::write(&tmp_dot, &dot)
+                    .with_context(|| format!("writing {}", tmp_dot.display()))?;
+                let ext = match args.format {
+                    OutputFormat::Png => "png",
+                    OutputFormat::Pdf => "pdf",
+                    _ => unreachable!(),
+                };
+                let out_path = out_dir.join(format!("node_{}.{}", node_id, ext));
+                sh.cmd("dot")
+                    .arg(format!("-T{}", ext))
+                    .arg(&tmp_dot)
+                    .arg("-o")
+                    .arg(&out_path)
+                    .run()
+                    .with_context(|| {
+                        format!("graphviz 'dot' failed generating {}", out_path.display())
+                    })?;
+                let _ = fs::remove_file(&tmp_dot);
+                logger.success(format!("wrote {}", out_path.display()));
+            }
+        }
     }
 
     Ok(())
