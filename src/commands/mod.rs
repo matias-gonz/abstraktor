@@ -18,6 +18,9 @@ pub use run::RunArgs;
 pub mod clean;
 pub use clean::CleanArgs;
 
+pub mod export_graphs;
+pub use export_graphs::ExportGraphsArgs;
+
 #[derive(Parser, Debug)]
 #[command(
     name = "abstraktor",
@@ -38,4 +41,5 @@ pub enum AbstraktorSubcommand {
     Setup(SetupArgs),
     Run(RunArgs),
     Clean(CleanArgs),
+    ExportGraphs(ExportGraphsArgs),
 }
