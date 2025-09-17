@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -101,6 +101,53 @@ pub fn build_event_graph(log: &str) -> EventGraph {
     }
 
     EventGraph { nodes }
+}
+
+pub fn dot_for_node_graph(node: &NodeGraph) -> String {
+    let mut grouped: BTreeMap<(String, String), Vec<String>> = BTreeMap::new();
+    for e in &node.edges {
+        grouped
+            .entry((e.from.clone(), e.to.clone()))
+            .or_default()
+            .push(e.transition.clone());
+    }
+
+    for labels in grouped.values_mut() {
+        labels.sort_unstable();
+    }
+
+    let mut out = String::new();
+    out.push_str("digraph G{\n");
+    out.push_str("    rankdir=LR;\n");
+    out.push_str("    node [shape=circle, fontsize=10, width=0.5];\n");
+    out.push_str("    edge [fontsize=9];\n");
+
+    for s in &node.states {
+        out.push_str("    \"");
+        out.push_str(s);
+        out.push_str("\";\n");
+    }
+
+    for ((from, to), labels) in grouped {
+        let label_str = labels.join("<BR/>");
+        out.push_str("    \"");
+        out.push_str(&from);
+        out.push_str("\" -> \"");
+        out.push_str(&to);
+        out.push_str("\" [label=<");
+        out.push_str(&label_str);
+        out.push_str(">];\n");
+    }
+
+    out.push_str("}\n");
+    out
+}
+
+pub fn dot_for_node(graph: &EventGraph, node_id: u32) -> Option<String> {
+    graph
+        .nodes
+        .get(&node_id)
+        .map(|node| dot_for_node_graph(node))
 }
 
 #[cfg(test)]
@@ -302,5 +349,27 @@ X invalid_id active
                 .iter()
                 .any(|e| e.from == "idle" && e.transition == "finish" && e.to == "active")
         );
+    }
+
+    #[test]
+    fn renders_dot_for_node_graph() {
+        let log = "1 A s0\n1 B s1\n1 C s0\n";
+        let g = build_event_graph(log);
+        let dot = dot_for_node_graph(g.nodes.get(&1).unwrap());
+        assert!(dot.contains("digraph G{"));
+        assert!(dot.contains("rankdir=LR;"));
+        assert!(dot.contains("\"s0\";"));
+        assert!(dot.contains("\"s1\";"));
+        assert!(dot.contains("\"s0\" -> \"s1\" [label=<A>];"));
+        assert!(dot.contains("\"s1\" -> \"s0\" [label=<B>];"));
+    }
+
+    #[test]
+    fn renders_dot_labels_grouped_and_sorted() {
+        let log = "1 A s0\n1 B s1\n1 C s0\n1 D s1\n1 E s0\n";
+        let g = build_event_graph(log);
+        let dot = dot_for_node_graph(g.nodes.get(&1).unwrap());
+        assert!(dot.contains("\"s0\" -> \"s1\" [label=<A<BR/>C>];"));
+        assert!(dot.contains("\"s1\" -> \"s0\" [label=<B<BR/>D>];"));
     }
 }
