@@ -66,6 +66,12 @@ using namespace llvm;
 namespace
 {
 
+  struct ValueInfo {
+    Type* type;
+    std::vector<unsigned int> indexes;
+  };
+
+
   class AFLCoverage : public ModulePass
   {
 
@@ -104,8 +110,39 @@ namespace
     void printBBLog(std::string filename, unsigned line, u16 evtID);
     void printBlockLog(std::string filename, unsigned line, u16 evtID);
     void printConstLog(std::string filename, unsigned line, u16 evtID, std::string const_name);
+    std::vector<std::string> getArgumentTypeDebug(std::vector<std::string> instrumented_parameters, iterator_range<Function::arg_iterator> iterator_arguments);
+    std::unordered_map<llvm::Value*, ValueInfo> getArgument(const std::vector<std::string> &instrumented_parameters, iterator_range<Function::arg_iterator> iterator_arguments, std::vector<std::vector<unsigned int>> &default_indices);
+    std::vector<llvm::Value*> getValues(std::vector<std::string> &vec, iterator_range<Function::arg_iterator> args, std::vector<std::vector<unsigned int>> &vec_selected_fields, IRBuilder<> &IRB);
+    void changeStructPointersToStructTypes(std::unordered_map<Value*, ValueInfo> &valueTypeMap);
   };
 
+}
+
+
+std::vector<llvm::Value*> AFLCoverage::getValues(
+                                    std::vector<std::string> &vec, 
+                                    iterator_range<Function::arg_iterator> args, 
+                                    std::vector<std::vector<unsigned int>> &vec_selected_fields, IRBuilder<> &IRB
+                                  ){
+    std::vector<llvm::Value*> tmp;
+    std::unordered_map<llvm::Value*, ValueInfo> argument_map = getArgument(vec, args, vec_selected_fields);
+    std::vector<Value*> res;
+    changeStructPointersToStructTypes(argument_map);
+    for (auto &pair : argument_map) {
+      for(auto &selected_field: pair.second.indexes){
+        llvm::Value* offset = llvm::ConstantInt::get(IRB.getInt32Ty(), selected_field);
+        tmp.push_back(offset);
+      }
+      llvm::ArrayRef<Value*> ref(tmp);
+      llvm::Value* target_ptr = IRB.CreateGEP(
+            pair.second.type,
+            pair.first,
+            ref
+        );
+      llvm::Value* target_value = IRB.CreateLoad(target_ptr);
+      res.push_back(target_value);
+    }
+    return res;
 }
 
 /***
@@ -337,6 +374,58 @@ void AFLCoverage::printConstLog(std::string filename, unsigned line, u16 evtID, 
   OKF("Instrument %u at %s: at line %u for const %s", evtID, filename.c_str(), line, const_name.c_str());
 }
 
+void AFLCoverage::changeStructPointersToStructTypes(std::unordered_map<Value*, ValueInfo> &valueTypeMap) {
+    for (auto &pair : valueTypeMap) {
+        llvm::Type* type = pair.second.type;
+
+        if (type->isPointerTy()) {
+            llvm::Type* elemTy = type->getPointerElementType();
+
+            if (auto *structTy = dyn_cast<StructType>(elemTy)) {
+                pair.second.type = structTy; 
+            }
+        }
+    }
+}
+std::vector<std::string> AFLCoverage::getArgumentTypeDebug(std::vector<std::string> instrumented_parameters, iterator_range<Function::arg_iterator> iterator_arguments){
+  std::vector<std::string> typeStrs;
+  for(auto instrumented_parameter: instrumented_parameters){
+    for(auto &Arg : iterator_arguments){
+      if(instrumented_parameter == Arg.getName().str()){
+        std::string typeStr;
+        llvm::raw_string_ostream rso(typeStr);
+        Arg.getType()->print(rso);
+        rso.flush();
+        typeStrs.push_back(typeStr);
+      }
+    }
+  }
+  return typeStrs;
+}
+
+std::unordered_map<Value*, ValueInfo> AFLCoverage::getArgument(
+    const std::vector<std::string> &instrumented_parameters,
+    iterator_range<Function::arg_iterator> iterator_arguments,
+    std::vector<std::vector<unsigned int>> &default_indices) 
+{
+    std::unordered_map<Value*, ValueInfo> valueMap;
+    int idx = 0;
+    for (auto &Arg : iterator_arguments) {
+        for (const std::string &param : instrumented_parameters) {
+            if (param == Arg.getName().str()) {
+                struct ValueInfo valueInfoTmp;
+                valueInfoTmp.type = Arg.getType();
+                valueInfoTmp.indexes = default_indices[idx];
+                valueMap[&Arg] = valueInfoTmp;
+            }
+        }
+      idx++;
+    }
+
+    return valueMap;
+}
+
+
 char AFLCoverage::ID = 0;
 
 bool AFLCoverage::runOnModule(Module &M)
@@ -422,37 +511,18 @@ bool AFLCoverage::runOnModule(Module &M)
     unsigned line = 0;
     unsigned const_line = 0;
 
-    file2 << "Funcion: " << F.getName().str() << "\n";
-    unsigned idx = 0;
-    for(auto &Arg : F.args()){
-      if(Arg.hasName()) {
-        std::string typeStr;
-        llvm::raw_string_ostream rso(typeStr);
-        Arg.getType()->print(rso);
-        rso.flush();
-        file2 << " Param " << idx++ << " (" << typeStr << " " << Arg.getName().str() << "): " << "\n";
-        Type* ty2 = Arg.getType();
-        if(ty2->isPointerTy()){
-          PointerType* PT = dyn_cast<PointerType>(ty2);
-          Type* elementType = PT->getElementType();
-          if(auto* st = dyn_cast<StructType>(elementType)){
-            file2 << st->getNumElements() << "\n";
-          }
 
-        }
-      }
-    }
+
+    std::string s = "r";
+    std::vector<unsigned int> selected_fields = {1,1};
+    std::vector<std::string> vec = {s};
+
+    std::vector<std::vector<unsigned int>> vec_selected_fields;
+    vec_selected_fields.push_back(selected_fields);
+
     for (auto &BB : F)
     {
       
-    
-      // Tipos de parámetros
-      //if (F.hasName()) file2 << "Struct en parámetro de " << F.getName().str() << "\n";
-  
-
-      //file << "Hola mundo!\n";
-      //file << "Otra línea de log\n";
-
       BasicBlock::iterator IP = BB.getFirstInsertionPt();
 
       // in each basic block, check if it is a target
@@ -494,6 +564,8 @@ bool AFLCoverage::runOnModule(Module &M)
 
       /* instrument starting block point */
       IRBuilder<> IRB(&(*IP));
+      std::vector<llvm::Value*> res = getValues(vec, F.args(), vec_selected_fields, IRB);
+
       if (isTargetBlockEvent)
       {
         u16 *evtIDPtr = get_ID_ptr();
