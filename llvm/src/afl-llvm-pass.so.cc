@@ -497,21 +497,18 @@ bool AFLCoverage::runOnModule(Module &M)
   u8 codeLang = 0;
 
   static const std::string Xlibs("/usr/");
-  std::ofstream file2("mipass.log", std::ios::app);
-  if (!file2) {
-    std::cerr << "Error abriendo el archivo\n";
-    return 1;
-  }
-  for (auto &F : M)
-  {
-    // Label if this function is instrumented
-    bool isTargetFunc = false;
+  // std::ofstream file2("mipass.log", std::ios::app);
+  // if (!file2) {
+  //     llvm::errs() << "No se pudo abrir mipass.log\n";
+  //     llvm::report_fatal_error("Abortando por error de archivo");  // aborta con core dump (más "ruidoso" que exit)
+  // }
+  for (auto &F : M) {
+  //   // Label if this function is instrumented
+     bool isTargetFunc = false;
 
-    std::string filename;
-    unsigned line = 0;
-    unsigned const_line = 0;
-
-
+     std::string filename;
+     unsigned line = 0;
+     unsigned const_line = 0;
 
     std::string s = "r";
     std::vector<unsigned int> selected_fields = {1,1};
@@ -701,7 +698,7 @@ bool AFLCoverage::runOnModule(Module &M)
       inst_blocks++;
     }
   }
-  file2.close();
+  //file2.close();
   return true;
 }
 
