@@ -124,23 +124,25 @@ std::vector<llvm::Value*> AFLCoverage::getValues(
                                     iterator_range<Function::arg_iterator> args, 
                                     std::vector<std::vector<unsigned int>> &vec_selected_fields, IRBuilder<> &IRB
                                   ){
-    std::vector<llvm::Value*> tmp;
     std::unordered_map<llvm::Value*, ValueInfo> argument_map = getArgument(vec, args, vec_selected_fields);
     std::vector<Value*> res;
     changeStructPointersToStructTypes(argument_map);
     for (auto &pair : argument_map) {
+      std::vector<llvm::Value*> tmp;
+      llvm::Value* target_value = pair.first;
+      llvm::Type* target_type = pair.second.type;
       for(auto &selected_field: pair.second.indexes){
-        llvm::Value* offset = llvm::ConstantInt::get(IRB.getInt32Ty(), selected_field);
-        tmp.push_back(offset);
+        llvm::Value* zero  = llvm::ConstantInt::get(IRB.getInt32Ty(), 0);
+        llvm::Value* offset = llvm::ConstantInt::get(IRB.getInt32Ty(), selected_field);  
+        llvm::Value* target_ptr = IRB.CreateGEP(
+              target_type,
+              target_value,
+              {zero, offset}
+          );
+        target_value = IRB.CreateLoad(target_ptr);
+        res.push_back(target_value);
+        target_type = target_value->getType();
       }
-      llvm::ArrayRef<Value*> ref(tmp);
-      llvm::Value* target_ptr = IRB.CreateGEP(
-            pair.second.type,
-            pair.first,
-            ref
-        );
-      llvm::Value* target_value = IRB.CreateLoad(target_ptr);
-      res.push_back(target_value);
     }
     return res;
 }
@@ -412,6 +414,7 @@ std::unordered_map<Value*, ValueInfo> AFLCoverage::getArgument(
     int idx = 0;
     for (auto &Arg : iterator_arguments) {
         for (const std::string &param : instrumented_parameters) {
+          
             if (param == Arg.getName().str()) {
                 struct ValueInfo valueInfoTmp;
                 valueInfoTmp.type = Arg.getType();
@@ -497,11 +500,11 @@ bool AFLCoverage::runOnModule(Module &M)
   u8 codeLang = 0;
 
   static const std::string Xlibs("/usr/");
-  // std::ofstream file2("mipass.log", std::ios::app);
-  // if (!file2) {
-  //     llvm::errs() << "No se pudo abrir mipass.log\n";
-  //     llvm::report_fatal_error("Abortando por error de archivo");  // aborta con core dump (más "ruidoso" que exit)
-  // }
+  std::ofstream file2("mipass.log", std::ios::app);
+  if (!file2) {
+      llvm::errs() << "No se pudo abrir mipass.log\n";
+      llvm::report_fatal_error("Abortando por error de archivo");  // aborta con core dump (más "ruidoso" que exit)
+  }
   for (auto &F : M) {
   //   // Label if this function is instrumented
      bool isTargetFunc = false;
@@ -511,7 +514,7 @@ bool AFLCoverage::runOnModule(Module &M)
      unsigned const_line = 0;
 
     std::string s = "r";
-    std::vector<unsigned int> selected_fields = {1,1};
+    std::vector<unsigned int> selected_fields = {0,1};
     std::vector<std::string> vec = {s};
 
     std::vector<std::vector<unsigned int>> vec_selected_fields;
@@ -563,6 +566,17 @@ bool AFLCoverage::runOnModule(Module &M)
       IRBuilder<> IRB(&(*IP));
       std::vector<llvm::Value*> res = getValues(vec, F.args(), vec_selected_fields, IRB);
 
+        file2 << "Funcion: " << F.getName().str() << " " << res.size() << "\n";
+
+        int idx = 0;
+        for(int i = 0; i < res.size(); i++){
+          std::string typeStr;
+          llvm::raw_string_ostream rso(typeStr);
+          res[i]->getType()->print(rso);
+          rso.flush();
+          file2 << " Param " << idx++ << " (" << typeStr << " " << "): " << "\n";
+        }
+
       if (isTargetBlockEvent)
       {
         u16 *evtIDPtr = get_ID_ptr();
@@ -583,6 +597,7 @@ bool AFLCoverage::runOnModule(Module &M)
 
       if (isTargetConstEvent)
       {
+
         std::pair<std::string, int> const_key = std::make_pair(filename, const_line);
         if (instrumented_const_targets.find(const_key) == instrumented_const_targets.end())
         {
@@ -650,6 +665,8 @@ bool AFLCoverage::runOnModule(Module &M)
     // if (isTargetFunc || F.getInstructionCount() > instr_func_size)
     if (isTargetFunc)
     {
+
+      
       /* get inserting point: first inserting point of the entry block */
       BasicBlock *BB = &F.getEntryBlock();
       Instruction *InsertPoint = &(*(BB->getFirstInsertionPt()));
@@ -698,7 +715,7 @@ bool AFLCoverage::runOnModule(Module &M)
       inst_blocks++;
     }
   }
-  //file2.close();
+  file2.close();
   return true;
 }
 
