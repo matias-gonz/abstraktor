@@ -114,10 +114,30 @@ namespace
     std::unordered_map<llvm::Value*, ValueInfo> getArgument(const std::vector<std::string> &instrumented_parameters, iterator_range<Function::arg_iterator> iterator_arguments, std::vector<std::vector<unsigned int>> &default_indices);
     std::vector<llvm::Value*> getValues(std::vector<std::string> &vec, iterator_range<Function::arg_iterator> args, std::vector<std::vector<unsigned int>> &vec_selected_fields, IRBuilder<> &IRB);
     void changeStructPointersToStructTypes(std::unordered_map<Value*, ValueInfo> &valueTypeMap);
+    bool isPointerToPointer(llvm::Value *v);
+    bool isPointerToStruct(llvm::Value* v);
   };
 
 }
 
+std::ofstream file2("mipass.log", std::ios::app);
+
+bool AFLCoverage::isPointerToPointer(llvm::Value* v) {
+    if (auto *ptrTy = llvm::dyn_cast<llvm::PointerType>(v->getType())) {
+        return ptrTy->getElementType()->isPointerTy();
+    }
+    return false;
+}
+
+bool AFLCoverage::isPointerToStruct(llvm::Value* v) {
+    auto ptrTy = v->getType();
+    bool isStruct = true;
+    if (ptrTy->isPointerTy()) {
+        auto *elem = ptrTy->getPointerElementType();
+        isStruct = elem->getPointerElementType()->isStructTy();
+    }
+    return isStruct;
+}
 
 std::vector<llvm::Value*> AFLCoverage::getValues(
                                     std::vector<std::string> &vec, 
@@ -133,7 +153,7 @@ std::vector<llvm::Value*> AFLCoverage::getValues(
       llvm::Type* target_type = pair.second.type;
       for(auto &selected_field: pair.second.indexes){
         llvm::Value* zero  = llvm::ConstantInt::get(IRB.getInt32Ty(), 0);
-        llvm::Value* offset = llvm::ConstantInt::get(IRB.getInt32Ty(), selected_field);  
+        llvm::Value* offset = llvm::ConstantInt::get(IRB.getInt32Ty(), selected_field);
         llvm::Value* target_ptr = IRB.CreateGEP(
               target_type,
               target_value,
@@ -141,7 +161,8 @@ std::vector<llvm::Value*> AFLCoverage::getValues(
           );
         target_value = IRB.CreateLoad(target_ptr);
         res.push_back(target_value);
-        target_type = target_value->getType();
+        if (!isPointerToPointer(target_ptr) || !isPointerToStruct(target_ptr)) break;
+        target_type = target_value->getType()->getPointerElementType();
       }
     }
     return res;
@@ -414,15 +435,14 @@ std::unordered_map<Value*, ValueInfo> AFLCoverage::getArgument(
     int idx = 0;
     for (auto &Arg : iterator_arguments) {
         for (const std::string &param : instrumented_parameters) {
-          
             if (param == Arg.getName().str()) {
                 struct ValueInfo valueInfoTmp;
                 valueInfoTmp.type = Arg.getType();
                 valueInfoTmp.indexes = default_indices[idx];
                 valueMap[&Arg] = valueInfoTmp;
+                idx++;
             }
         }
-      idx++;
     }
 
     return valueMap;
@@ -500,11 +520,7 @@ bool AFLCoverage::runOnModule(Module &M)
   u8 codeLang = 0;
 
   static const std::string Xlibs("/usr/");
-  std::ofstream file2("mipass.log", std::ios::app);
-  if (!file2) {
-      llvm::errs() << "No se pudo abrir mipass.log\n";
-      llvm::report_fatal_error("Abortando por error de archivo");  // aborta con core dump (más "ruidoso" que exit)
-  }
+
   for (auto &F : M) {
   //   // Label if this function is instrumented
      bool isTargetFunc = false;
@@ -514,7 +530,7 @@ bool AFLCoverage::runOnModule(Module &M)
      unsigned const_line = 0;
 
     std::string s = "r";
-    std::vector<unsigned int> selected_fields = {0,1};
+    std::vector<unsigned int> selected_fields = {1,2};
     std::vector<std::string> vec = {s};
 
     std::vector<std::vector<unsigned int>> vec_selected_fields;
