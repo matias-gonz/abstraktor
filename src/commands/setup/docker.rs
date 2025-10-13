@@ -9,7 +9,8 @@ pub struct DockerArgs {}
 pub fn run(_args: DockerArgs, logger: &Logger, sh: &Shell) -> Result<()> {
 	logger.log("Building Docker images...");
 	let _dir = sh.push_dir("mallory/docker");
-	sh.cmd("bash")
+	sh.cmd("sudo")
+		.arg("bash")
 		.arg("bin/up")
 		.arg("--build-only")
 		.run()

@@ -174,6 +174,7 @@ std::vector<llvm::Value*> AFLCoverage::getValues(
 void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets)
 {
   char *target_file = getenv("TARGETS_FILE");
+  file2 << "Target File: " << target_file  << "\n";
   if (!target_file) {
     outs() << "[!!] TARGETS_FILE environment variable not set\n";
     return;
@@ -201,6 +202,7 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &fun
 
     std::string codefile = target["path"];
 
+    /**/
     auto targets_block = target["targets_block"];
     for (const auto& block : targets_block) {
       if (block.is_number()) {
@@ -213,7 +215,8 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &fun
       for (auto it = targets_const.begin(); it != targets_const.end(); ++it) {
         unsigned line_num = std::stoul(it.key());
         std::string const_name = it.value().get<std::string>();
-        
+        //file2 << "Codefile: " << codefile << ", Line num:" << line_num << "\n";
+
         const_targets[codefile][line_num] = const_name;
       }
     }
@@ -225,6 +228,8 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &fun
  ***/
 u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets)
 {
+
+
   if (bb_targets.count(codefile))
   {
     std::set<int> locs = bb_targets[codefile];
@@ -263,8 +268,16 @@ u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE 
       }
     }
   }
+
+  //file2 << "Codefile at target loc: " << codefile << "\n";
+  /*
+  for (const auto& [key, inner_map] : const_targets) {
+    file2 << "Key: " << key << "\n";
+  }
+  */
   if (const_targets.count(codefile))
   {
+
     auto& const_map = const_targets[codefile];
     if (const_map.count(line))
     {
@@ -453,7 +466,6 @@ char AFLCoverage::ID = 0;
 
 bool AFLCoverage::runOnModule(Module &M)
 {
-
   LLVMContext &C = M.getContext();
 
   VoidTy = Type::getVoidTy(C);
@@ -554,7 +566,6 @@ bool AFLCoverage::runOnModule(Module &M)
         {
           continue;
         }
-
         u16 isTarget = is_target_loc(filename, line, bb_targets, func_targets, block_targets, const_targets);
   
         if (isTarget == 2)
@@ -580,9 +591,9 @@ bool AFLCoverage::runOnModule(Module &M)
 
       /* instrument starting block point */
       IRBuilder<> IRB(&(*IP));
-      std::vector<llvm::Value*> res = getValues(vec, F.args(), vec_selected_fields, IRB);
+      //std::vector<llvm::Value*> res =  //getValues(vec, F.args(), vec_selected_fields, IRB);
 
-        file2 << "Funcion: " << F.getName().str() << " " << res.size() << "\n";
+        /*file2 << "Funcion: " << F.getName().str() << " " << res.size() << "\n";
 
         int idx = 0;
         for(int i = 0; i < res.size(); i++){
@@ -592,7 +603,7 @@ bool AFLCoverage::runOnModule(Module &M)
           rso.flush();
           file2 << " Param " << idx++ << " (" << typeStr << " " << "): " << "\n";
         }
-
+      */
       if (isTargetBlockEvent)
       {
         u16 *evtIDPtr = get_ID_ptr();
@@ -611,6 +622,7 @@ bool AFLCoverage::runOnModule(Module &M)
         *evtIDPtr = ++evtID;
       }
 
+      
       if (isTargetConstEvent)
       {
 
@@ -619,7 +631,7 @@ bool AFLCoverage::runOnModule(Module &M)
         {
           instrumented_const_targets.insert(const_key);
           
-          std::string constName = const_targets[filename][const_line];
+          std::string constName = "JUAN";//const_targets[filename][const_line];
           u16 *evtIDPtr = get_ID_ptr();
           u16 evtID = *evtIDPtr;
           Value *evtValue = ConstantInt::get(Int16Ty, evtID);
@@ -627,11 +639,36 @@ bool AFLCoverage::runOnModule(Module &M)
           // Create a global string constant for the const name
           Value *constNameValue = IRB.CreateGlobalString(StringRef(constName), "const_name");
 
-          auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy}, false);
+          Type *VoidPtrTy = IRB.getInt8PtrTy();          
+          std::vector<llvm::Value*> res = { constNameValue };
+          Value* arr = IRB.CreateAlloca(VoidPtrTy, ConstantInt::get(Int32Ty, res.size()));
+
+          for (size_t i = 0; i < res.size(); ++i) {
+              Value* val = res[i];
+              Value* ptr;
+
+              if (val->getType()->isPointerTy()) {
+                  // ya es puntero (por ejemplo struct* o string)
+                  ptr = IRB.CreateBitCast(val, VoidPtrTy);
+              } else {
+                  // valor escalar: reservar memoria y guardar ahí
+                  Value* alloc = IRB.CreateAlloca(val->getType());
+                  IRB.CreateStore(val, alloc);
+                  ptr = IRB.CreateBitCast(alloc, VoidPtrTy);
+              }
+
+              Value* gep = IRB.CreateGEP(arr, ConstantInt::get(Int32Ty, i));
+              IRB.CreateStore(ptr, gep);
+          }
+
+          Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
+          Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
+
+          auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, VoidPtrPtrTy}, false);
           auto helper_const = M.getOrInsertFunction("trigger_const_event", helperTy_const);
 
-          IRB.CreateCall(helper_const, {evtValue, constNameValue});
-
+          IRB.CreateCall(helper_const, {evtValue, arrPtr});
+          
           /* store const ID info */
           printConstLog(filename, const_line, evtID, constName);
 
@@ -639,6 +676,37 @@ bool AFLCoverage::runOnModule(Module &M)
           *evtIDPtr = ++evtID;
         }
       }
+      
+      // if (isTargetConstEvent)
+      // {
+
+
+      //   std::pair<std::string, int> const_key = std::make_pair(filename, const_line);
+      //   if (instrumented_const_targets.find(const_key) == instrumented_const_targets.end())
+      //   {
+      //     instrumented_const_targets.insert(const_key);
+          
+      //     std::string constName = const_targets[filename][const_line];
+      //     u16 *evtIDPtr = get_ID_ptr();
+      //     u16 evtID = *evtIDPtr;
+      //     Value *evtValue = ConstantInt::get(Int16Ty, evtID);
+
+      //     // Create a global string constant for the const name
+      //     Value *constNameValue = IRB.CreateGlobalString(StringRef(constName), "const_name");
+
+      //     auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy}, false);
+      //     auto helper_const = M.getOrInsertFunction("trigger_const_event", helperTy_const);
+
+      //     IRB.CreateCall(helper_const, {evtValue, constNameValue});
+
+      //     /* store const ID info */
+      //     printConstLog(filename, const_line, evtID, constName);
+
+      //     /* increase counter */
+      //     *evtIDPtr = ++evtID;
+      //   }
+      // }
+      
 
       if (getenv("USE_TRADITIONAL_BRANCH")){
         // Instrument all basicblocks to compute AFL feedback

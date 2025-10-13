@@ -49,7 +49,7 @@ EXPOSE 22
 #########################
 
 WORKDIR /opt
-RUN apt-get install -qy libuv1-dev liblz4-dev autoconf libtool make pkg-config git automake
+RUN apt-get install -qy libuv1-dev liblz4-dev autoconf libtool make pkg-config git automake valgrind tmux
 RUN echo "deb http://apt.llvm.org/buster/ llvm-toolchain-buster-12 main" >> /etc/apt/sources.list
 RUN echo "deb-src http://apt.llvm.org/buster/ llvm-toolchain-buster-12 main" >> /etc/apt/sources.list
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
@@ -57,9 +57,6 @@ RUN apt-get update -qy
 RUN apt install -qy clang-11 lld-11
 RUN ln -s /usr/bin/clang-11 /usr/bin/clang && ln -s /usr/bin/clang++-11 /usr/bin/clang++ && \
     ln -s /usr/bin/llvm-config-11 /usr/bin/llvm-config
-
-RUN apt-get install -y valgrind tmux gdb libuv1-dev liblz4-dev autoconf git\
-    libtool make pkg-config
 
 # install BRPC
 ENV CXX=clang++
@@ -115,7 +112,7 @@ RUN update-alternatives --set iptables /usr/sbin/iptables-legacy
 RUN update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
 
 # end coverage
-RUN apt-get install -y libsqlite3-dev libuv1-dev
+RUN apt-get install -y libsqlite3-dev 
 
 # This is ugly: we need to copy raw_packet.rs because Docker doesn't follow symlinks outside build context
 WORKDIR /opt
@@ -140,20 +137,9 @@ RUN mkdir -p /opt/SUT
 # Copy SUT directories if they exist in build context
 # This step will copy any SUT directories that were added via 'setup sut' commands
 COPY SUT /opt/SUT
+RUN abstraktor instrument --path /opt/SUT/dqlite/dqlite-raft/src --llvm-path /opt/llvm/afl-clang-fast
+RUN abstraktor instrument --path /opt/SUT/dqlite/dqlite/src --llvm-path /opt/llvm/afl-clang-fast
 
-# Generate targets and instrument SUT directories using LLVM compiler
-RUN if [ -d "/opt/SUT" ] && [ "$(ls -A /opt/SUT 2>/dev/null)" ]; then \
-    for sut_dir in /opt/SUT/*/; do \
-        if [ -d "$sut_dir" ]; then \
-            sut_name=$(basename "$sut_dir"); \
-            echo "Instrumenting SUT with LLVM: $sut_name"; \
-            cd "$sut_dir" && \
-            abstraktor instrument --path . --llvm-path /opt/llvm/afl-clang-fast || echo "Failed to instrument $sut_name"; \
-        fi; \
-    done; \
-else \
-    echo "No SUT directories found - skipping instrumentation"; \
-fi
 # end copied sources
 
 ######################
@@ -197,7 +183,7 @@ fi
 #RUN git clone -b newer-jepsen-testing https://github.com/mengrj/raft-c.git dqlite-raft
 #RUN git clone -b newer-jepsen-testing https://github.com/mengrj/dqlite.git dqlite
 
-#ENV DQLITE_VER=v1.11.7
+ENV DQLITE_VER=v1.11.7
 
 #WORKDIR /opt/fs
 #RUN cd dqlite-raft \
@@ -228,27 +214,27 @@ fi
 #RUN mv /opt/instrumentor/BB2ID.txt /opt/instrumentor/dqlite_CodeLocToBBID.txt || true
 
 # This fixes some certificate-related issues (by installing a new version of GnuTLS?)
-#RUN apt-get update -y
-#RUN apt-get upgrade -y
+RUN apt-get update -y
+RUN apt-get upgrade -y
 # We install a recent version of Go
-#WORKDIR /root
-#RUN curl -L -O https://go.dev/dl/go1.18.4.linux-amd64.tar.gz \
-#    && tar xvf go1.18.4.linux-amd64.tar.gz \
-#    && chown -R root:root ./go \
-#    && mv go /usr/local
-#RUN echo "export PATH=$PATH:/usr/local/go/bin" >> /root/.bashrc
-#ENV PATH="$PATH:/usr/local/go/bin" 
+WORKDIR /root
+RUN curl -L -O https://go.dev/dl/go1.18.4.linux-amd64.tar.gz \
+    && tar xvf go1.18.4.linux-amd64.tar.gz \
+    && chown -R root:root ./go \
+    && mv go /usr/local
+RUN echo "export PATH=$PATH:/usr/local/go/bin" >> /root/.bashrc
+ENV PATH="$PATH:/usr/local/go/bin" 
 
-#COPY jepsen/tests/mallory/dqlite/resources/app.go /opt/fs/dqlite/app.go
-#WORKDIR /opt/fs/dqlite
+COPY jepsen/tests/mallory/dqlite/resources/app.go /opt/fs/dqlite/app.go
+WORKDIR /opt/fs/dqlite
 
-#ENV CXX=clang++
-#ENV CC=clang
-#RUN go mod init app
-#RUN go get -tags libsqlite3 github.com/canonical/go-dqlite/app@${DQLITE_VER}
-#ENV CGO_LDFLAGS="-L/usr/local/lib -ldqlite"
-#RUN export CGO_LDFLAGS_ALLOW="-Wl,-z,now" \
-#    && go build -o app -asan app.go
+ENV CXX=clang++
+ENV CC=clang
+RUN go mod init app
+RUN go get -tags libsqlite3 github.com/canonical/go-dqlite/app@${DQLITE_VER}
+ENV CGO_LDFLAGS="-L/usr/local/lib -ldqlite"
+RUN export CGO_LDFLAGS_ALLOW="-Wl,-z,now" \
+    && go build -o app -asan app.go
 
 # RedisRaft
 # WORKDIR /opt
@@ -338,5 +324,7 @@ fi
 # RUN cp /opt/fs/tidb/tikv-*.txt /opt/instrumentor/
 
 # end systems
+
+RUN mkdir -p /tmp/mediator-logs
 
 CMD ["/usr/local/bin/boot-debian-base"]

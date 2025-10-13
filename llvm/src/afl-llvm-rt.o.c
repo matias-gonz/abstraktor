@@ -86,7 +86,7 @@ void trigger_block_event(u16 evtID)
   evtVec_ptr[loc].blockEventTimestamp = time;
 }
 
-void trigger_const_event(u16 evtID, char *const_name)
+void trigger_const_event(u16 evtID, u64* const_name)
 {
   /* find location to record this event */
   u16 loc = __atomic_add_fetch(&evtVec_ptr[0].evtCounter, 1, __ATOMIC_RELAXED);
@@ -100,7 +100,7 @@ void trigger_const_event(u16 evtID, char *const_name)
   evtVec_ptr[loc].constEventType = CONST_EVENT_TYPE;
   evtVec_ptr[loc].constEventTimestamp = time;
   evtVec_ptr[loc].constEventID = evtID;
-  strcpy(evtVec_ptr[loc].constEventName, const_name);
+  strcpy(evtVec_ptr[loc].constEventName, const_name[0]);
 }
 
 /***
