@@ -159,10 +159,16 @@ std::vector<llvm::Value*> AFLCoverage::getValues(
               target_value,
               {zero, offset}
           );
+        
+        
+        // target_value = *target_ptr;
         target_value = IRB.CreateLoad(target_ptr);
+
         res.push_back(target_value);
+       
         if (!isPointerToPointer(target_ptr) || !isPointerToStruct(target_ptr)) break;
         target_type = target_value->getType()->getPointerElementType();
+        
       }
     }
     return res;
@@ -174,7 +180,7 @@ std::vector<llvm::Value*> AFLCoverage::getValues(
 void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets)
 {
   char *target_file = getenv("TARGETS_FILE");
-  file2 << "Target File: " << target_file  << "\n";
+  //file2 << "Target File: " << target_file  << "\n";
   if (!target_file) {
     outs() << "[!!] TARGETS_FILE environment variable not set\n";
     return;
@@ -542,7 +548,7 @@ bool AFLCoverage::runOnModule(Module &M)
      unsigned const_line = 0;
 
     std::string s = "r";
-    std::vector<unsigned int> selected_fields = {1,2};
+    std::vector<unsigned int> selected_fields = {19};
     std::vector<std::string> vec = {s};
 
     std::vector<std::vector<unsigned int>> vec_selected_fields;
@@ -631,7 +637,7 @@ bool AFLCoverage::runOnModule(Module &M)
         {
           instrumented_const_targets.insert(const_key);
           
-          std::string constName = "JUAN";//const_targets[filename][const_line];
+          std::string constName = const_targets[filename][const_line];
           u16 *evtIDPtr = get_ID_ptr();
           u16 evtID = *evtIDPtr;
           Value *evtValue = ConstantInt::get(Int16Ty, evtID);
@@ -639,41 +645,55 @@ bool AFLCoverage::runOnModule(Module &M)
           // Create a global string constant for the const name
           Value *constNameValue = IRB.CreateGlobalString(StringRef(constName), "const_name");
 
-          Type *VoidPtrTy = IRB.getInt8PtrTy();          
-          std::vector<llvm::Value*> res = { constNameValue };
+          Type *VoidPtrTy = IRB.getInt8PtrTy();
+          std::vector<llvm::Value*> res =  getValues(vec, F.args(), vec_selected_fields, IRB);      
+          //std::vector<llvm::Value*> res = { constNameValue };
+
+          // void** arr = malloc(sizeof(void*) * res.size);
           Value* arr = IRB.CreateAlloca(VoidPtrTy, ConstantInt::get(Int32Ty, res.size()));
 
           for (size_t i = 0; i < res.size(); ++i) {
               Value* val = res[i];
-              Value* ptr;
+              // valor escalar: reservar memoria y guardar ahí
 
-              if (val->getType()->isPointerTy()) {
-                  // ya es puntero (por ejemplo struct* o string)
-                  ptr = IRB.CreateBitCast(val, VoidPtrTy);
-              } else {
-                  // valor escalar: reservar memoria y guardar ahí
-                  Value* alloc = IRB.CreateAlloca(val->getType());
-                  IRB.CreateStore(val, alloc);
-                  ptr = IRB.CreateBitCast(alloc, VoidPtrTy);
-              }
+              //val_type alloc;
+              Value* alloc = IRB.CreateAlloca(val->getType());
+              
+              // alloc = val;
+              IRB.CreateStore(val, alloc);
 
-              Value* gep = IRB.CreateGEP(arr, ConstantInt::get(Int32Ty, i));
-              IRB.CreateStore(ptr, gep);
+              //void* casted_ptr_void = (void*)alloc;
+              Value* casted_ptr_void = IRB.CreateBitCast(alloc, VoidPtrTy);
+              
+              //Get a pointer to the ith position of the array
+              Value* gep = IRB.CreateGEP(arr, {ConstantInt::get(Int32Ty, i)});
+
+              //arr[i] = casted_ptr_void
+              IRB.CreateStore(casted_ptr_void, gep);
           }
 
-          Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
-          Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
+          if(res.size() == 0){
 
-          auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, VoidPtrPtrTy}, false);
-          auto helper_const = M.getOrInsertFunction("trigger_const_event", helperTy_const);
+          } else {
+            // Cast to double pointer
+            Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
 
-          IRB.CreateCall(helper_const, {evtValue, arrPtr});
+            //Get double pointer type
+            Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
+
+            auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, VoidPtrPtrTy}, false);
+            auto helper_const = M.getOrInsertFunction("trigger_const_event", helperTy_const);
+
+            IRB.CreateCall(helper_const, {evtValue, arrPtr});
+            
+            /* store const ID info */
+            printConstLog(filename, const_line, evtID, constName);
+
+            /* increase counter */
+            *evtIDPtr = ++evtID;
+          }
+
           
-          /* store const ID info */
-          printConstLog(filename, const_line, evtID, constName);
-
-          /* increase counter */
-          *evtIDPtr = ++evtID;
         }
       }
       
