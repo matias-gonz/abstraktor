@@ -24,7 +24,8 @@ impl Instrumentor {
             target_const_regex: Regex::new(r"ABSTRAKTOR_CONST: (\w+)").unwrap(),
             target_block_regex: Regex::new(r"ABSTRAKTOR_BLOCK_EVENT").unwrap(),
             block_start_regex: Regex::new(r"^(([a-zA-z]{1}.*)|\})").unwrap(),
-            target_function_regex: Regex::new(r"^ABSTRAKTOR_FUNC:\s*([a-zA-Z]+(?:->\d+)*(\s*,\s*[a-zA-Z]+(?:->\d+)*)*)\s*$").unwrap(),
+            // ABSTRAKTOR_FUNC: r
+            target_function_regex: Regex::new(r"ABSTRAKTOR_FUNC:\s*(\w+(?:->\d+)*(?:\s*,\s*\w+(?:->\d+)*)*)\s*").unwrap(),
         }
     }
 
@@ -55,20 +56,31 @@ impl Instrumentor {
         while i < lines.len() {
             let line = lines[i];
             let line_num = i + 1;
-            if self.target_function_regex.is_match(line){
-                let captures = self.target_const_regex.captures(line).unwrap();
-                let list = &captures[1]; 
-                let mut map: HashMap<String, Vec<u32>> = HashMap::new();
-                let regex_varirables = Regex::new(r"([a-zA-Z]+)((?:->\d+)*)").unwrap();
 
-                for variables_captures in regex_varirables.captures_iter(list) {
-                    let var_name = variables_captures[1].to_string();      
-                    let numbers_str = &variables_captures[2];
-                    let numbers: Vec<u32> = numbers_str
-                        .split("->")
-                        .filter(|s| !s.is_empty())
-                        .map(|s| s.parse::<u32>().unwrap())
-                        .collect();
+            if self.target_function_regex.is_match(line){
+                let captures = self.target_function_regex.captures(line).unwrap();
+
+                let list = &captures[1]; 
+
+                let mut map: HashMap<String, Vec<u32>> = HashMap::new();
+                let regex_variables = Regex::new(r"(\w+)((?:->\d+)*)").unwrap();
+
+                for variables_captures in regex_variables.captures_iter(list) {
+                    let var_name = variables_captures[1].to_string(); 
+                    
+                    let mut numbers: Vec<u32> = Vec::new();
+                    if let Some(numbers_match) = variables_captures.get(2){
+                        
+                        let numbers_str = numbers_match.as_str();
+                        if !numbers_str.is_empty() {
+                            numbers = numbers_str
+                                .split("->")
+                                .filter(|s| !s.is_empty())
+                                .map(|s| s.parse::<u32>().unwrap())
+                                .collect();
+                        }
+                    } else {}
+                        
                     map.insert(var_name, numbers);
                 }
                 if let Some(block_line) = self.find_next_block_start(&lines, line_num) {
@@ -372,7 +384,7 @@ mod tests {
         ]);
 
         let expected: HashMap<usize, HashMap<String, Vec<u32>>> = HashMap::from([
-            (5_usize, inside_map)
+            (3_usize, inside_map)
         ]);
 
         assert_eq!(targets[0].targets_function, expected);
@@ -409,7 +421,85 @@ mod tests {
         ]);
 
         let expected: HashMap<usize, HashMap<String, Vec<u32>>> = HashMap::from([
-            (5_usize, inside_map)
+            (3_usize, inside_map)
+        ]);
+
+        assert_eq!(targets[0].targets_function, expected);
+
+    }
+
+    #[test]
+    fn test_parse_targets_one_file_func_multiple_parameter_optional_fields() {
+        let instrumentor = Instrumentor::new();
+        let files = vec![
+            (
+                r"
+                // ABSTRAKTOR_FUNC: r->19->4->5
+                let x = 1;
+                // ABSTRAKTOR_CONST: y
+                let y = 2;
+                "
+                .to_string(),
+                "file1.c".to_string(),
+            ),
+        ];
+
+        let targets = instrumentor.get_targets(files);
+        assert_eq!(targets.len(), 1);
+
+        // Check first file
+        assert_eq!(targets[0].path, "file1.c");
+        assert_eq!(
+            targets[0].targets_const,
+            HashMap::from([(5, "y".to_string())])
+        );
+        let inside_map: HashMap<String, Vec<u32>> = HashMap::from([
+            ("r".to_string(), vec![19,4,5])
+        ]);
+
+        let expected: HashMap<usize, HashMap<String, Vec<u32>>> = HashMap::from([
+            (3_usize, inside_map)
+        ]);
+
+        assert_eq!(targets[0].targets_function, expected);
+
+    }
+
+    #[test]
+    fn test_parse_targets_one_file_func_multiple_parameter_optional_fields_and_multiple_variables() {
+        let instrumentor = Instrumentor::new();
+        let files = vec![
+            (
+                r"
+                // ABSTRAKTOR_FUNC: r->19->4->5, r2->15
+                let x = 1;
+                // ABSTRAKTOR_FUNC: y2->15
+                let y = 2;
+                "
+                .to_string(),
+                "file1.c".to_string(),
+            ),
+        ];
+
+        let targets = instrumentor.get_targets(files);
+        assert_eq!(targets.len(), 1);
+
+        // Check first file
+        assert_eq!(targets[0].path, "file1.c");
+  
+        let inside_map: HashMap<String, Vec<u32>> = HashMap::from([
+            ("r".to_string(), vec![19,4,5]),
+            ("r2".to_string(), vec![15])
+        ]);
+
+        let second_inside_map: HashMap<String, Vec<u32>> = HashMap::from([
+            ("y2".to_string(), vec![15])
+        ]);
+
+        let expected: HashMap<usize, HashMap<String, Vec<u32>>> = HashMap::from([
+            (3_usize, inside_map),
+            (5_usize, second_inside_map)
+            
         ]);
 
         assert_eq!(targets[0].targets_function, expected);
