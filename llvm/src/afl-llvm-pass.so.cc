@@ -62,6 +62,7 @@ using namespace llvm;
 
 #define TARGETS_TYPE std::unordered_map<std::string, std::set<int>>
 #define CONST_TARGETS_TYPE std::unordered_map<std::string, std::unordered_map<int, std::string>>
+#define FUNC_TARGETS_TYPE std::unordered_map<std::string, std::unordered_map<int, std::unordered_map<std::string, std::vector<unsigned int>>>>
 
 namespace
 {
@@ -100,10 +101,10 @@ namespace
 
     u16 *get_ID_ptr();
     static void get_debug_loc(const Instruction *I, std::string &Filename, unsigned &Line);
-    static void load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets);
+    static void load_instr_targets(TARGETS_TYPE &bb_targets, FUNC_TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets);
 
     // -1: not checking, 0: not targets, 1: target BBs, 2: target functions, 3: target blocks, 4: target consts
-    static u8 is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets);
+    static u8 is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, FUNC_TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets);
 
     u8 check_code_language(std::string codefile);
     void printFuncLog(std::string filename, unsigned line, u16 evtID, std::string func_name);
@@ -177,7 +178,7 @@ std::vector<llvm::Value*> AFLCoverage::getValues(
 /***
  * Load identified interesting basicblocks(targets) to instrument
  ***/
-void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets)
+void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, FUNC_TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets)
 {
   char *target_file = getenv("TARGETS_FILE");
   //file2 << "Target File: " << target_file  << "\n";
@@ -216,6 +217,20 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &fun
       }
     }
 
+    auto targets_func = target["targets_function"];
+
+    if (targets_func.is_object()) {
+      for (auto it = targets_func.begin(); it != targets_func.end(); ++it) {
+        unsigned line_num = std::stoul(it.key());
+        auto variables_list = it.value();
+        for (auto it_variables = variables_list.begin(); it_variables != variables_list.end(); ++it_variables) {
+          std::string var_name = it_variables.key();
+          //file2 << "Codefile: " << codefile << ", Line num:" << line_num << " " << var_name <<  "\n" ;
+          func_targets[codefile][line_num][var_name] = it_variables.value().get<std::vector<unsigned int>>();
+          //file2 << "Codefile: "<< func_targets[codefile][line_num][var_name][0] << "\n" ;
+        }
+      }
+    }
     auto targets_const = target["targets_const"];
     if (targets_const.is_object()) {
       for (auto it = targets_const.begin(); it != targets_const.end(); ++it) {
@@ -232,7 +247,7 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TARGETS_TYPE &fun
 /***
  * Check if current location is target: 1 for BB, 2 for function, 3 for block, 4 for const, 0 for not targets, -1 for not checking
  ***/
-u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets)
+u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, FUNC_TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets)
 {
 
 
@@ -251,14 +266,11 @@ u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE 
 
   if (func_targets.count(codefile))
   {
-    std::set<int> locs = func_targets[codefile];
-    for (auto ep = locs.begin(); ep != locs.end(); ep++)
+
+    auto& func_map = func_targets[codefile];
+    if (func_map.count(line))
     {
-      if (*ep == line)
-      {
-        func_targets[codefile].erase(line);
-        return 2;
-      }
+      return 2;
     }
   }
 
@@ -531,8 +543,9 @@ bool AFLCoverage::runOnModule(Module &M)
   }
 
   int inst_blocks = 0;
-  TARGETS_TYPE bb_targets, func_targets, block_targets;
+  TARGETS_TYPE bb_targets, block_targets;
   CONST_TARGETS_TYPE const_targets;
+  FUNC_TARGETS_TYPE func_targets;
   std::set<std::pair<std::string, int>> instrumented_const_targets;
   load_instr_targets(bb_targets, func_targets, block_targets, const_targets);
   u8 codeLang = 0;
@@ -547,12 +560,7 @@ bool AFLCoverage::runOnModule(Module &M)
      unsigned line = 0;
      unsigned const_line = 0;
 
-    std::string s = "r";
-    std::vector<unsigned int> selected_fields = {19};
-    std::vector<std::string> vec = {s};
-
-    std::vector<std::vector<unsigned int>> vec_selected_fields;
-    vec_selected_fields.push_back(selected_fields);
+    
 
     for (auto &BB : F)
     {
@@ -632,69 +640,69 @@ bool AFLCoverage::runOnModule(Module &M)
       if (isTargetConstEvent)
       {
 
-        std::pair<std::string, int> const_key = std::make_pair(filename, const_line);
-        if (instrumented_const_targets.find(const_key) == instrumented_const_targets.end())
-        {
-          instrumented_const_targets.insert(const_key);
+      //   std::pair<std::string, int> const_key = std::make_pair(filename, const_line);
+      //   if (instrumented_const_targets.find(const_key) == instrumented_const_targets.end())
+      //   {
+      //     instrumented_const_targets.insert(const_key);
           
-          std::string constName = const_targets[filename][const_line];
-          u16 *evtIDPtr = get_ID_ptr();
-          u16 evtID = *evtIDPtr;
-          Value *evtValue = ConstantInt::get(Int16Ty, evtID);
+          //std::string constName = const_targets[filename][const_line];
+          // u16 *evtIDPtr = get_ID_ptr();
+          // u16 evtID = *evtIDPtr;
+          // Value *evtValue = ConstantInt::get(Int16Ty, evtID);
 
-          // Create a global string constant for the const name
-          Value *constNameValue = IRB.CreateGlobalString(StringRef(constName), "const_name");
+      //     // Create a global string constant for the const name
+      //     Value *constNameValue = IRB.CreateGlobalString(StringRef(constName), "const_name");
 
-          Type *VoidPtrTy = IRB.getInt8PtrTy();
-          std::vector<llvm::Value*> res =  getValues(vec, F.args(), vec_selected_fields, IRB);      
-          //std::vector<llvm::Value*> res = { constNameValue };
+      //     Type *VoidPtrTy = IRB.getInt8PtrTy();
+      //     std::vector<llvm::Value*> res =  getValues(vec, F.args(), vec_selected_fields, IRB);      
+      //     //std::vector<llvm::Value*> res = { constNameValue };
 
-          // void** arr = malloc(sizeof(void*) * res.size);
-          Value* arr = IRB.CreateAlloca(VoidPtrTy, ConstantInt::get(Int32Ty, res.size()));
+      //     // void** arr = malloc(sizeof(void*) * res.size);
+      //     Value* arr = IRB.CreateAlloca(VoidPtrTy, ConstantInt::get(Int32Ty, res.size()));
 
-          for (size_t i = 0; i < res.size(); ++i) {
-              Value* val = res[i];
-              // valor escalar: reservar memoria y guardar ahí
+      //     for (size_t i = 0; i < res.size(); ++i) {
+      //         Value* val = res[i];
+      //         // valor escalar: reservar memoria y guardar ahí
 
-              //val_type alloc;
-              Value* alloc = IRB.CreateAlloca(val->getType());
+      //         //val_type alloc;
+      //         Value* alloc = IRB.CreateAlloca(val->getType());
               
-              // alloc = val;
-              IRB.CreateStore(val, alloc);
+      //         // alloc = val;
+      //         IRB.CreateStore(val, alloc);
 
-              //void* casted_ptr_void = (void*)alloc;
-              Value* casted_ptr_void = IRB.CreateBitCast(alloc, VoidPtrTy);
+      //         //void* casted_ptr_void = (void*)alloc;
+      //         Value* casted_ptr_void = IRB.CreateBitCast(alloc, VoidPtrTy);
               
-              //Get a pointer to the ith position of the array
-              Value* gep = IRB.CreateGEP(arr, {ConstantInt::get(Int32Ty, i)});
+      //         //Get a pointer to the ith position of the array
+      //         Value* gep = IRB.CreateGEP(arr, {ConstantInt::get(Int32Ty, i)});
 
-              //arr[i] = casted_ptr_void
-              IRB.CreateStore(casted_ptr_void, gep);
-          }
+      //         //arr[i] = casted_ptr_void
+      //         IRB.CreateStore(casted_ptr_void, gep);
+      //     }
 
-          if(res.size() == 0){
+      //     if(res.size() == 0){
 
-          } else {
-            // Cast to double pointer
-            Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
+      //     } else {
+      //       // Cast to double pointer
+      //       Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
 
-            //Get double pointer type
-            Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
+      //       //Get double pointer type
+      //       Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
 
-            auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, VoidPtrPtrTy}, false);
-            auto helper_const = M.getOrInsertFunction("trigger_const_event", helperTy_const);
+      //       auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, VoidPtrPtrTy}, false);
+      //       auto helper_const = M.getOrInsertFunction("trigger_const_event", helperTy_const);
 
-            IRB.CreateCall(helper_const, {evtValue, arrPtr});
+      //       IRB.CreateCall(helper_const, {evtValue, arrPtr});
             
-            /* store const ID info */
-            printConstLog(filename, const_line, evtID, constName);
+      //       /* store const ID info */
+      //       printConstLog(filename, const_line, evtID, constName);
 
-            /* increase counter */
-            *evtIDPtr = ++evtID;
-          }
+      // //       /* increase counter */
+      //       *evtIDPtr = ++evtID;
+      //     }
 
           
-        }
+      //   }
       }
       
       // if (isTargetConstEvent)
@@ -726,99 +734,159 @@ bool AFLCoverage::runOnModule(Module &M)
       //     *evtIDPtr = ++evtID;
       //   }
       // }
-      
+     
+  
 
-      if (getenv("USE_TRADITIONAL_BRANCH")){
-        // Instrument all basicblocks to compute AFL feedback
-        unsigned int cur_loc = AFL_R(MAP_SIZE);
+    if (getenv("USE_TRADITIONAL_BRANCH")){
+      // Instrument all basicblocks to compute AFL feedback
+      unsigned int cur_loc = AFL_R(MAP_SIZE);
 
-        ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
+      ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
 
-        /* Load prev_loc */
+      /* Load prev_loc */
 
-        LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
-        PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-        Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
+      LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
+      PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
 
-        /* Load SHM pointer */
+      /* Load SHM pointer */
 
-        LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
-        MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-        Value *MapPtrIdx =
-            IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
+      LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+      MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      Value *MapPtrIdx =
+          IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
 
-        /* Update bitmap */
+      /* Update bitmap */
 
-        LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
-        Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-        Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
-        IRB.CreateStore(Incr, MapPtrIdx)
-            ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+      Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
+      IRB.CreateStore(Incr, MapPtrIdx)
+          ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-        /* Set prev_loc to cur_loc >> 1 */
+      /* Set prev_loc to cur_loc >> 1 */
 
-        StoreInst *Store =
-            IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
-        Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      }
-
-      inst_blocks++;
+      StoreInst *Store =
+          IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
+      Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
     }
+
+    inst_blocks++;
+    
+  }
 
     /* Instrument function if it is one target or the size is above threshold */
     // if (isTargetFunc || F.getInstructionCount() > instr_func_size)
-    if (isTargetFunc)
-    {
+     if (isTargetFunc) {
+        BasicBlock *BB = &F.getEntryBlock();
+        Instruction *InsertPoint = &(*(BB->getFirstInsertionPt()));
+        IRBuilder<> IRB(InsertPoint);
+        //std::string s = "r";
+        //std::vector<unsigned int> selected_fields = {19};
+        std::vector<std::vector<unsigned int>> vec_selected_fields;
 
+        std::vector<std::string> vec;
+        if (func_targets.find(filename) == func_targets.end()){
+          get_debug_loc(&(*InsertPoint), filename, line);
+          continue;
+        }
+        auto test = func_targets[filename];
+
+        if (test.find(line+3) == test.end()){
+          get_debug_loc(&(*InsertPoint), filename, line);
+          continue;
+        }
+        
+        auto& variables_map = func_targets[filename][line+3];
+
+        for (auto it = variables_map.begin(); it != variables_map.end(); ++it) {
+          vec.push_back(it->first);
+          vec_selected_fields.push_back(it->second);
+        }
       
-      /* get inserting point: first inserting point of the entry block */
-      BasicBlock *BB = &F.getEntryBlock();
-      Instruction *InsertPoint = &(*(BB->getFirstInsertionPt()));
-      IRBuilder<> IRB(InsertPoint);
+        u16 *evtIDPtr = get_ID_ptr();
+        u16 evtID = *evtIDPtr;
+        Value *evtValue = ConstantInt::get(Int16Ty, evtID);
 
-      /* get evt ID */
-      u16 *evtIDPtr = get_ID_ptr();
-      u16 evtID = *evtIDPtr;
-      Value *evtValue = ConstantInt::get(Int16Ty, evtID);
+        Type *VoidPtrTy = IRB.getInt8PtrTy();
+        std::vector<llvm::Value*> res =  getValues(vec, F.args(), vec_selected_fields, IRB);      
+        //std::vector<llvm::Value*> res = { constNameValue };
 
-      auto *helperTy_func = FunctionType::get(VoidTy, Int16Ty);
-      auto helper_func = M.getOrInsertFunction("track_functions", helperTy_func);
-      IRB.CreateCall(helper_func, {evtValue});
+        // void** arr = malloc(sizeof(void*) * res.size);
+        Value* arr = IRB.CreateAlloca(VoidPtrTy, ConstantInt::get(Int32Ty, res.size()));
 
-      /* store event ID info */
-      get_debug_loc(&(*InsertPoint), filename, line);
-      std::string func_name = F.getName().str();
-      if (codeLang == 0)
-      {
-        codeLang = check_code_language(filename);
-      }
+        for (size_t i = 0; i < res.size(); ++i) {
+            Value* val = res[i];
+            // valor escalar: reservar memoria y guardar ahí
 
-      if (codeLang == 2)
-      {
-        int demangled_status = -1;
-        char *demangled_char = abi::__cxa_demangle(F.getName().data(), nullptr,
-                                                   nullptr, &demangled_status);
-        if (demangled_status == 0)
-        {
-          func_name = demangled_char;
+            //val_type alloc;
+            Value* alloc = IRB.CreateAlloca(val->getType());
+            
+            // alloc = val;
+            IRB.CreateStore(val, alloc);
+
+            //void* casted_ptr_void = (void*)alloc;
+            Value* casted_ptr_void = IRB.CreateBitCast(alloc, VoidPtrTy);
+            
+            //Get a pointer to the ith position of the array
+            Value* gep = IRB.CreateGEP(arr, {ConstantInt::get(Int32Ty, i)});
+
+            //arr[i] = casted_ptr_void
+            IRB.CreateStore(casted_ptr_void, gep);
         }
-      }
-      else
-      {
-        int demangled_status = -1;
-        char *demangled_char = rustc_demangle(F.getName().data(), &demangled_status);
-        if (demangled_status == 0)
-        {
-          func_name = demangled_char;
-        }
-      }
-      printFuncLog(filename, line, evtID, func_name);
+        
+        if(res.size() == 0){
 
-      /* increase counter */
-      *evtIDPtr = ++evtID;
-      inst_blocks++;
+        } else {
+          // Cast to double pointer
+          Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
+
+          //Get double pointer type
+          Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
+
+          auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, VoidPtrPtrTy}, false);
+          file2 << "Size: " << res.size()  << "\n";
+          auto helper_const = M.getOrInsertFunction("trigger_func_event", helperTy_const);
+
+          IRB.CreateCall(helper_const, {evtValue, arrPtr});
+          
+          /* increase counter */
+          *evtIDPtr = ++evtID;
+        }
+
+        get_debug_loc(&(*InsertPoint), filename, line);
+        std::string func_name = F.getName().str();
+        if (codeLang == 0)
+        {
+          codeLang = check_code_language(filename);
+        }
+
+        if (codeLang == 2)
+        {
+          int demangled_status = -1;
+          char *demangled_char = abi::__cxa_demangle(F.getName().data(), nullptr,
+                                                    nullptr, &demangled_status);
+          if (demangled_status == 0)
+          {
+            func_name = demangled_char;
+          }
+        }
+        else
+        {
+          int demangled_status = -1;
+          char *demangled_char = rustc_demangle(F.getName().data(), &demangled_status);
+          if (demangled_status == 0)
+          {
+            func_name = demangled_char;
+          }
+        }
+        printFuncLog(filename, line, evtID, func_name);
+
+        /* increase counter */
+        *evtIDPtr = ++evtID;
+        inst_blocks++;
+      }
     }
-  }
   file2.close();
   return true;
 }
