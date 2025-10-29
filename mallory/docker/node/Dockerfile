@@ -137,9 +137,21 @@ RUN mkdir -p /opt/SUT
 # Copy SUT directories if they exist in build context
 # This step will copy any SUT directories that were added via 'setup sut' commands
 COPY SUT /opt/SUT
-RUN abstraktor instrument --path /opt/SUT/dqlite/dqlite-raft/src --llvm-path /opt/llvm/afl-clang-fast
-RUN abstraktor instrument --path /opt/SUT/dqlite/dqlite/src --llvm-path /opt/llvm/afl-clang-fast
 
+#Maybe we can improve not search only src files
+RUN set -e; \
+    if [ -d "/opt/SUT" ] && [ "$(ls -A /opt/SUT 2>/dev/null)" ]; then \
+        for sut_dir in /opt/SUT/*/src; do \ 
+            if [ -d "$sut_dir" ]; then \
+                sut_name=$(basename "$sut_dir"); \
+                echo "Instrumenting SUT with LLVM: $sut_name"; \
+                cd "$sut_dir"; \
+                abstraktor instrument --path . --llvm-path /opt/llvm/afl-clang-fast; \
+            fi; \
+        done; \
+    else \
+        echo "No SUT directories found - skipping instrumentation"; \
+    fi
 # end copied sources
 
 ######################
