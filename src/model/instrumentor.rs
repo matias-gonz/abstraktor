@@ -24,7 +24,6 @@ impl Instrumentor {
             target_const_regex: Regex::new(r"ABSTRAKTOR_CONST: (\w+)").unwrap(),
             target_block_regex: Regex::new(r"ABSTRAKTOR_BLOCK_EVENT").unwrap(),
             block_start_regex: Regex::new(r"^(([a-zA-z]{1}.*)|\})").unwrap(),
-            // ABSTRAKTOR_FUNC: r
             target_function_regex: Regex::new(r"ABSTRAKTOR_FUNC:\s*(\w+(?:->\d+)*(?:\s*,\s*\w+(?:->\d+)*)*)\s*").unwrap(),
         }
     }

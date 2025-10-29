@@ -637,8 +637,8 @@ bool AFLCoverage::runOnModule(Module &M)
       }
 
       
-      if (isTargetConstEvent)
-      {
+      //if (isTargetConstEvent)
+      //{
 
       //   std::pair<std::string, int> const_key = std::make_pair(filename, const_line);
       //   if (instrumented_const_targets.find(const_key) == instrumented_const_targets.end())
@@ -703,37 +703,40 @@ bool AFLCoverage::runOnModule(Module &M)
 
           
       //   }
-      }
+      //}
       
-      // if (isTargetConstEvent)
-      // {
+      if (false)
+      {
 
 
-      //   std::pair<std::string, int> const_key = std::make_pair(filename, const_line);
-      //   if (instrumented_const_targets.find(const_key) == instrumented_const_targets.end())
-      //   {
-      //     instrumented_const_targets.insert(const_key);
+        std::pair<std::string, int> const_key = std::make_pair(filename, const_line);
+        if (instrumented_const_targets.find(const_key) == instrumented_const_targets.end())
+        {
+          instrumented_const_targets.insert(const_key);
           
-      //     std::string constName = const_targets[filename][const_line];
-      //     u16 *evtIDPtr = get_ID_ptr();
-      //     u16 evtID = *evtIDPtr;
-      //     Value *evtValue = ConstantInt::get(Int16Ty, evtID);
+          std::string constName = const_targets[filename][const_line];
+          u16 *evtIDPtr = get_ID_ptr();
+          u16 evtID = *evtIDPtr;
+          Value *evtValue = ConstantInt::get(Int16Ty, evtID);
 
-      //     // Create a global string constant for the const name
-      //     Value *constNameValue = IRB.CreateGlobalString(StringRef(constName), "const_name");
+          // Create a global string constant for the const name
+          Value *constNameValue = IRB.CreateGlobalString(StringRef(constName), "const_name");
 
-      //     auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy}, false);
-      //     auto helper_const = M.getOrInsertFunction("trigger_const_event", helperTy_const);
+          auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, Int8PtrTy}, false);
+          auto helper_const = M.getOrInsertFunction("trigger_const_event", helperTy_const);
+          
+          std::string function_name = F.getName().str();
+          Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
 
-      //     IRB.CreateCall(helper_const, {evtValue, constNameValue});
+          IRB.CreateCall(helper_const, {evtValue, function_name_value, constNameValue});
 
-      //     /* store const ID info */
-      //     printConstLog(filename, const_line, evtID, constName);
+          /* store const ID info */
+          printConstLog(filename, const_line, evtID, constName);
 
-      //     /* increase counter */
-      //     *evtIDPtr = ++evtID;
-      //   }
-      // }
+          /* increase counter */
+          *evtIDPtr = ++evtID;
+        }
+      }
      
   
 
@@ -777,83 +780,84 @@ bool AFLCoverage::runOnModule(Module &M)
 
     /* Instrument function if it is one target or the size is above threshold */
     // if (isTargetFunc || F.getInstructionCount() > instr_func_size)
-     if (isTargetFunc) {
-        BasicBlock *BB = &F.getEntryBlock();
-        Instruction *InsertPoint = &(*(BB->getFirstInsertionPt()));
-        IRBuilder<> IRB(InsertPoint);
-        //std::string s = "r";
-        //std::vector<unsigned int> selected_fields = {19};
-        std::vector<std::vector<unsigned int>> vec_selected_fields;
+    if (isTargetFunc) {
+      BasicBlock *BB = &F.getEntryBlock();
+      Instruction *InsertPoint = &(*(BB->getFirstInsertionPt()));
+      IRBuilder<> IRB(InsertPoint);
+      //std::string s = "r";
+      //std::vector<unsigned int> selected_fields = {19};
+      std::vector<std::vector<unsigned int>> vec_selected_fields;
 
-        std::vector<std::string> vec;
-        if (func_targets.find(filename) == func_targets.end()){
-          get_debug_loc(&(*InsertPoint), filename, line);
-          continue;
-        }
-        auto test = func_targets[filename];
+      std::vector<std::string> vec;
+      if (func_targets.find(filename) == func_targets.end()){
+        get_debug_loc(&(*InsertPoint), filename, line);
+        continue;
+      }
+      auto test = func_targets[filename];
 
-        if (test.find(line+3) == test.end()){
-          get_debug_loc(&(*InsertPoint), filename, line);
-          continue;
-        }
-        
-        auto& variables_map = func_targets[filename][line+3];
-
-        for (auto it = variables_map.begin(); it != variables_map.end(); ++it) {
-          vec.push_back(it->first);
-          vec_selected_fields.push_back(it->second);
-        }
+      if (test.find(line+3) == test.end()){
+        get_debug_loc(&(*InsertPoint), filename, line);
+        continue;
+      }
       
-        u16 *evtIDPtr = get_ID_ptr();
-        u16 evtID = *evtIDPtr;
-        Value *evtValue = ConstantInt::get(Int16Ty, evtID);
+      auto& variables_map = func_targets[filename][line+3];
 
-        Type *VoidPtrTy = IRB.getInt8PtrTy();
-        std::vector<llvm::Value*> res =  getValues(vec, F.args(), vec_selected_fields, IRB);      
-        //std::vector<llvm::Value*> res = { constNameValue };
+      for (auto it = variables_map.begin(); it != variables_map.end(); ++it) {
+        vec.push_back(it->first);
+        vec_selected_fields.push_back(it->second);
+      }
+    
+      u16 *evtIDPtr = get_ID_ptr();
+      u16 evtID = *evtIDPtr;
+      Value *evtValue = ConstantInt::get(Int16Ty, evtID);
 
-        // void** arr = malloc(sizeof(void*) * res.size);
-        Value* arr = IRB.CreateAlloca(VoidPtrTy, ConstantInt::get(Int32Ty, res.size()));
+      Type *VoidPtrTy = IRB.getInt8PtrTy();
+      std::vector<llvm::Value*> res =  getValues(vec, F.args(), vec_selected_fields, IRB);      
+      //std::vector<llvm::Value*> res = { constNameValue };
 
-        for (size_t i = 0; i < res.size(); ++i) {
-            Value* val = res[i];
-            // valor escalar: reservar memoria y guardar ahí
+      // void** arr = malloc(sizeof(void*) * res.size);
+      Value* arr = IRB.CreateAlloca(VoidPtrTy, ConstantInt::get(Int32Ty, res.size()));
 
-            //val_type alloc;
-            Value* alloc = IRB.CreateAlloca(val->getType());
-            
-            // alloc = val;
-            IRB.CreateStore(val, alloc);
+      for (size_t i = 0; i < res.size(); ++i) {
+          Value* val = res[i];
+          // valor escalar: reservar memoria y guardar ahí
 
-            //void* casted_ptr_void = (void*)alloc;
-            Value* casted_ptr_void = IRB.CreateBitCast(alloc, VoidPtrTy);
-            
-            //Get a pointer to the ith position of the array
-            Value* gep = IRB.CreateGEP(arr, {ConstantInt::get(Int32Ty, i)});
-
-            //arr[i] = casted_ptr_void
-            IRB.CreateStore(casted_ptr_void, gep);
-        }
-        
-        if(res.size() == 0){
-
-        } else {
-          // Cast to double pointer
-          Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
-
-          //Get double pointer type
-          Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
-
-          auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, VoidPtrPtrTy}, false);
-          file2 << "Size: " << res.size()  << "\n";
-          auto helper_const = M.getOrInsertFunction("trigger_func_event", helperTy_const);
-
-          IRB.CreateCall(helper_const, {evtValue, arrPtr});
+          //val_type alloc;
+          Value* alloc = IRB.CreateAlloca(val->getType());
           
-          /* increase counter */
-          *evtIDPtr = ++evtID;
-        }
+          // alloc = val;
+          IRB.CreateStore(val, alloc);
 
+          //void* casted_ptr_void = (void*)alloc;
+          Value* casted_ptr_void = IRB.CreateBitCast(alloc, VoidPtrTy);
+          
+          //Get a pointer to the ith position of the array
+          Value* gep = IRB.CreateGEP(arr, {ConstantInt::get(Int32Ty, i)});
+
+          //arr[i] = casted_ptr_void
+          IRB.CreateStore(casted_ptr_void, gep);
+      }
+      
+      if(res.size() == 0){
+
+      } else {
+        // Cast to double pointer
+        Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
+
+        //Get double pointer type
+        Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
+
+        auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy}, false);
+        file2 << "Size: " << res.size()  << "\n";
+        auto helper_const = M.getOrInsertFunction("trigger_func_event", helperTy_const);
+
+        std::string function_name = F.getName().str();
+          
+        Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
+        IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr});
+        
+        /* increase counter */
+        *evtIDPtr = ++evtID;
         get_debug_loc(&(*InsertPoint), filename, line);
         std::string func_name = F.getName().str();
         if (codeLang == 0)
@@ -887,6 +891,7 @@ bool AFLCoverage::runOnModule(Module &M)
         inst_blocks++;
       }
     }
+  }
   file2.close();
   return true;
 }

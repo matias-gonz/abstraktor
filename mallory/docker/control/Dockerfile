@@ -76,5 +76,6 @@ ADD ./bashrc /root/.bashrc
 ADD ./init.sh /init.sh
 RUN dos2unix /init.sh /root/.bashrc \
     && chmod +x /init.sh
+RUN mkdir -p /tmp/mediator-logs
 
 CMD /init.sh
