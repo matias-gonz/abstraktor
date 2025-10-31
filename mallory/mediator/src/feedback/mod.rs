@@ -399,14 +399,24 @@ impl FeedbackManager {
                 // BlockExecute
                 BLOCK_EVENT_TYPE => {
                     let eid = db_rdr.read_u64::<BOrd>().unwrap();
+                    let mut function_buffer = vec![0; 64];
+                    db_rdr.read_exact(&mut function_buffer).unwrap();
+                    let str_end = function_buffer.iter().position(|&b| b == 0).unwrap_or(64);
+                    let function_str = String::from_utf8_lossy(&function_buffer[..str_end]);
+
+                    let mut state_buffer = vec![0; 64];
+                    db_rdr.read_exact(&mut state_buffer).unwrap();
+                    let state_str_end = state_buffer.iter().position(|&b| b == 0).unwrap_or(64);
+                    let result_str = String::from_utf8_lossy(&state_buffer[..state_str_end]);
                     log::info!(
-                        "[BLOCK_EVENT_TYPE][Node {} Batch {} Entry {} / {}] BlockExecute {} @ {}",
+                        "[BLOCK_EVENT_TYPE][Node {} Batch {} Entry {} / {}] BlockExecute {} @ functionName {} @ state {}",
                         node_id,
                         batch_id,
                         db_entry_index,
                         db_evt_counter,
                         eid,
-                        ts
+                        function_str,
+                        result_str
                     );
                     Event::BlockExecute {
                         block_id: eid as u16,

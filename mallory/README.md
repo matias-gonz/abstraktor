@@ -64,8 +64,13 @@ This may take over 10 minutes on the first run.
 Once Jepsen is set up, you can run the mediator. This module intercepts messages between nodes and sends them to Mallory. Open a new terminal tab and run:
 
 ```
-cd mediator && sudo target/x86_64-unknown-linux-musl/debug/mediator qlearning event_history 0.7
+cd /jepsen/mediator && sudo target/x86_64-unknown-linux-musl/release/mediator qlearning event_history 0.7
 ```
+
+### Running the tests
+
+Once Jepsen and mediator are set up, you can run the tests. When you log into control jepsen, a message will show up and you can select a test to run up. If you can find hosts folder, try Jepsen instead.
+
 
 **Note**: The mediator must be run with `sudo` privileges to access network interfaces and iptables.
 

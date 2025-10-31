@@ -54,6 +54,7 @@
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/IR/TypeFinder.h"
+#include "llvm/Support/FileSystem.h"
 
 #include "../rustc-demangle/crates/capi/include/rustc_demangle.h"
 #include <nlohmann/json.hpp>
@@ -63,6 +64,8 @@ using namespace llvm;
 #define TARGETS_TYPE std::unordered_map<std::string, std::set<int>>
 #define CONST_TARGETS_TYPE std::unordered_map<std::string, std::unordered_map<int, std::string>>
 #define FUNC_TARGETS_TYPE std::unordered_map<std::string, std::unordered_map<int, std::unordered_map<std::string, std::vector<unsigned int>>>>
+#define BLOCK_TARGETS_TYPE std::unordered_map<std::string, std::unordered_map<int, std::unordered_map<std::string, std::vector<unsigned int>>>>
+
 
 namespace
 {
@@ -101,10 +104,10 @@ namespace
 
     u16 *get_ID_ptr();
     static void get_debug_loc(const Instruction *I, std::string &Filename, unsigned &Line);
-    static void load_instr_targets(TARGETS_TYPE &bb_targets, FUNC_TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets);
+    static void load_instr_targets(TARGETS_TYPE &bb_targets, FUNC_TARGETS_TYPE &func_targets, BLOCK_TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets);
 
     // -1: not checking, 0: not targets, 1: target BBs, 2: target functions, 3: target blocks, 4: target consts
-    static u8 is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, FUNC_TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets);
+    static u8 is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, FUNC_TARGETS_TYPE &func_targets, BLOCK_TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets);
 
     u8 check_code_language(std::string codefile);
     void printFuncLog(std::string filename, unsigned line, u16 evtID, std::string func_name);
@@ -115,13 +118,15 @@ namespace
     std::unordered_map<llvm::Value*, ValueInfo> getArgument(const std::vector<std::string> &instrumented_parameters, iterator_range<Function::arg_iterator> iterator_arguments, std::vector<std::vector<unsigned int>> &default_indices);
     std::vector<llvm::Value*> getValues(std::vector<std::string> &vec, iterator_range<Function::arg_iterator> args, std::vector<std::vector<unsigned int>> &vec_selected_fields, IRBuilder<> &IRB);
     void changeStructPointersToStructTypes(std::unordered_map<Value*, ValueInfo> &valueTypeMap);
+    void extractValuesFromArgumentMap(std::unordered_map<llvm::Value*, ValueInfo> &argument_map, IRBuilder<> &IRB,std::vector<llvm::Value*> &out_values); 
     bool isPointerToPointer(llvm::Value *v);
     bool isPointerToStruct(llvm::Value* v);
   };
 
 }
 
-std::ofstream file2("mipass.log", std::ios::app);
+std::error_code EC;
+llvm::raw_fd_ostream file2("mipass.log", EC, llvm::sys::fs::OpenFlags::OF_Append);
 
 bool AFLCoverage::isPointerToPointer(llvm::Value* v) {
     if (auto *ptrTy = llvm::dyn_cast<llvm::PointerType>(v->getType())) {
@@ -140,13 +145,11 @@ bool AFLCoverage::isPointerToStruct(llvm::Value* v) {
     return isStruct;
 }
 
-std::vector<llvm::Value*> AFLCoverage::getValues(
-                                    std::vector<std::string> &vec, 
-                                    iterator_range<Function::arg_iterator> args, 
-                                    std::vector<std::vector<unsigned int>> &vec_selected_fields, IRBuilder<> &IRB
-                                  ){
-    std::unordered_map<llvm::Value*, ValueInfo> argument_map = getArgument(vec, args, vec_selected_fields);
-    std::vector<Value*> res;
+void AFLCoverage::extractValuesFromArgumentMap(
+    std::unordered_map<llvm::Value*, ValueInfo> &argument_map,
+    IRBuilder<> &IRB,
+    std::vector<llvm::Value*> &out_values
+) {
     changeStructPointersToStructTypes(argument_map);
     for (auto &pair : argument_map) {
       std::vector<llvm::Value*> tmp;
@@ -165,20 +168,31 @@ std::vector<llvm::Value*> AFLCoverage::getValues(
         // target_value = *target_ptr;
         target_value = IRB.CreateLoad(target_ptr);
 
-        res.push_back(target_value);
+        out_values.push_back(target_value);
        
         if (!isPointerToPointer(target_ptr) || !isPointerToStruct(target_ptr)) break;
         target_type = target_value->getType()->getPointerElementType();
         
       }
     }
+  }
+
+
+std::vector<llvm::Value*> AFLCoverage::getValues(
+                                    std::vector<std::string> &vec, 
+                                    iterator_range<Function::arg_iterator> args, 
+                                    std::vector<std::vector<unsigned int>> &vec_selected_fields, IRBuilder<> &IRB
+                                  ){
+    std::unordered_map<llvm::Value*, ValueInfo> argument_map = getArgument(vec, args, vec_selected_fields);
+    std::vector<llvm::Value*> res;
+    extractValuesFromArgumentMap(argument_map, IRB, res);
     return res;
 }
 
 /***
  * Load identified interesting basicblocks(targets) to instrument
  ***/
-void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, FUNC_TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets)
+void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, FUNC_TARGETS_TYPE &func_targets, BLOCK_TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets)
 {
   char *target_file = getenv("TARGETS_FILE");
   //file2 << "Target File: " << target_file  << "\n";
@@ -211,11 +225,22 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, FUNC_TARGETS_TYPE
 
     /**/
     auto targets_block = target["targets_block"];
-    for (const auto& block : targets_block) {
-      if (block.is_number()) {
-        block_targets[codefile].insert(block.get<int>());
+    for (auto it = targets_block.begin(); it != targets_block.end(); ++it) {
+      unsigned line_num = std::stoul(it.key());
+      auto variables_list = it.value();
+      if (variables_list.empty()){
+        std::unordered_map<std::string, std::vector<unsigned int>> emptyDict;
+        block_targets[codefile][line_num] = emptyDict;
+        continue;
+      }
+      for (auto it_variables = variables_list.begin(); it_variables != variables_list.end(); ++it_variables) {
+        std::string var_name = it_variables.key();
+        //file2 << "Codefile: " << codefile << ", Line num:" << line_num << " " << var_name <<  "\n" ;
+        block_targets[codefile][line_num][var_name] = it_variables.value().get<std::vector<unsigned int>>();
+        //file2 << "Codefile: "<< func_targets[codefile][line_num][var_name][0] << "\n" ;
       }
     }
+    
 
     auto targets_func = target["targets_function"];
 
@@ -247,7 +272,7 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, FUNC_TARGETS_TYPE
 /***
  * Check if current location is target: 1 for BB, 2 for function, 3 for block, 4 for const, 0 for not targets, -1 for not checking
  ***/
-u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, FUNC_TARGETS_TYPE &func_targets, TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets)
+u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, FUNC_TARGETS_TYPE &func_targets, BLOCK_TARGETS_TYPE &block_targets, CONST_TARGETS_TYPE &const_targets)
 {
 
 
@@ -276,14 +301,10 @@ u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE 
 
   if (block_targets.count(codefile))
   {
-    std::set<int> locs = block_targets[codefile];
-    for (auto ep = locs.begin(); ep != locs.end(); ep++)
+    auto& block_map = block_targets[codefile];
+    if (block_map.count(line))
     {
-      if (*ep == line)
-      {
-        block_targets[codefile].erase(line);
-        return 3;
-      }
+      return 3;
     }
   }
 
@@ -494,12 +515,6 @@ bool AFLCoverage::runOnModule(Module &M)
   Int64Ty = IntegerType::getInt64Ty(C);
   Int64PtrTy = Type::getInt64PtrTy(C);
 
-  bbToID.open("/opt/instrumentor/BB2ID.txt", std::ofstream::out | std::ofstream::app);
-  if (!bbToID.is_open())
-  {
-    bbToID.open("./BB2ID.txt", std::ofstream::out | std::ofstream::app);
-  }
-
   /* Show a banner */
 
   // char be_quiet = 0;
@@ -543,9 +558,10 @@ bool AFLCoverage::runOnModule(Module &M)
   }
 
   int inst_blocks = 0;
-  TARGETS_TYPE bb_targets, block_targets;
+  TARGETS_TYPE bb_targets;
   CONST_TARGETS_TYPE const_targets;
   FUNC_TARGETS_TYPE func_targets;
+  BLOCK_TARGETS_TYPE block_targets;
   std::set<std::pair<std::string, int>> instrumented_const_targets;
   load_instr_targets(bb_targets, func_targets, block_targets, const_targets);
   u8 codeLang = 0;
@@ -554,12 +570,12 @@ bool AFLCoverage::runOnModule(Module &M)
 
   for (auto &F : M) {
   //   // Label if this function is instrumented
-     bool isTargetFunc = false;
+    bool isTargetFunc = false;
 
-     std::string filename;
-     unsigned line = 0;
-     unsigned const_line = 0;
-
+    std::string filename;
+    unsigned line = 0;
+    unsigned const_line = 0;
+    unsigned block_line = 0;
     
 
     for (auto &BB : F)
@@ -570,10 +586,12 @@ bool AFLCoverage::runOnModule(Module &M)
       // in each basic block, check if it is a target
       bool isTargetBlockEvent = false;
       bool isTargetConstEvent = false;
-
+      llvm::Value* rhs;
+      llvm::Value* lhs;
+      llvm::Instruction* nextI;
+      llvm::BasicBlock* nextIFinal;
       for (auto &I : BB)
       {
-
         get_debug_loc(&I, filename, line);
 
         if (filename.empty() || line == 0 || !filename.compare(0, Xlibs.size(), Xlibs))
@@ -588,7 +606,14 @@ bool AFLCoverage::runOnModule(Module &M)
         }
         else if (isTarget == 3)
         {
-          isTargetBlockEvent = true;
+          block_line = line;
+          if (auto *SI = dyn_cast<StoreInst>(&I)) {
+            isTargetBlockEvent = true;
+            rhs = SI->getValueOperand();
+            lhs = SI->getPointerOperand();
+            nextI = I.getNextNode();
+            if (nextI == nullptr) nextIFinal = I.getParent();
+          }
         }
         else if (isTarget == 4)
         {
@@ -603,8 +628,7 @@ bool AFLCoverage::runOnModule(Module &M)
         continue;
       }
 
-      /* instrument starting block point */
-      IRBuilder<> IRB(&(*IP));
+    
       //std::vector<llvm::Value*> res =  //getValues(vec, F.args(), vec_selected_fields, IRB);
 
         /*file2 << "Funcion: " << F.getName().str() << " " << res.size() << "\n";
@@ -620,23 +644,79 @@ bool AFLCoverage::runOnModule(Module &M)
       */
       if (isTargetBlockEvent)
       {
+        IRBuilder<> IRB(nextI);
+        if (!nextI) IRB.SetInsertPoint(nextIFinal);
         u16 *evtIDPtr = get_ID_ptr();
         u16 evtID = *evtIDPtr;
         Value *evtValue = ConstantInt::get(Int16Ty, evtID);
 
-        auto *helperTy_stack = FunctionType::get(VoidTy, Int16Ty);
-        auto helper_stack_start = M.getOrInsertFunction("trigger_block_event", helperTy_stack);
+        Type  *rhsType = rhs->getType();
 
-        IRB.CreateCall(helper_stack_start, {evtValue});
+        std::unordered_map<llvm::Value*, ValueInfo> argument_map;
+        
+        struct ValueInfo valueInfo;
+        valueInfo.type = rhsType;
+        valueInfo.indexes = block_targets[filename][block_line][lhs->getName().str()];
+        file2 << "indexes: " << valueInfo.indexes.size() <<  "\n" ;
 
-        /* store BB ID info */
-        printBlockLog(filename, line, evtID);
+        argument_map[rhs] = valueInfo;
 
-        /* increase counter */
-        *evtIDPtr = ++evtID;
+        std::vector<llvm::Value*> res;
+        extractValuesFromArgumentMap(argument_map, IRB, res);
+        Type *VoidPtrTy = IRB.getInt8PtrTy();
+
+
+        Value* arr = IRB.CreateAlloca(VoidPtrTy, ConstantInt::get(Int32Ty, res.size()));
+
+        for (size_t i = 0; i < res.size(); ++i) {
+            Value* val = res[i];
+            // valor escalar: reservar memoria y guardar ahí
+
+            //val_type alloc;
+            Value* alloc = IRB.CreateAlloca(val->getType());
+            
+            // alloc = val;
+            IRB.CreateStore(val, alloc);
+
+            //void* casted_ptr_void = (void*)alloc;
+            Value* casted_ptr_void = IRB.CreateBitCast(alloc, VoidPtrTy);
+            
+            //Get a pointer to the ith position of the array
+            Value* gep = IRB.CreateGEP(arr, {ConstantInt::get(Int32Ty, i)});
+
+            //arr[i] = casted_ptr_void
+            IRB.CreateStore(casted_ptr_void, gep);
+        }
+        
+        file2 << "tamaño " << res.size() << "\n" ;
+
+        if(res.size() == 0){
+
+        } else {
+          // Cast to double pointer
+          Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
+
+          //Get double pointer type
+          Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
+
+          auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy}, false);
+          auto helper_const = M.getOrInsertFunction("trigger_block_event", helperTy_const);
+
+          std::string function_name = F.getName().str();
+            
+          Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
+          IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr});
+
+          /* store BB ID info */
+          printBlockLog(filename, line, evtID);
+
+          /* increase counter */
+          *evtIDPtr = ++evtID;
+        }
       }
 
-      
+        /* instrument starting block point */
+      IRBuilder<> IRB(&(*IP));
       //if (isTargetConstEvent)
       //{
 
@@ -848,7 +928,6 @@ bool AFLCoverage::runOnModule(Module &M)
         Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
 
         auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy}, false);
-        file2 << "Size: " << res.size()  << "\n";
         auto helper_const = M.getOrInsertFunction("trigger_func_event", helperTy_const);
 
         std::string function_name = F.getName().str();

@@ -35,6 +35,8 @@ struct Event
       u64 blockEventType; // 1: block
       s64 blockEventTimestamp;
       u64 blockEventID;
+      char blockFuncName[64];
+      char stateBlockName[64];
     };
     struct
     {
@@ -73,7 +75,7 @@ __thread u32 __afl_prev_loc;
 /***
  * instrument block starting point
  ***/
-void trigger_block_event(u16 evtID)
+void trigger_block_event(u16 evtID, char* function_name, void** parameters)
 {
   /* find location to record this event */
   u16 loc = __atomic_add_fetch(&evtVec_ptr[0].evtCounter, 1, __ATOMIC_RELAXED);
@@ -85,8 +87,26 @@ void trigger_block_event(u16 evtID)
 
   /* record this event */
   evtVec_ptr[loc].blockEventType = BLOCK_EVENT_TYPE;
-  evtVec_ptr[loc].blockEventID = evtID;
   evtVec_ptr[loc].blockEventTimestamp = time;
+  evtVec_ptr[loc].blockEventID = evtID;
+
+  u16** parameter_state = (u16**)parameters;
+  u16* com = *parameters;
+  u16 state = *com;
+  char* final_state;
+  if(state == 0){
+    final_state = "Unavailable";
+  } else if (state == 1){
+    final_state = "Follower";
+  } else if (state == 2){
+    final_state = "Candidate";
+  } else if (state == 3){
+    final_state = "Leader";
+  } else {
+    final_state = "Unknown";
+  }
+  strcpy(evtVec_ptr[loc].stateBlockName, function_name);
+  strcpy(evtVec_ptr[loc].stateBlockName, final_state);
 }
 
 void trigger_func_event(u16 evtID, char* function_name, void** parameters)
