@@ -576,6 +576,7 @@ bool AFLCoverage::runOnModule(Module &M)
     unsigned line = 0;
     unsigned const_line = 0;
     unsigned block_line = 0;
+    unsigned targetLine = 0;
     
 
     for (auto &BB : F)
@@ -602,6 +603,8 @@ bool AFLCoverage::runOnModule(Module &M)
   
         if (isTarget == 2)
         {
+          file2 << "Funcion: " << F.getName().str() << " " << line << "\n";
+          targetLine = line;
           isTargetFunc = true;
         }
         else if (isTarget == 3)
@@ -874,13 +877,14 @@ bool AFLCoverage::runOnModule(Module &M)
         continue;
       }
       auto test = func_targets[filename];
+      file2 << "Dentro de targetFunc Funcion: " << F.getName().str() << " " << targetLine << "\n";
 
-      if (test.find(line+3) == test.end()){
+      if (test.find(targetLine) == test.end()){
         get_debug_loc(&(*InsertPoint), filename, line);
         continue;
       }
       
-      auto& variables_map = func_targets[filename][line+3];
+      auto& variables_map = func_targets[filename][targetLine];
 
       for (auto it = variables_map.begin(); it != variables_map.end(); ++it) {
         vec.push_back(it->first);
