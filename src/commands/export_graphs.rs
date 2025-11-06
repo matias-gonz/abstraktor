@@ -28,28 +28,51 @@ pub struct ExportGraphsArgs {
 }
 
 pub fn run(args: ExportGraphsArgs, logger: &Logger, sh: &Shell) -> Result<()> {
+    logger.log("Exporting event graphs");
+    logger.debug(format!("Log file: {}", args.log_path));
+    logger.debug(format!("Output directory: {}", args.output_dir));
+    logger.debug(format!("Format: {:?}", args.format));
+
+    logger.log(format!("Reading events from {}", args.log_path));
     let log_content = fs::read_to_string(&args.log_path)
         .with_context(|| format!("reading log from {}", &args.log_path))?;
 
+    logger.debug("Building event graph from log entries");
     let graph = build_event_graph(&log_content);
+    logger.log(format!("Found {} node(s) to process", graph.nodes.len()));
 
     let out_dir = Path::new(&args.output_dir);
     if !out_dir.exists() {
+        logger.log(format!("Creating output directory: {}", args.output_dir));
         fs::create_dir_all(out_dir)
             .with_context(|| format!("creating output directory {}", &args.output_dir))?;
     }
 
+    if graph.nodes.is_empty() {
+        logger.warning("No nodes found in event log - no graphs to export");
+        return Ok(());
+    }
+
+    logger.log(format!(
+        "Generating {} graphs in {:?} format",
+        graph.nodes.len(),
+        args.format
+    ));
+
     for (node_id, node_graph) in &graph.nodes {
+        logger.debug(format!("Processing node {}", node_id));
         let dot = dot_for_node_graph(node_graph);
         match args.format {
             OutputFormat::Dot => {
                 let file_path = out_dir.join(format!("node_{}.dot", node_id));
+                logger.debug(format!("Writing DOT file: {}", file_path.display()));
                 fs::write(&file_path, dot)
                     .with_context(|| format!("writing {}", file_path.display()))?;
-                logger.success(format!("wrote {}", file_path.display()));
+                logger.success(format!("Wrote {}", file_path.display()));
             }
             OutputFormat::Png | OutputFormat::Pdf => {
                 let tmp_dot = out_dir.join(format!("node_{}.dot", node_id));
+                logger.debug(format!("Writing temporary DOT file: {}", tmp_dot.display()));
                 fs::write(&tmp_dot, &dot)
                     .with_context(|| format!("writing {}", tmp_dot.display()))?;
                 let ext = match args.format {
@@ -58,6 +81,10 @@ pub fn run(args: ExportGraphsArgs, logger: &Logger, sh: &Shell) -> Result<()> {
                     _ => unreachable!(),
                 };
                 let out_path = out_dir.join(format!("node_{}.{}", node_id, ext));
+                logger.debug(format!(
+                    "Running graphviz to generate {}",
+                    out_path.display()
+                ));
                 sh.cmd("dot")
                     .arg(format!("-T{}", ext))
                     .arg(&tmp_dot)
@@ -67,12 +94,18 @@ pub fn run(args: ExportGraphsArgs, logger: &Logger, sh: &Shell) -> Result<()> {
                     .with_context(|| {
                         format!("graphviz 'dot' failed generating {}", out_path.display())
                     })?;
+                logger.debug("Cleaning up temporary DOT file");
                 let _ = fs::remove_file(&tmp_dot);
-                logger.success(format!("wrote {}", out_path.display()));
+                logger.success(format!("Wrote {}", out_path.display()));
             }
         }
     }
 
+    logger.success(format!(
+        "Exported {} graph(s) to {}",
+        graph.nodes.len(),
+        args.output_dir
+    ));
     Ok(())
 }
 
