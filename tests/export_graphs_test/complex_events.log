@@ -1,0 +1,13 @@
+1 boot startup
+1 load config
+1 validate ready
+1 connect network
+1 auth authenticated
+1 error network
+1 retry authenticated
+1 shutdown config
+1 cleanup startup
+2 initialize idle
+2 connect active
+2 disconnect idle
+
