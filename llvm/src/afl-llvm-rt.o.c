@@ -35,18 +35,23 @@ struct Event
       u64 blockEventType; // 1: block
       s64 blockEventTimestamp;
       u64 blockEventID;
+      char blockFuncName[64];
+      char stateBlockName[64];
     };
     struct
     {
       u64 fevtType; // 2: function
       s64 ftimestamp;
       u64 fevtID;
+      char funcName[64];
+      char stateFuncName[64];
     };
     struct
     {
       u64 constEventType; // 5: constant
       s64 constEventTimestamp;
       u64 constEventID;
+      char constFuncName[64];
       char constEventName[64];
     };
     struct
@@ -70,7 +75,7 @@ __thread u32 __afl_prev_loc;
 /***
  * instrument block starting point
  ***/
-void trigger_block_event(u16 evtID)
+void trigger_block_event(u16 evtID, char* function_name, void** parameters)
 {
   /* find location to record this event */
   u16 loc = __atomic_add_fetch(&evtVec_ptr[0].evtCounter, 1, __ATOMIC_RELAXED);
@@ -82,11 +87,63 @@ void trigger_block_event(u16 evtID)
 
   /* record this event */
   evtVec_ptr[loc].blockEventType = BLOCK_EVENT_TYPE;
-  evtVec_ptr[loc].blockEventID = evtID;
   evtVec_ptr[loc].blockEventTimestamp = time;
+  evtVec_ptr[loc].blockEventID = evtID;
+
+  u16** parameter_state = (u16**)parameters;
+  u16* com = *parameters;
+  u16 state = *com;
+  char* final_state;
+  if(state == 0){
+    final_state = "Unavailable";
+  } else if (state == 1){
+    final_state = "Follower";
+  } else if (state == 2){
+    final_state = "Candidate";
+  } else if (state == 3){
+    final_state = "Leader";
+  } else {
+    final_state = "Unknown";
+  }
+  strcpy(evtVec_ptr[loc].stateBlockName, function_name);
+  strcpy(evtVec_ptr[loc].stateBlockName, final_state);
 }
 
-void trigger_const_event(u16 evtID, char *const_name)
+void trigger_func_event(u16 evtID, char* function_name, void** parameters)
+{
+  /* find location to record this event */
+  u16 loc = __atomic_add_fetch(&evtVec_ptr[0].evtCounter, 1, __ATOMIC_RELAXED);
+
+  /* collect tid and timestamp */
+  struct timespec st;
+  clock_gettime(CLOCK_MONOTONIC, &st);
+  s64 time = st.tv_sec * 1000000000 + st.tv_nsec;
+
+  /* record this event */
+  evtVec_ptr[loc].fevtType = FUNC_EVENT_TYPE;
+  evtVec_ptr[loc].ftimestamp = time;
+  evtVec_ptr[loc].fevtID = evtID;
+
+  u16** parameter_state = (u16**)parameters;
+  u16* com = *parameters;
+  u16 state = *com;
+  char* final_state;
+  if(state == 0){
+    final_state = "Unavailable";
+  } else if (state == 1){
+    final_state = "Follower";
+  } else if (state == 2){
+    final_state = "Candidate";
+  } else if (state == 3){
+    final_state = "Leader";
+  } else {
+    final_state = "Unknown";
+  }
+  strcpy(evtVec_ptr[loc].funcName, function_name);
+  strcpy(evtVec_ptr[loc].stateFuncName, final_state);
+}
+
+void trigger_const_event(u16 evtID, char* function_name, char* const_string)
 {
   /* find location to record this event */
   u16 loc = __atomic_add_fetch(&evtVec_ptr[0].evtCounter, 1, __ATOMIC_RELAXED);
@@ -100,7 +157,9 @@ void trigger_const_event(u16 evtID, char *const_name)
   evtVec_ptr[loc].constEventType = CONST_EVENT_TYPE;
   evtVec_ptr[loc].constEventTimestamp = time;
   evtVec_ptr[loc].constEventID = evtID;
-  strcpy(evtVec_ptr[loc].constEventName, const_name);
+
+  strcpy(evtVec_ptr[loc].constFuncName, function_name);
+  strcpy(evtVec_ptr[loc].constEventName, const_string);
 }
 
 /***
