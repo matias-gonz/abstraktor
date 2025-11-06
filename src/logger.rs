@@ -1,8 +1,9 @@
+use clap::ValueEnum;
 use cliclack::{intro, log, outro};
 use console::style;
 use std::fmt::Display;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy, Debug, ValueEnum)]
 pub enum LogLevel {
     Debug,
     Info,

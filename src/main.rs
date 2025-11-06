@@ -9,7 +9,7 @@ use xshell::Shell;
 
 fn main() -> Result<()> {
     let args = Abstraktor::parse();
-    let logger = Logger::default();
+    let logger = Logger::new(args.log_level);
     let sh = Shell::new()?;
     logger.intro();
     match args.command {
