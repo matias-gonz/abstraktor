@@ -1,0 +1,10 @@
+1 start idle
+2 init stopped
+1 work active
+2 boot running
+1 finish idle
+2 halt stopped
+3 begin pending
+3 execute working
+3 end pending
+
