@@ -4,15 +4,21 @@
     "targets_const": {
       "5": "add"
     },
-    "targets_block": [
-      10
-    ]
+    "targets_block": {
+      "10": {
+        "": []
+      }
+    },
+    "targets_function": {}
   },
   {
     "path": "main.c",
     "targets_const": {},
-    "targets_block": [
-      6
-    ]
+    "targets_block": {
+      "6": {
+        "": []
+      }
+    },
+    "targets_function": {}
   }
 ]
