@@ -21,48 +21,57 @@ pub struct SutArgs {
 }
 
 pub fn run(args: SutArgs, logger: &Logger, sh: &Shell) -> Result<()> {
-    logger.log(format!("Copying directory {} to Docker SUT directory", args.path));
+    logger.log(format!("Setting up SUT from {}", args.path));
+    logger.debug(format!("Source path: {}", args.path));
+    logger.debug(format!("Rebuild flag: {}", args.rebuild));
     
     let source_path = Path::new(&args.path);
     if !source_path.exists() {
-        logger.error(format!("Source path not found at {}", args.path));
+        logger.error(format!("Source path not found: {}", args.path));
         return Err(anyhow::anyhow!("Source path not found at {}", args.path));
     }
     
     if !source_path.is_dir() {
-        logger.error(format!("Path {} is not a directory", args.path));
+        logger.error(format!("Path is not a directory: {}", args.path));
         return Err(anyhow::anyhow!("Path {} is not a directory", args.path));
     }
     
     let sut_subdir_name = if let Some(dest) = args.destination {
+        logger.debug(format!("Using custom destination name: {}", dest));
         dest
     } else {
-        source_path
+        let default_name = source_path
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or("source")
-            .to_string()
+            .to_string();
+        logger.debug(format!("Using source directory name as destination: {}", default_name));
+        default_name
     };
     
     copy_to_sut_directory(source_path, &sut_subdir_name, logger)?;
     
     if args.rebuild {
+        logger.log("Rebuild flag set - rebuilding Docker image");
         rebuild_docker_image(logger, sh)?;
     } else {
-        logger.log("Files copied to SUT directory. Use --rebuild flag to rebuild the Docker image with the new files.");
+        logger.log("Skipping Docker rebuild (use --rebuild to rebuild the image)");
     }
     
-    logger.success(format!("Directory copied to SUT/{}", sut_subdir_name));
+    logger.success(format!("SUT directory ready at SUT/{}", sut_subdir_name));
     Ok(())
 }
 
 fn copy_to_sut_directory(source_path: &Path, sut_subdir_name: &str, logger: &Logger) -> Result<()> {
-    logger.log("Copying directory to Docker SUT build context...");
+    logger.log("Copying files to Docker SUT build context");
+    logger.debug(format!("Destination: SUT/{}", sut_subdir_name));
     
     let build_dir = Path::new(DOCKER_BUILD_DIR);
     if !build_dir.exists() {
+        logger.error(format!("Docker build directory not found: {}", DOCKER_BUILD_DIR));
         anyhow::bail!("Docker build directory not found at: {}", DOCKER_BUILD_DIR);
     }
+    logger.debug(format!("Build directory: {}", build_dir.display()));
     
     let sut_base_dir = build_dir.join(SUT_DIR_NAME);
     let dest_path = sut_base_dir.join(sut_subdir_name);
@@ -79,11 +88,11 @@ fn copy_to_sut_directory(source_path: &Path, sut_subdir_name: &str, logger: &Log
             .context("Failed to remove existing SUT subdirectory")?;
     }
     
-    logger.log(format!("Copying {} to SUT/{}", source_path.display(), sut_subdir_name));
+    logger.log(format!("Copying files from {} to SUT/{}", source_path.display(), sut_subdir_name));
     
     copy_dir_recursive(source_path, &dest_path)?;
     
-    logger.log("Verifying copied files...");
+    logger.debug("Verifying copied files");
     let entries = fs::read_dir(&dest_path)
         .context("Failed to read destination directory")?;
     
@@ -94,7 +103,7 @@ fn copy_to_sut_directory(source_path: &Path, sut_subdir_name: &str, logger: &Log
         }
     }
     
-    logger.log(format!("Successfully copied {} items to SUT/{}", file_count, sut_subdir_name));
+    logger.success(format!("Copied {} items to SUT/{}", file_count, sut_subdir_name));
     Ok(())
 }
 
@@ -119,10 +128,15 @@ fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<()> {
 }
 
 fn rebuild_docker_image(logger: &Logger, sh: &Shell) -> Result<()> {
-    logger.log("Rebuilding Docker image with copied files...");
+    logger.log("Rebuilding Docker image with copied files");
+    logger.debug("This may take several minutes");
     
     let build_dir = Path::new(DOCKER_BUILD_DIR);
+    logger.debug(format!("Build directory: {}", build_dir.display()));
+    
     let _dir = sh.push_dir(build_dir);
+    logger.debug("Running: docker build -t jepsen_node .");
+    
     sh.cmd("docker")
         .arg("build")
         .arg("-t")
@@ -131,6 +145,6 @@ fn rebuild_docker_image(logger: &Logger, sh: &Shell) -> Result<()> {
         .run()
         .context("Failed to rebuild Docker image")?;
     
-    logger.success("Docker image rebuilt successfully!");
+    logger.success("Docker image 'jepsen_node' rebuilt successfully!");
     Ok(())
 } 

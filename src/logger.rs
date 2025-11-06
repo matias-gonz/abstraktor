@@ -1,8 +1,9 @@
+use clap::ValueEnum;
 use cliclack::{intro, log, outro};
 use console::style;
 use std::fmt::Display;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy, Debug, ValueEnum)]
 pub enum LogLevel {
     Debug,
     Info,
@@ -19,8 +20,16 @@ impl Logger {
         Self { level }
     }
 
+    pub fn debug(&self, message: impl Display) {
+        if self.level != LogLevel::Debug {
+            return;
+        }
+
+        log::step(format!("{} {}", style("[DEBUG]").dim(), message)).unwrap();
+    }
+
     pub fn log(&self, message: impl Display) {
-        if self.level == LogLevel::Quiet {
+        if self.level == LogLevel::Quiet || self.level == LogLevel::Error {
             return;
         }
 
@@ -28,11 +37,24 @@ impl Logger {
     }
 
     pub fn success(&self, message: impl Display) {
-        if self.level == LogLevel::Quiet {
+        if self.level == LogLevel::Quiet || self.level == LogLevel::Error {
             return;
         }
 
         log::success(message).unwrap();
+    }
+
+    pub fn warning(&self, message: impl Display) {
+        if self.level == LogLevel::Quiet || self.level == LogLevel::Error {
+            return;
+        }
+
+        log::warning(format!(
+            "{} {}",
+            style("Warning:").bold().yellow(),
+            style(message).yellow()
+        ))
+        .unwrap();
     }
 
     pub fn intro(&self) {

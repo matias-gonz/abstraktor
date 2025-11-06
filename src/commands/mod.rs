@@ -26,6 +26,15 @@ pub use export_graphs::ExportGraphsArgs;
     about = "Abstraktor"
 )]
 pub struct Abstraktor {
+    #[arg(
+        short = 'l',
+        long = "log-level",
+        global = true,
+        default_value = "info",
+        help = "Set the logging level"
+    )]
+    pub log_level: crate::logger::LogLevel,
+
     #[command(subcommand)]
     pub command: AbstraktorSubcommand,
 }

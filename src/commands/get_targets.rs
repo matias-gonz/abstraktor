@@ -49,12 +49,28 @@ pub fn run(args: GetTargetsArgs, logger: &Logger) -> Result<()> {
     logger.log(format!("Getting targets from {}", args.path));
 
     let files = get_files_content(&args.path);
+    logger.debug(format!("Found {} C/C++ files to analyze", files.len()));
+
+    if files.is_empty() {
+        logger.warning("No C/C++ files found in the specified path");
+    }
+
     let instrumentor = Instrumentor::new();
+    logger.debug("Analyzing files for instrumentation targets");
     let targets = instrumentor.get_targets(files);
+    logger.debug(format!(
+        "Identified {} instrumentation targets",
+        targets.len()
+    ));
+
     let targets_json =
         serde_json::to_string_pretty(&targets).context("Failed to serialize targets")?;
     std::fs::write(&args.output, targets_json).context("Failed to write targets to file")?;
-    logger.success(format!("Targets saved to {}", args.output));
+    logger.success(format!(
+        "Targets saved to {} ({} targets found)",
+        args.output,
+        targets.len()
+    ));
     Ok(())
 }
 

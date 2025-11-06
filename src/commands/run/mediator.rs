@@ -15,26 +15,31 @@ const REWARD: &str = "0.7";
 pub struct RunMediatorArgs {}
 
 pub fn run(_args: RunMediatorArgs, logger: &Logger, sh: &Shell) -> Result<()> {
+	logger.log("Starting Mediator");
+	
 	let bin_path = path::absolute(Path::new(MEDIATOR_BIN_REL))
 		.context("Failed to absolutize mediator binary path")?;
+	logger.debug(format!("Mediator binary path: {}", bin_path.display()));
+	
 	if !bin_path.exists() {
 		logger.error(format!(
-			"mediator binary not found at {}",
+			"Mediator binary not found at {}",
 			bin_path.to_string_lossy()
 		));
+		logger.log("Hint: Run 'abstraktor setup mediator' to build the mediator first");
 		return Err(anyhow::anyhow!(
-			"mediator binary not found at {}",
+			"Mediator binary not found at {}",
 			bin_path.to_string_lossy()
 		));
 	}
 
-	logger.log(format!(
-		"Running mediator: {} {} {} {}",
-		bin_path.to_string_lossy(),
-		ALGORITHM,
-		TABLE,
-		REWARD
-	));
+	logger.log("Launching mediator with configuration:");
+	logger.log(format!("  Algorithm: {}", ALGORITHM));
+	logger.log(format!("  Table: {}", TABLE));
+	logger.log(format!("  Reward: {}", REWARD));
+	logger.debug(format!("Executing: sudo {} {} {} {}", 
+		bin_path.to_string_lossy(), ALGORITHM, TABLE, REWARD));
+	
 	sh.cmd("sudo")
 		.arg(bin_path.to_string_lossy().as_ref())
 		.arg(ALGORITHM)
@@ -43,7 +48,7 @@ pub fn run(_args: RunMediatorArgs, logger: &Logger, sh: &Shell) -> Result<()> {
 		.run()
 		.context("Failed to run mediator")?;
 
-	logger.success("Mediator started");
+	logger.success("Mediator started successfully");
 	Ok(())
 }
 
