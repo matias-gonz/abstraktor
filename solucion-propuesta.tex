@@ -1,0 +1,62 @@
+\section{Solución propuesta}
+
+Para abordar el problema identificado, se propone el desarrollo de \textbf{Abstraktor}, una herramienta que asista en la validación de implementaciones de protocolos distribuidos mediante la generación automática de EPAs (enabledness-preserving abstractions). La solución se basa en cuatro componentes principales:
+
+\begin{itemize}
+    \item \textbf{Instrumentador:} Componente encargado de procesar el código fuente de la aplicación para generar un ejecutable capaz de exponer su estado interno.
+    \item \textbf{Extensión de Mallory:} Se propone forkear la herramienta \textbf{Mallory} para realizar fuzzing eficiente sobre el ejecutable y, al mismo tiempo, procesar su estado interno.
+    \item \textbf{Generador de EPAs:} Responsable de construir y exportar abstracciones (\textbf{EPAs}) utilizando los datos extraídos de la ejecución de la extensión de Mallory.
+    \item \textbf{Herramienta CLI:} Orquestará y coordinará la interacción entre los diferentes componentes para generar y exportar las abstracciones.
+\end{itemize}
+
+Esta solución resuelve el problema de las herramientas actuales, que solo detectan fallos de ejecución, al permitir la identificación de errores en la lógica de negocio de la implementación.
+
+Las \textbf{EPAs} generadas a partir de la ejecución del protocolo permiten observar el comportamiento real y detectar inconsistencias en la implementación, proporcionando una visión más completa y detallada del sistema y su funcionamiento bajo diferentes condiciones.
+
+La solución será implementada y testeada en ambiente \textbf{linux}.
+
+\clearpage
+
+\subsection{Herramienta CLI}
+
+A continuación se presenta una especificación de la herramienta a desarrollar:
+
+\vspace{1cm}
+
+\begin{tikzpicture}[
+  component/.style={rectangle, draw, rounded corners, text centered, minimum width=4cm, minimum height=1cm},
+  arrow/.style={-{Latex[length=3mm]}, thick},
+  node distance=1.5cm and 2.5cm
+]
+
+\node[component] (cli) {CLI};
+\node[component, below left=of cli] (instrumentador) {Instrumentador};
+\node[component, below=of cli, yshift=-2cm] (mallory) {Extensión de Mallory};
+\node[component, below right=of cli] (epa) {Generador de EPAs};
+
+\draw[arrow] (cli) -- (instrumentador) node[midway, left] {};
+\draw[arrow] (cli) -- (mallory) node[midway, right] {};
+\draw[arrow] (instrumentador) -- (mallory) node[midway, below left] {Código instrumentado};
+\draw[arrow] (mallory) -- (epa) node[midway, below right] {Datos de ejecución};
+\draw[arrow] (cli) -- (epa) node[midway, above right] {};
+
+
+\end{tikzpicture}
+
+\vspace{1cm}
+
+La herramienta \texttt{abstraktor} expone una interfaz por línea de comandos (CLI) compuesta por varios subcomandos que permiten orquestar todo el proceso de generación de EPAs, desde la instrumentación del código hasta la obtención de la abstracción final. A continuación se detallan sus funcionalidades principales:
+
+\begin{itemize}
+    \item \texttt{get-targets}: Analiza el código fuente y genera un archivo JSON con las anotaciones necesarias para la instrumentación.
+    
+    \item \texttt{instrument-code}: Utiliza el archivo de \emph{targets} generado para instrumentar el código y producir un binario instrumentado.
+    
+    \item \texttt{prepare-binary}: Ejecuta \texttt{get-targets} y luego \texttt{instrument-code}. Automatiza la instrumentación completa del código fuente.
+    
+    \item \texttt{run-mallory}: Ejecuta la extensión de Mallory sobre el binario instrumentado y genera un archivo con los eventos recolectados durante la ejecución.
+    
+    \item \texttt{generate-epa}: Usa el archivo de eventos producido por Mallory para generar una abstracción (EPA).
+    
+    \item \texttt{run-all}: Ejecuta la secuencia completa: \texttt{prepare-binary} $\rightarrow$ \texttt{run-mallory} $\rightarrow$ \texttt{generate-epa}.
+\end{itemize}
