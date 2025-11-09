@@ -1,0 +1,66 @@
+\section{Solución implementada}
+
+La solución se implementó como una herramienta de línea de comandos que automatiza la generación de abstracciones (EPAs) para protocolos distribuidos implementados en C/C++. La herramienta integra diferentes componentes y aplicaciones en un flujo de trabajo unificado.
+
+\subsection{Arquitectura}
+
+La arquitectura se basa en tres programas principales:
+
+\subsubsection{CLI de Abstraktor}
+
+El punto de entrada es una aplicación CLI escrita en Rust que coordina la ejecución de los demás componentes e implementa lógica de negocio para el análisis de código fuente, procesamiento de logs y generación de abstracciones. Sus responsabilidades incluyen:
+
+\begin{itemize}
+    \item \textbf{Coordinación de herramientas:} Invoca y configura el instrumentador LLVM mediante variables de entorno y ejecución de scripts, estableciendo el contexto necesario para la compilación instrumentada.
+    
+    \item \textbf{Extracción de anotaciones y generación de metadatos:} Procesa archivos de código fuente C/C++ mediante expresiones regulares para identificar anotaciones especiales insertadas como comentarios, y las serializa en formato JSON con información de rutas de archivos, números de línea, y especificaciones de variables y campos a capturar.
+    
+    \item \textbf{Procesamiento de logs y generación de abstracciones:} Parsea los logs de eventos, construye grafos de transiciones de estados por nodo del sistema distribuido, y exporta las representaciones gráficas en formato DOT (GraphViz), con opción de renderizado a PNG o PDF.
+\end{itemize}
+
+La aplicación Rust utiliza las siguientes bibliotecas principales:
+
+\begin{itemize}
+    \item \texttt{clap}: Framework para parseo de argumentos de línea de comandos con soporte para subcomandos
+    \item \texttt{serde} y \texttt{serde\_json}: Serialización y deserialización de estructuras de datos
+    \item \texttt{regex}: Análisis de patrones en código fuente para extracción de anotaciones
+    \item \texttt{xshell}: Ejecución de comandos del sistema con manejo de directorios y variables de entorno
+    \item \texttt{anyhow}: Manejo de errores con contexto enriquecido
+\end{itemize}
+
+\subsubsection{Instrumentador (LLVM)}
+
+La instrumentación del código fuente se realiza mediante \textbf{afl-clang-fast}, un compilador basado en LLVM que inserta código en el paso de compilación. Se utilizó el instrumentador existente de AFL (American Fuzzy Lop) y se extendió para soportar la instrumentación selectiva basada en anotaciones. El instrumentador está escrito en C y se integra como un plugin de LLVM.
+
+El proceso de instrumentación:
+
+\begin{enumerate}
+    \item El CLI de Rust configura las variables de entorno necesarias:
+    \begin{itemize}
+        \item \texttt{CC}: Ruta al wrapper \texttt{afl-clang-fast}
+        \item \texttt{TARGETS\_FILE}: Ruta al archivo JSON con los targets de instrumentación
+        \item \texttt{AFL\_CC}: Compilador base a utilizar (\texttt{clang-11})
+    \end{itemize}
+    
+    \item Se invoca el script de compilación del sistema bajo prueba (\texttt{install.sh}), que utiliza automáticamente el compilador instrumentado a través de la variable \texttt{CC}
+    
+    \item El instrumentador de LLVM procesa el código durante la compilación, insertando llamadas que exponen el estado interno en los puntos especificados en el archivo de targets
+    
+    \item El resultado es un binario instrumentado que emite eventos durante su ejecución
+\end{enumerate}
+
+\subsubsection{Fuzzer (Mallory)}
+
+\textbf{Mallory} es un framework de testing para sistemas distribuidos que combina fuzzing de red con simulación de fallas. Se utilizó el framework existente y se extendió el componente Mediator para soportar la recolección y persistencia de eventos de estado generados por los binarios instrumentados. Mallory está implementado principalmente en \textbf{Clojure} (usando Jepsen como base) con componentes en \textbf{Rust} (mediator y coverage server).
+
+Arquitectura de Mallory:
+
+\begin{itemize}
+    \item \textbf{Infraestructura Docker:} Orquesta contenedores que ejecutan los nodos del sistema distribuido en un entorno de red controlado
+    
+    \item \textbf{Mediator (Rust):} Componente central que implementa algoritmos de aprendizaje por refuerzo (Q-learning) para guiar la exploración del espacio de estados.
+    
+    \item \textbf{Motor de fuzzing:} Genera tráfico de red, inyecta fallas y manipula condiciones de carrera
+    
+    \item \textbf{Recolección de eventos:} Captura las emisiones del binario instrumentado y las almacena en archivos de log con formato estructurado
+\end{itemize}
