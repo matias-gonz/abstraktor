@@ -6,6 +6,35 @@ La solución se implementó como una herramienta de línea de comandos que autom
 
 La arquitectura se basa en tres programas principales:
 
+\vspace{0.5cm}
+
+{\centering
+\begin{tikzpicture}[
+  mainbox/.style={rectangle, draw, thick, rounded corners, minimum width=4cm, minimum height=1.2cm, align=center, font=\small, fill=blue!10},
+  component/.style={rectangle, draw, rounded corners, minimum width=3.5cm, minimum height=1cm, align=center, font=\small, fill=white},
+  output/.style={rectangle, draw, dashed, rounded corners, minimum width=3.5cm, minimum height=1cm, align=center, font=\small, fill=green!10},
+  arrow/.style={-{Latex[length=3mm]}, thick},
+  bidir/.style={<-{Latex[length=3mm]}, thick},
+  edgelabel/.style={font=\tiny, text=gray, align=center}
+]
+
+\node[component] (cli) at (0,0) {CLI Abstraktor\\(Rust)};
+\node[component] (llvm) at (-3,-2.5) {Instrumentador\\LLVM (C)};
+\node[component] (mallory) at (3,-2.5) {Fuzzer Mallory\\(Clojure/Rust)};
+\node[output] (abstractions) at (5, 0) {Abstracciones\\(EPAs)};
+
+\draw[bidir] (cli) -- (llvm) node[midway, above left, edgelabel] {JSON targets};
+\draw[bidir] (cli) -- (mallory) node[midway, above right, edgelabel] {logs eventos};
+\draw[arrow] (llvm) -- (mallory) node[midway, above, edgelabel] {binario\\instrumentado};
+\draw[arrow] (cli) -- (abstractions) node[midway, above, edgelabel] {genera};
+
+\end{tikzpicture}
+\par}
+
+\vspace{0.5cm}
+
+A continuación se describen los componentes:
+
 \subsubsection{CLI de Abstraktor}
 
 El punto de entrada es una aplicación CLI escrita en Rust que coordina la ejecución de los demás componentes e implementa lógica de negocio para el análisis de código fuente, procesamiento de logs y generación de abstracciones. Sus responsabilidades incluyen:
