@@ -93,3 +93,39 @@ Arquitectura de Mallory:
     
     \item \textbf{Recolección de eventos:} Captura las emisiones del binario instrumentado y las almacena en archivos de log con formato estructurado
 \end{itemize}
+
+\subsection{Interfaz de línea de comandos}
+
+El CLI de Abstraktor está dividido en varios subcomandos que permiten ejecutar individualmente las diferentes etapas del flujo de trabajo para generar EPAs, otorgando flexibilidad al usuario para ejecutar pasos específicos según sea necesario:
+
+\subsubsection{Comandos de instrumentación}
+
+\begin{itemize}
+    \item \texttt{get-targets}: Escanea directorios de código fuente C/C++ buscando anotaciones y genera un archivo JSON con los targets de instrumentación identificados.
+    
+    \item \texttt{llvm}: Configura variables de entorno e invoca el script de compilación del sistema bajo prueba utilizando el instrumentador LLVM con el archivo de targets especificado.
+    
+    \item \texttt{instrument}: Combina \texttt{get-targets} y \texttt{llvm} en un solo comando, automatizando todo el proceso de instrumentación.
+\end{itemize}
+
+\subsubsection{Comandos de configuración}
+
+\begin{itemize}
+    \item \texttt{setup docker}: Construye las imágenes Docker necesarias para el entorno de Mallory.
+    
+    \item \texttt{setup mediator}: Compila el componente Mediator de Mallory con opciones configurables (modo release, features de selfcheck y logsaving).
+    
+    \item \texttt{setup sut}: Configura el sistema bajo prueba.
+    
+    \item \texttt{setup all}: Ejecuta la configuración completa del entorno (Docker + Mediator).
+\end{itemize}
+
+\subsubsection{Comandos de ejecución y generación}
+
+\begin{itemize}
+    \item \texttt{run mallory}: Inicia el entorno de prueba de Mallory ejecutando los contenedores Docker configurados.
+    
+    \item \texttt{run mediator}: Ejecuta el binario del Mediator con parámetros de configuración (algoritmo Q-learning, tabla de eventos, factor de recompensa).
+    
+    \item \texttt{export-graphs}: Procesa los logs de eventos generados por Mallory, construye grafos de estados por nodo, y los exporta en formato DOT, PNG o PDF.
+\end{itemize}
