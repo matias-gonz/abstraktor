@@ -1,13 +1,12 @@
-1 boot startup
-1 load config
-1 validate ready
-1 connect network
-1 auth authenticated
-1 error network
-1 retry authenticated
-1 shutdown config
-1 cleanup startup
-2 initialize idle
-2 connect active
-2 disconnect idle
-
+[2025-11-10 19:56:55.000001][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 1 / 9] BlockExecute 1 @ functionName boot @ state startup
+[2025-11-10 19:56:55.000002][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 2 / 9] BlockExecute 2 @ functionName load @ state config
+[2025-11-10 19:56:55.000003][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 3 / 9] BlockExecute 3 @ functionName validate @ state ready
+[2025-11-10 19:56:55.000004][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 4 / 9] BlockExecute 4 @ functionName connect @ state network
+[2025-11-10 19:56:55.000005][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 5 / 9] BlockExecute 5 @ functionName auth @ state authenticated
+[2025-11-10 19:56:55.000006][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 6 / 9] BlockExecute 6 @ functionName error @ state network
+[2025-11-10 19:56:55.000007][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 7 / 9] BlockExecute 7 @ functionName retry @ state authenticated
+[2025-11-10 19:56:55.000008][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 8 / 9] BlockExecute 8 @ functionName shutdown @ state config
+[2025-11-10 19:56:55.000009][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 9 / 9] BlockExecute 9 @ functionName cleanup @ state startup
+[2025-11-10 19:56:55.000010][INFO] [FUNC_EVENT_TYPE][Node 2 Batch 1 Entry 1 / 3] FunctionExecute 10 @ functionName initialize @ state idle
+[2025-11-10 19:56:55.000011][INFO] [FUNC_EVENT_TYPE][Node 2 Batch 1 Entry 2 / 3] FunctionExecute 11 @ functionName connect @ state active
+[2025-11-10 19:56:55.000012][INFO] [FUNC_EVENT_TYPE][Node 2 Batch 1 Entry 3 / 3] FunctionExecute 12 @ functionName disconnect @ state idle

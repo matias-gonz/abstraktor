@@ -3,15 +3,15 @@ pub mod reward;
 pub mod summary;
 
 use std::collections::BTreeMap;
+use std::io::{self, Read};
 use std::io::{Cursor, Seek, SeekFrom};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{sync::Arc, time::Instant};
-use std::io::{self, Read};
 
 use antidote::{Mutex, RwLock};
 use byteorder::{BigEndian, ByteOrder, LittleEndian, ReadBytesExt};
 use chrono::{DateTime, Duration, Utc};
-use dashmap::{mapref::entry::Entry, DashMap};
+use dashmap::{DashMap, mapref::entry::Entry};
 use edn_format::{Keyword, Value};
 use hashbrown::HashMap;
 
@@ -48,7 +48,7 @@ pub enum RaftState {
     Follower = 1,
     Candidate = 2,
     Leader = 3,
-    Unknown = 100
+    Unknown = 100,
 }
 
 impl TryFrom<u64> for RaftState {
@@ -70,10 +70,10 @@ impl fmt::Display for RaftState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let texto = match self {
             RaftState::Unavailable => "Unavailable",
-            RaftState::Follower    => "Follower",
-            RaftState::Candidate   => "Candidate",
-            RaftState::Leader      => "Leader",
-            RaftState::Unknown      => "Unknown",
+            RaftState::Follower => "Follower",
+            RaftState::Candidate => "Candidate",
+            RaftState::Leader => "Leader",
+            RaftState::Unknown => "Unknown",
         };
         write!(f, "{}", texto)
     }
@@ -426,7 +426,7 @@ impl FeedbackManager {
                 // FunctionExecute
                 FUNC_EVENT_TYPE => {
                     let function_id = db_rdr.read_u64::<BOrd>().unwrap();
-                    
+
                     let mut function_buffer = vec![0; 64];
                     db_rdr.read_exact(&mut function_buffer).unwrap();
                     let str_end = function_buffer.iter().position(|&b| b == 0).unwrap_or(64);
@@ -438,7 +438,7 @@ impl FeedbackManager {
                     let result_str = String::from_utf8_lossy(&state_buffer[..state_str_end]);
 
                     log::info!(
-                        "[FUNC_EVENT_TYPE][Node {} Batch {} Entry {} / {}] FunctionExecute {} @ FunctionName {} @ state: {}",
+                        "[FUNC_EVENT_TYPE][Node {} Batch {} Entry {} / {}] FunctionExecute {} @ FunctionName {} @ state {}",
                         node_id,
                         batch_id,
                         db_entry_index,
@@ -448,7 +448,7 @@ impl FeedbackManager {
                         result_str
                     );
                     Event::FunctionExecute {
-                        function_id: function_id as u16
+                        function_id: function_id as u16,
                     }
                 }
 
@@ -465,7 +465,7 @@ impl FeedbackManager {
                     let state_str_end = state_buffer.iter().position(|&b| b == 0).unwrap_or(64);
                     let result_str = String::from_utf8_lossy(&state_buffer[..state_str_end]);
                     log::info!(
-                        "[CONST_EVENT_TYPE][Node {} Batch {} Entry {} / {}] ConstantExecute {} @ FunctionName {} @ Constant {}",
+                        "[CONST_EVENT_TYPE][Node {} Batch {} Entry {} / {}] ConstantExecute {} @ FunctionName {} @ constant {}",
                         node_id,
                         batch_id,
                         db_entry_index,
@@ -475,7 +475,7 @@ impl FeedbackManager {
                         result_str
                     );
                     Event::ConstantExecute {
-                        const_id: const_id as u16
+                        const_id: const_id as u16,
                     }
                 }
 
@@ -534,7 +534,12 @@ impl FeedbackManager {
                     let mediator_id = match self.packets.get_mediator_id(network_id) {
                         Some(id) => id,
                         None => {
-                            log::warn!("[PACKET] Got {} with network_id {} from {}, but mediator has not seen this packet! Ignoring it.", evt_type, network_id, node_ip);
+                            log::warn!(
+                                "[PACKET] Got {} with network_id {} from {}, but mediator has not seen this packet! Ignoring it.",
+                                evt_type,
+                                network_id,
+                                node_ip
+                            );
 
                             // There are two reasons this might happen (one which is expected, one which is a bug)
                             // (a) the packet was dropped by the network and it never reached us, OR
@@ -795,7 +800,8 @@ impl FeedbackManager {
                 ev,
                 batch_id.map_or_else(|| "None".to_string(), |x| x.to_string()),
                 guaranteed_past_ts,
-                Duration::nanoseconds(diff_ns).num_milliseconds());
+                Duration::nanoseconds(diff_ns).num_milliseconds()
+            );
         }
 
         self.timeline.add_event(ev);
