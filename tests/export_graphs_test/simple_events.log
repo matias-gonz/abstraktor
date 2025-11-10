@@ -1,6 +1,5 @@
-1 init idle
-1 start active
-1 process busy
-1 complete ready
-1 reset idle
-
+[2025-11-10 19:56:55.000001][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 1 / 5] FunctionExecute 1 @ functionName init @ state idle
+[2025-11-10 19:56:55.000002][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 2 / 5] FunctionExecute 2 @ functionName start @ state active
+[2025-11-10 19:56:55.000003][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 3 / 5] FunctionExecute 3 @ functionName process @ state busy
+[2025-11-10 19:56:55.000004][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 4 / 5] FunctionExecute 4 @ functionName complete @ state ready
+[2025-11-10 19:56:55.000005][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 5 / 5] FunctionExecute 5 @ functionName reset @ state idle
