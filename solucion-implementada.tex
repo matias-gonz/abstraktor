@@ -186,3 +186,111 @@ El flujo completo consta de las siguientes etapas:
     
     \item \textbf{Generación de EPAs:} El comando \texttt{export-graphs} procesa los logs de eventos, construye los grafos de transiciones de estados para cada nodo del sistema distribuido, y exporta las abstracciones en el formato deseado.
 \end{enumerate}
+
+\subsection{Sistema de anotaciones para instrumentación}
+
+Abstraktor utiliza un sistema de anotaciones insertadas como comentarios en el código fuente C/C++ para especificar qué partes del estado interno deben ser instrumentadas. Se soportan tres tipos de anotaciones:
+
+\subsubsection{ABSTRAKTOR\_BLOCK\_EVENT}
+
+Instrumenta un bloque de código específico para capturar el estado de variables en ese punto de ejecución. Soporta navegación en estructuras anidadas mediante la sintaxis de índices de campos.
+
+\textbf{Sintaxis:}
+\begin{verbatim}
+// ABSTRAKTOR_BLOCK_EVENT
+// ABSTRAKTOR_BLOCK_EVENT: variable
+// ABSTRAKTOR_BLOCK_EVENT: variable->campo
+// ABSTRAKTOR_BLOCK_EVENT: variable->campo1->campo2
+\end{verbatim}
+
+\textbf{Ejemplo 1 - Sin especificar variable:}
+
+\begin{verbatim}
+// ABSTRAKTOR_BLOCK_EVENT
+if (state == READY) {
+    process_request();
+}
+\end{verbatim}
+
+\textbf{Ejemplo 2 - Capturando una variable primitiva:}
+
+\begin{verbatim}
+// ABSTRAKTOR_BLOCK_EVENT: status
+handle_message(status);
+\end{verbatim}
+
+\textbf{Ejemplo 3 - Accediendo a un campo de struct (posición 3):}
+
+\begin{verbatim}
+// ABSTRAKTOR_BLOCK_EVENT: request->3
+process_field(request);
+\end{verbatim}
+
+\textbf{Ejemplo 4 - Accediendo a campos anidados (campo 2, luego campo 5):}
+
+\begin{verbatim}
+// ABSTRAKTOR_BLOCK_EVENT: config->2->5
+apply_config(config);
+\end{verbatim}
+
+La navegación mediante índices numéricos (\texttt{->campo}) permite acceder a campos específicos de estructuras. Si \texttt{r} es un struct, \texttt{r->5} accede al campo en la posición 5. Si ese campo también es un struct, \texttt{r->5->6} accede al campo 6 del struct anidado. Los índices se utilizan en lugar de nombres de campos porque estos se pierden en la representación intermedia (IR) de LLVM durante la compilación.
+
+\subsubsection{ABSTRAKTOR\_CONST}
+
+Instrumenta un bloque de código para emitir un valor constante específico, útil para marcar estados o transiciones conocidas sin necesidad de examinar variables.
+
+\textbf{Sintaxis:}
+\begin{verbatim}
+// ABSTRAKTOR_CONST: identificador
+\end{verbatim}
+
+\textbf{Ejemplo:}
+
+\begin{verbatim}
+// ABSTRAKTOR_CONST: LEADER_ELECTED
+if (is_leader) {
+    start_coordination();
+}
+
+// ABSTRAKTOR_CONST: FOLLOWER_MODE
+wait_for_instructions();
+\end{verbatim}
+
+\subsubsection{ABSTRAKTOR\_FUNC}
+
+Instrumenta una función completa, capturando el estado de los parámetros especificados. Solo puede trackear variables que sean parámetros de la función, no variables locales. Permite especificar múltiples parámetros separados por comas y soporta la misma sintaxis de navegación de campos que \texttt{ABSTRAKTOR\_BLOCK\_EVENT}.
+
+\textbf{Sintaxis:}
+\begin{verbatim}
+// ABSTRAKTOR_FUNC: parametro1, parametro2
+// ABSTRAKTOR_FUNC: parametro->campo
+// ABSTRAKTOR_FUNC: param1->campo1, param2->campo2->campo3
+\end{verbatim}
+
+\textbf{Ejemplo 1 - Capturando un parámetro primitivo:}
+
+\begin{verbatim}
+// ABSTRAKTOR_FUNC: status
+int process_message(int status) {
+    perform_action(status);
+    return status;
+}
+\end{verbatim}
+
+\textbf{Ejemplo 2 - Capturando múltiples parámetros con acceso a campos:}
+
+\begin{verbatim}
+// ABSTRAKTOR_FUNC: node->1, status
+void update_cluster_state(Node* node, int status) {
+    apply_changes(node, status);
+}
+\end{verbatim}
+
+\textbf{Ejemplo 3 - Navegación en campos anidados:}
+
+\begin{verbatim}
+// ABSTRAKTOR_FUNC: config->2->3, leader->5
+int reconfigure_system(Config* config, Node* leader) {
+    return apply_config(config, leader);
+}
+\end{verbatim}
