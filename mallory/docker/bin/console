@@ -1,2 +1,17 @@
 #!/usr/bin/env bash
-docker exec -it jepsen-control bash
+#!/bin/bash
+CONTAINER=jepsen-control
+
+if [ "$1" = "-d" ]; then
+    shift  # saca el primer argumento (-d)
+    if [ -n "$1" ]; then
+        docker exec -d "$CONTAINER" bash -lc "$*"
+    else
+        echo "Error: faltó comando para ejecutar en modo detach" >&2
+        exit 1
+    fi
+elif [ -n "$1" ]; then
+    docker exec -i "$CONTAINER" bash -lc "$*"
+else
+    docker exec -it "$CONTAINER" bash
+fi
