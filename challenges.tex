@@ -1,6 +1,6 @@
 \section{Riesgos materializados y lecciones aprendidas}
 
-Esta sección describe los principales riesgos materializados durante el desarrollo de \textbf{Abstraktor}, las estrategias de mitigación aplicadas y las lecciones aprendidas. Los riesgos se categorizan en dos grupos: aquellos relacionados con la dinámica del equipo, y aquellos vinculados a la integración con software legacy.
+Esta sección describe los principales riesgos materializados durante el desarrollo de \textbf{Abstraktor}, las estrategias de mitigación aplicadas y las lecciones aprendidas. Los riesgos identificados incluyen incertidumbre técnica en las soluciones de implementación, y desafíos relacionados con la integración y extensión de software legacy.
 
 \subsection{Incertidumbre en la viabilidad de soluciones técnicas}
 
@@ -14,4 +14,12 @@ Para mitigar este riesgo, se adoptó una estrategia de dos etapas: primero se re
 
 El software legacy Mallory, sobre el cual se construyó \textbf{Abstraktor}, no contaba con suficientes tests ni cobertura de código adecuada. Esto dificultó la comprensión del impacto de los cambios al modificar o extender el código. Sin tests apropiados, incluso modificaciones pequeñas representaban el riesgo de introducir bugs o romper funcionalidad existente.
 
-Para mitigar este riesgo, se desarrollaron tests de integración entre \textbf{Abstraktor} y Mallory. Estos tests garantizaron que los cambios no rompieran el flujo de trabajo general y que la funcionalidad clave permaneciera intacta, proporcionando mayor confianza al equipo al modificar o extender el código.
+Para mitigar este riesgo, se desarrollaron tests de integración entre \textbf{Abstraktor} y Mallory. Estos tests garantizaron que los cambios no rompieran el flujo de trabajo general y que la funcionalidad clave permaneciera intacta al modificar o extender el código.
+
+\subsection{Falta de documentación en software legacy}
+
+Mallory presentaba documentación muy limitada. Proporcionaba escasa orientación sobre cómo compilar y ejecutar el software, y casi ninguna información sobre sus componentes internos, arquitectura o ubicación de lógica específica en el código.
+
+Como resultado, se invirtió mucho tiempo intentando comprender el sistema, no solo para utilizarlo, sino también para extenderlo con funcionalidad adicional requerida por \textbf{Abstraktor}. 
+
+Esta experiencia evidenció la importancia crítica de la documentación tanto para el desarrollo actual como para la mantenibilidad futura. La falta de documentación incrementó considerablemente el tiempo de onboarding y el esfuerzo necesario para realizar modificaciones en el código legacy.
