@@ -51,3 +51,49 @@ Se implementaron \textbf{GitHub Workflows} que se ejecutan automáticamente en c
     \item \textbf{Coverage workflow}: Genera reportes de cobertura de código mediante \texttt{cargo-llvm-cov} y los publica automáticamente en Codecov.
     \item \textbf{Linting}: Se ejecuta Clippy para verificar el cumplimiento de las convenciones de código.
 \end{itemize}
+
+\section{Cronograma de actividades realizadas}
+
+El desarrollo de \textbf{Abstraktor} se organizó en hitos principales, con una duración total de \textbf{32 semanas} y una dedicación estimada de entre 12 y 14 horas semanales, representando un esfuerzo total aproximado de entre 390 y 450 horas.
+
+\subsubsection{Hitos del proyecto}
+
+\begin{enumerate}
+    \item \textbf{Investigación de Raft y generación de posibles abstracciones} (2 semanas): Estudio detallado del protocolo Raft y diseño inicial de abstracciones que representaran sus propiedades clave de manera verificable.
+    
+    \item \textbf{Investigación de Mallory} (2 semanas): Análisis de la herramienta Mallory para comprender su funcionamiento interno y evaluar las modificaciones necesarias para integrarla al flujo de trabajo de \textbf{Abstraktor}.
+    
+    \item \textbf{Instrumentación} (6 semanas): Implementación de los subcomandos \texttt{get-targets}, \texttt{llvm} e \texttt{instrument}, permitiendo analizar el código fuente y generar un binario instrumentado.
+        
+    \item \textbf{Integración con Mallory} (6 semanas): Implementación de los comandos \texttt{setup} y \texttt{run} para configurar y ejecutar Mallory, capturando eventos del binario instrumentado.
+        
+    \item \texttt{export-graphs} (versión inicial) (4 semanas): Desarrollo de una versión simplificada del comando para procesar logs y exportar abstracciones en formato DOT.
+        
+    \item \texttt{export-graphs} (mejorado) (4 semanas): Extensión del comando para soportar exportación en formatos PNG y PDF, y mejoras en la representación de abstracciones.
+    
+    \item \textbf{Validación y refinamiento de abstracciones} (4 semanas): Evaluación de la herramienta utilizando implementaciones conocidas de Raft, identificación de inconsistencias y ajustes en las abstracciones generadas.
+
+    \item \textbf{Generación de documentación} (2 semanas): Elaboración de documentación técnica detallada describiendo la arquitectura, uso de la herramienta, decisiones de diseño y ejemplos de generación de EPAs sobre implementaciones concretas.
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|c|l|c|}
+\hline
+\textbf{\#} & \textbf{Hito} & \textbf{Semanas} \\
+\hline
+1 & Investigación de Raft & 2 \\
+2 & Investigación de Mallory & 2 \\
+3 & Instrumentación & 6 \\
+4 & Integración con Mallory & 6 \\
+5 & \texttt{export-graphs} (inicial) & 4 \\
+6 & \texttt{export-graphs} (mejorado) & 4 \\
+7 & Validación y refinamiento de abstracciones & 4 \\
+8 & Generación de documentación & 2 \\
+\hline
+\textbf{-} & \textbf{Total} & \textbf{32} \\
+\hline
+\end{tabular}
+\caption{Hitos completados y duración de cada uno}
+\label{tab:hitos-abstraktor-realizados}
+\end{table}
