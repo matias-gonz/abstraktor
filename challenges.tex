@@ -10,4 +10,8 @@ Esta incertidumbre requirió experimentación extensiva, resultando en múltiple
 
 Para mitigar este riesgo, se adoptó una estrategia de dos etapas: primero se realizó experimentación libre en branches separadas para validar la viabilidad técnica de las soluciones, y luego se reimplementaron los experimentos exitosos aplicando las prácticas de ingeniería de software establecidas antes de integrar al código principal. Este enfoque permitió validar soluciones técnicas sin comprometer la calidad del código base.
 
+\subsection{Falta de tests en software legacy}
 
+El software legacy Mallory, sobre el cual se construyó \textbf{Abstraktor}, no contaba con suficientes tests ni cobertura de código adecuada. Esto dificultó la comprensión del impacto de los cambios al modificar o extender el código. Sin tests apropiados, incluso modificaciones pequeñas representaban el riesgo de introducir bugs o romper funcionalidad existente.
+
+Para mitigar este riesgo, se desarrollaron tests de integración entre \textbf{Abstraktor} y Mallory. Estos tests garantizaron que los cambios no rompieran el flujo de trabajo general y que la funcionalidad clave permaneciera intacta, proporcionando mayor confianza al equipo al modificar o extender el código.
