@@ -24,3 +24,19 @@ El desarrollo de los componentes se realizó en simultáneo, priorizando funcion
 
 Se utilizó \textbf{GitHub} para el control de versiones, aplicando un flujo de trabajo basado en \textit{feature branches} y \textit{pull requests}. Cada nueva funcionalidad o corrección se desarrolló en una rama separada, manteniendo los cambios pequeños. Los \textit{pull requests} incluyeron tests relevantes para cada cambio.
 
+\subsection{Estrategia de testing y calidad}
+
+El testing fue un componente central del proceso de desarrollo de \textbf{Abstraktor}, con un enfoque en garantizar la corrección de la lógica del sistema y la estabilidad de las integraciones con componentes externos.
+
+\subsubsection{Testing automatizado}
+
+Se implementaron dos niveles de testing:
+
+\begin{itemize}
+    \item \textbf{Tests unitarios}: Cubrieron extensivamente la lógica del modelo central, incluyendo el parseo de anotaciones, la construcción de targets de instrumentación y la generación de grafos de eventos.
+    \item \textbf{Tests de integración}: Validaron las interacciones entre componentes del sistema, especialmente la integración con Mallory y la generación de abstracciones a partir de logs reales.
+\end{itemize}
+
+\subsubsection{Convenciones de código y linting}
+
+Se aplicaron convenciones de código mediante el linter \textbf{Clippy} para Rust, asegurando consistencia en el estilo del código y detectando patrones problemáticos de manera automática.
