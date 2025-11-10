@@ -129,3 +129,60 @@ El CLI de Abstraktor está dividido en varios subcomandos que permiten ejecutar 
     
     \item \texttt{export-graphs}: Procesa los logs de eventos generados por Mallory, construye grafos de estados por nodo, y los exporta en formato DOT, PNG o PDF.
 \end{itemize}
+
+\subsection{Flujo de trabajo}
+
+El flujo de trabajo típico para generar EPAs con Abstraktor involucra la interacción entre la CLI y los componentes de instrumentación y fuzzing:
+
+\vspace{0.5cm}
+
+{\centering
+\begin{tikzpicture}[
+  actor/.style={rectangle, draw, minimum width=2cm, minimum height=0.8cm, align=center, font=\small},
+  lifeline/.style={draw, thick},
+  call/.style={-{Latex[length=2.5mm]}, thick},
+  return/.style={-{Latex[length=2.5mm]}, dashed, thick},
+  note/.style={font=\tiny, align=left}
+]
+
+\node[actor] (dev) at (0,0) {Developer};
+\node[actor] (cli) at (3.5,0) {Abstraktor};
+\node[actor] (llvm) at (7,0) {LLVM};
+\node[actor] (mallory) at (10.5,0) {Mallory};
+
+\draw[lifeline] (dev) -- (0,-8);
+\draw[lifeline] (cli) -- (3.5,-8);
+\draw[lifeline] (llvm) -- (7,-8);
+\draw[lifeline] (mallory) -- (10.5,-8);
+
+\draw[call] (0,-1) -- (3.5,-1) node[midway, above, note] {instrument};
+\draw[call] (3.5,-1.5) -- (7,-1.5) node[midway, above, note] {get-targets};
+\draw[return] (7,-2) -- (3.5,-2) node[midway, above, note] {JSON targets};
+\draw[call] (3.5,-2.5) -- (7,-2.5) node[midway, above, note] {instrumentar};
+\draw[return] (7,-3) -- (3.5,-3) node[midway, above, note] {binario};
+\draw[return] (3.5,-3.5) -- (0,-3.5) node[midway, above, note] {binario};
+
+\draw[call] (0,-4) -- (3.5,-4) node[midway, above, note] {run mallory};
+\draw[call] (3.5,-4.5) -- (10.5,-4.5) node[midway, above, note] {ejecutar};
+\draw[return] (10.5,-5) -- (3.5,-5) node[midway, above, note] {logs eventos};
+\draw[return] (3.5,-5.5) -- (0,-5.5) node[midway, above, note] {logs eventos};
+
+\draw[call] (0,-6) -- (3.5,-6) node[midway, above, note] {export-graphs};
+\draw[return] (3.5,-6.5) -- (0,-6.5) node[midway, above, note] {EPAs};
+
+\end{tikzpicture}
+\par}
+
+\vspace{0.5cm}
+
+El flujo completo consta de las siguientes etapas:
+
+\begin{enumerate}
+    \item \textbf{Anotación del código:} El desarrollador inserta anotaciones en el código fuente C/C++ para marcar los puntos de interés donde se desea capturar el estado interno.
+    
+    \item \textbf{Instrumentación:} El comando \texttt{instrument} extrae las anotaciones, genera el archivo JSON de targets, y compila el código usando el instrumentador LLVM para producir un binario instrumentado.
+    
+    \item \textbf{Fuzzing:} El comando \texttt{run mallory} ejecuta el binario instrumentado bajo el entorno de Mallory, que realiza fuzzing distribuido y recolecta los eventos de estado emitidos durante la ejecución.
+    
+    \item \textbf{Generación de EPAs:} El comando \texttt{export-graphs} procesa los logs de eventos, construye los grafos de transiciones de estados para cada nodo del sistema distribuido, y exporta las abstracciones en el formato deseado.
+\end{enumerate}
