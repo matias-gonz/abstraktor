@@ -28,15 +28,26 @@ Se utilizó \textbf{GitHub} para el control de versiones, aplicando un flujo de 
 
 El testing fue un componente central del proceso de desarrollo de \textbf{Abstraktor}, con un enfoque en garantizar la corrección de la lógica del sistema y la estabilidad de las integraciones con componentes externos.
 
-\subsubsection{Testing automatizado}
+\subsubsection{Tests}
 
-Se implementaron dos niveles de testing:
+Se implementaron tests unitarios y de integración:
 
 \begin{itemize}
     \item \textbf{Tests unitarios}: Cubrieron extensivamente la lógica del modelo central, incluyendo el parseo de anotaciones, la construcción de targets de instrumentación y la generación de grafos de eventos.
-    \item \textbf{Tests de integración}: Validaron las interacciones entre componentes del sistema, especialmente la integración con Mallory y la generación de abstracciones a partir de logs reales.
+    \item \textbf{Tests de integración automatizados}: Validaron las interacciones entre Abstraktor y el instrumentador.
+    \item \textbf{Tests de integración manuales}: Se desarrollaron especificaciones detalladas para tests de integración con Mallory que no fueron automatizados, ejecutándose manualmente durante el desarrollo.
 \end{itemize}
 
 \subsubsection{Convenciones de código y linting}
 
-Se aplicaron convenciones de código mediante el linter \textbf{Clippy} para Rust, asegurando consistencia en el estilo del código y detectando patrones problemáticos de manera automática.
+Se aplicaron convenciones de código mediante el linter \textbf{Clippy} para Rust, asegurando consistencia en el estilo del código de manera automática.
+
+\subsection{Github Workflows}
+
+Se implementaron \textbf{GitHub Workflows} que se ejecutan automáticamente en cada \textit{pull request} y en cada cambio integrado a \textit{main}:
+
+\begin{itemize}
+    \item \textbf{Test workflow}: Ejecuta el build y la suite completa de tests utilizando \texttt{cargo test}.
+    \item \textbf{Coverage workflow}: Genera reportes de cobertura de código mediante \texttt{cargo-llvm-cov} y los publica automáticamente en Codecov.
+    \item \textbf{Linting}: Se ejecuta Clippy para verificar el cumplimiento de las convenciones de código.
+\end{itemize}
