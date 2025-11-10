@@ -1,0 +1,13 @@
+\section{Riesgos materializados y lecciones aprendidas}
+
+Esta sección describe los principales riesgos materializados durante el desarrollo de \textbf{Abstraktor}, las estrategias de mitigación aplicadas y las lecciones aprendidas. Los riesgos se categorizan en dos grupos: aquellos relacionados con la dinámica del equipo, y aquellos vinculados a la integración con software legacy.
+
+\subsection{Incertidumbre en la viabilidad de soluciones técnicas}
+
+No existía certeza sobre la viabilidad de las soluciones técnicas necesarias para cumplir con los requisitos funcionales de \textbf{Abstraktor}. La complejidad de la instrumentación de código C/C++, la integración con Mallory y la generación automática de abstracciones presentaban desafíos técnicos sin un enfoque de implementación claro desde el inicio.
+
+Esta incertidumbre requirió experimentación extensiva, resultando en múltiples branches de experimentación y pruebas de concepto. Sin embargo, estas branches no pudieron ser integradas directamente a main debido a la baja calidad del código: contenían valores hardcodeados, lógica ad-hoc, falta de tests y documentación insuficiente.
+
+Para mitigar este riesgo, se adoptó una estrategia de dos etapas: primero se realizó experimentación libre en branches separadas para validar la viabilidad técnica de las soluciones, y luego se reimplementaron los experimentos exitosos aplicando las prácticas de ingeniería de software establecidas antes de integrar al código principal. Este enfoque permitió validar soluciones técnicas sin comprometer la calidad del código base.
+
+
