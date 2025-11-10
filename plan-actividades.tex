@@ -1,0 +1,98 @@
+\section{Plan de Actividades}
+
+El desarrollo de \textbf{Abstraktor} seguirá un enfoque basado en metodologías ágiles, con iteraciones semanales que permitan una evolución incremental del sistema. La planificación y el seguimiento del trabajo se organizarán a través de un \textbf{backlog de tareas y features}.
+
+\subsection{Gestión del Alcance y Tiempos}
+Se utilizará un backlog organizado de la siguiente manera:
+\begin{itemize}
+    \item Se priorizarán las tareas en función de su impacto y dependencia con otros componentes.
+    \item Cada tarea será estimada en términos de dificultad con valores \textbf{1, 2 o 3}, en lugar de tiempos específicos.
+    \item Las iteraciones semanales permitirán ajustar el backlog dinámicamente en función del progreso y los hallazgos en pruebas.
+\end{itemize}
+
+\subsection{Desarrollo de Componentes}
+El desarrollo de \textbf{Abstraktor} se dividirá en los siguientes componentes principales:
+
+\begin{itemize}
+    \item \textbf{Instrumentador}: Procesamiento del código fuente y generación de ejecutables con estado interno expuesto. Este componente será construido en \textbf{Rust y C}, ya que requiere el uso de herramientas de bajo nivel para interactuar directamente con el código y exponer el estado interno de la aplicación.
+    \item \textbf{Extensión de Mallory}: Fork de la herramienta Mallory para permitir \textit{fuzzing} eficiente y extracción de estado interno. Esta extensión se desarrollará en \textbf{C}, el mismo lenguaje utilizado en la implementación original de Mallory.
+    \item \textbf{Generador de EPAs}: Construcción y exportación de abstracciones a partir de la ejecución del protocolo. Este componente se desarrollará en \textbf{Python}, debido a su amplia disponibilidad de bibliotecas y herramientas para la generación de imágenes y la manipulación de datos.
+    \item \textbf{CLI}: Encargada de orquestar los demás componentes del sistema. Será desarrollada en \textbf{Rust}, aprovechando sus bibliotecas para la creación de interfaces de línea de comandos.
+\end{itemize}
+
+Cada iteración semanal incluirá avances en uno o más de estos componentes según las prioridades definidas en el backlog. Se desarrollarán todos los componentes en simultáneo, tratando de priorizar funcionalidades \textit{end to end}.
+
+\subsection{Planificación de hitos y entregas intermedias}
+
+El desarrollo de \textbf{Abstraktor} se organizará en torno a hitos principales y entregas intermedias, priorizando la implementación progresiva de funcionalidades \textit{end-to-end}. A continuación se describen los hitos junto con una estimación de esfuerzo en semanas y los entregables asociados:
+
+\begin{enumerate}
+    \item \textbf{Investigación de Raft y generación de posibles abstracciones} (2 semanas): Estudio detallado del protocolo Raft y diseño inicial de abstracciones que representen sus propiedades clave de manera verificable. \textbf{Entregable:} Presentación técnica.
+    
+    \item \textbf{Investigación de Mallory} (2 semanas): Análisis de la herramienta Mallory para comprender su funcionamiento interno y evaluar las modificaciones necesarias para integrarla al flujo de trabajo de \textbf{Abstraktor}. \textbf{Entregable:} Presentación técnica.
+    
+    \item \texttt{prepare-binary} (6 semanas): Implementación de los subcomandos \texttt{get-targets} e\\ \texttt{instrument-code}, permitiendo analizar el código fuente y generar un binario instrumentado. \textbf{Entregable:} Código funcional.
+        
+    \item \texttt{run-mallory} (6 semanas): Integración inicial de la extensión de Mallory para ejecutar el binario instrumentado y capturar eventos. \textbf{Entregable:} Código funcional.
+        
+    \item \texttt{generate-epa} (versión inicial) (4 semanas): Desarrollo de una versión simplificada del generador de EPAs, exportando abstracciones en formato de texto legible. \textbf{Entregable:} Código funcional.
+        
+    \item \texttt{generate-epa} (mejorado) (4 semanas): Extensión del generador de EPAs para soportar exportación en formatos enriquecidos (PDFs, informes) y mejoras en la representación de abstracciones. \textbf{Entregable:} Código funcional.
+    
+    \item \textbf{Validación y refinamiento de abstracciones} (4 semanas): Evaluación de la herramienta utilizando implementaciones conocidas de Raft, identificación de inconsistencias y ajustes en las abstracciones generadas. \textbf{Entregable:} Código funcional.
+
+    \item \textbf{Generación de documentación} (2 semanas): Elaboración de documentación técnica detallada que describa la arquitectura, uso de la herramienta, decisiones de diseño y ejemplos de generación de EPAs sobre implementaciones concretas. \textbf{Entregable:} Documentación técnica.
+\end{enumerate}
+
+El cronograma completo se estima en \textbf{32 semanas}, con una dedicación de entre 12 y 14 horas semanales, lo que representa un esfuerzo total aproximado de entre \textbf{390 y 450 horas}.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|c|l|l|c|}
+\hline
+\textbf{\#} & \textbf{Hito} & \textbf{Entregable} & \textbf{Semanas} \\
+\hline
+1 & Investigación de Raft & Presentación técnica & 2 \\
+2 & Investigación de Mallory & Presentación técnica & 2 \\
+3 & \texttt{prepare-binary} & Código funcional & 6 \\
+4 & \texttt{run-mallory} & Código funcional & 6 \\
+5 & \texttt{generate-epa} (inicial) & Código funcional & 4 \\
+6 & \texttt{generate-epa} (mejorado) & Código funcional & 4 \\
+7 & Validación y refinamiento de abstracciones & Código funcional & 4 \\
+8 & Generación de documentación & Documentación técnica & 2 \\
+\hline
+\textbf{-} & \textbf{Total} & \textbf{-} & \textbf{32} \\
+\hline
+\end{tabular}
+\caption{Detalle de hitos y duración estimada de Abstraktor}
+\label{tab:hitos-abstraktor}
+\end{table}
+
+\subsection{Gestión de Calidad y Pruebas}
+Se hará un enfoque en la calidad del producto y también del código fuente entregado. Se implementará \textbf{testing automatizado}, ejecutado en \textit{pipelines} de GitHub:
+\begin{itemize}
+    \item Las pruebas incluirán tests unitarios y de integración para garantizar la estabilidad del sistema.
+    \item Se incorporará un linter para asegurar la consistencia y calidad del código.
+\end{itemize}
+
+\subsection{Documentación}
+Para asegurar la correcta comprensión y mantenimiento del sistema, se generará y actualizará la siguiente documentación:  
+
+\begin{itemize}
+    \item \textbf{Documentación técnica}: Detalles de los componentes y arquitectura del sistema.
+    \item \textbf{Manual de usuario}: Documentación funcional de como utilizar \textbf{Abstraktor}.
+    \item \textbf{Minutas de reuniones}: Registro de decisiones y cambios en la planificación.
+\end{itemize}
+
+\subsection{Gestión de Indicadores y Riesgos}
+Se realizará una etapa experimental y de investigación extensa para identificar posibles riesgos técnicos y evaluar diferentes soluciones al problema. Se ajustará la planificación según sea necesario:
+\begin{itemize}
+    \item Se monitoreará el progreso mediante la cantidad de tareas completadas, ponderadas por dificultad, por iteración.
+    \item Se mantendrán reuniones regulares dentro del equipo para revisar avances y bloqueos.
+\end{itemize}
+
+\subsection{Validación}
+
+Para validar \textbf{Abstraktor}, se realizarán pruebas sobre diversas implementaciones de protocolos distribuidos. Estas implementaciones se seleccionarán en función de su fiabilidad, incluyendo tanto implementaciones correctas como aquellas que contienen errores conocidos.
+
+De esta manera, se podrá verificar la capacidad de \textbf{Abstraktor} para identificar fallas en la lógica de negocio y asegurar que el sistema funcione correctamente.

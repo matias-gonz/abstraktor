@@ -1,0 +1,9 @@
+\section{Development Process}
+
+To develop Abstraktor we used an Agile-like process \cite{farley2021modern}, with practices like weekly iterations, automated tests and coding conventions among others. We used GitHub for version control and GitHub Projects to manage the backlog and Kanban board. Mallory, the legacy software we built on, is written in C, while Abstraktor is implemented in Rust; we used GCC to compile the C code and Cargo to build the Rust code. Work was organized in weekly agile iterations with tasks prioritized by impact and dependencies and estimated using difficulty scores from 1 to 3.
+
+Testing was a central part of our development process. We followed a hexagonal architecture\cite{cockburn2025hexagonal}, which allowed us to separate core logic from external dependencies and test it thoroughly. The core model was covered extensively with unit tests to ensure correctness in isolation, while integration tests were used to validate interactions with Mallory.
+
+Development is carried out through feature branches and pull requests, which are kept small and include relevant tests to encourage frequent reviews and smooth integration. Coding conventions were enforced using the linter Clippy. A Github workflow runs automated tests and linter to ensure new code changes do not break existing functionality.
+
+Abstraktor builds on Mallory for its greybox fuzzing capabilities, but the team had to work extensively with the legacy code to add new functionality. Working with Mallory’s older and minimally documented code added complexity, but these extensions were essential for Abstraktor to perform functional validation while leveraging Mallory’s existing adaptive testing framework.
