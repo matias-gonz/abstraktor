@@ -97,3 +97,102 @@ impl Default for Logger {
         Self::new(LogLevel::Info)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_logger_creation() {
+        let logger = Logger::new(LogLevel::Debug);
+        assert_eq!(logger.level, LogLevel::Debug);
+
+        let logger = Logger::new(LogLevel::Info);
+        assert_eq!(logger.level, LogLevel::Info);
+
+        let logger = Logger::new(LogLevel::Error);
+        assert_eq!(logger.level, LogLevel::Error);
+
+        let logger = Logger::new(LogLevel::Quiet);
+        assert_eq!(logger.level, LogLevel::Quiet);
+    }
+
+    #[test]
+    fn test_logger_default() {
+        let logger = Logger::default();
+        assert_eq!(logger.level, LogLevel::Info);
+    }
+
+    #[test]
+    fn test_debug_level_shows_all() {
+        let logger = Logger::new(LogLevel::Debug);
+        logger.debug("test debug");
+        logger.log("test log");
+        logger.success("test success");
+        logger.warning("test warning");
+        logger.intro();
+        logger.outro();
+        logger.error("test error");
+    }
+
+    #[test]
+    fn test_info_level_hides_debug() {
+        let logger = Logger::new(LogLevel::Info);
+        logger.debug("test debug");
+        logger.log("test log");
+        logger.success("test success");
+        logger.warning("test warning");
+        logger.intro();
+        logger.outro();
+        logger.error("test error");
+    }
+
+    #[test]
+    fn test_error_level_hides_info() {
+        let logger = Logger::new(LogLevel::Error);
+        logger.debug("test debug");
+        logger.log("test log");
+        logger.success("test success");
+        logger.warning("test warning");
+        logger.intro();
+        logger.outro();
+        logger.error("test error");
+    }
+
+    #[test]
+    fn test_quiet_level_hides_all() {
+        let logger = Logger::new(LogLevel::Quiet);
+        logger.debug("test debug");
+        logger.log("test log");
+        logger.success("test success");
+        logger.warning("test warning");
+        logger.intro();
+        logger.outro();
+        logger.error("test error");
+    }
+
+    #[test]
+    fn test_log_level_variants() {
+        assert_eq!(LogLevel::Debug, LogLevel::Debug);
+        assert_ne!(LogLevel::Debug, LogLevel::Info);
+        assert_ne!(LogLevel::Debug, LogLevel::Error);
+        assert_ne!(LogLevel::Debug, LogLevel::Quiet);
+    }
+
+    #[test]
+    fn test_display_trait_with_strings() {
+        let logger = Logger::new(LogLevel::Debug);
+        logger.debug("string literal");
+        logger.log(String::from("owned string"));
+        logger.success(format!("formatted {}", "string"));
+        logger.warning(&"string reference");
+    }
+
+    #[test]
+    fn test_display_trait_with_numbers() {
+        let logger = Logger::new(LogLevel::Debug);
+        logger.debug(42);
+        logger.log(3.14);
+        logger.success(100u64);
+    }
+}
