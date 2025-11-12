@@ -1,0 +1,670 @@
+\documentclass[12pt]{article}
+\setlength{\parindent}{1em}
+\usepackage[utf8]{inputenc}
+\usepackage{minted}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning}
+
+\usepackage{amssymb,amsmath,amsthm,amsfonts}
+\usepackage{calc}
+\usepackage{graphicx}
+\usepackage{subfigure}
+\usepackage{indentfirst}
+\DeclareGraphicsExtensions{.bmp,.png,.pdf,.jpg}
+\usepackage{gensymb}
+
+\usepackage{url}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\graphicspath{{images/}}
+\usepackage{fancyhdr}
+\usepackage{vmargin}
+\setmarginsrb{2 cm}{2 cm}{2 cm}{2 cm}{1 cm}{1.5 cm}{1 cm}{1.5 cm}
+
+
+\usepackage[spanish]{babel}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\hypersetup{
+    colorlinks=true,% make the links colored
+}
+\usepackage[nolist]{acronym}
+\usepackage[table]{xcolor}
+\usepackage{url}
+
+%% Biblatex
+%\usepackage[style=plain]{biblatex}
+%\addbibresource{bibliografia.bib}
+
+\begin{document}
+
+\begin{titlepage}
+
+\title{
+\begin{center}
+\includegraphics[width=7cm]{logo}
+\vspace{1em}
+\end{center}
+\textbf{\textit{Abstraktor}}\\
+\textit{Una Herramienta para Validar Protocolos Distribuidos
+Mediante Abstracciones Preservadoras de Habilitación} }
+
+\author{    
+\textbf{Director:} Nicolás Paez \\
+\texttt{ npaez@fi.uba.ar }\\[2.5ex]
+\textbf{Co-director:} Sebastián Uchitel \\
+\texttt{ suchitel@dc.uba.ar }\\[2.5ex]
+\textbf{Estudiante:} Matías Ignacio González\\
+\texttt{ maigonzalez@fi.uba.ar }                                    \\[2.5ex]
+\normalsize{Facultad de Ingeniería, Universidad de Buenos Aires}        \\
+}
+\date{2025}
+
+\end{titlepage}
+
+\maketitle
+\clearpage
+
+
+{
+  \hypersetup{linkcolor=black}
+  \tableofcontents
+  \clearpage
+}
+
+%##########################
+% INTRODUCCION
+%##########################
+
+\section{Resumen}
+
+Este trabajo presenta el desarrollo de \textbf{Abstraktor}, una herramienta CLI para la generación automática de abstracciones preservadoras de habilitación (EPAs) a partir de implementaciones de protocolos distribuidos en C/C++. Las herramientas actuales de validación se enfocan en detectar fallos de ejecución, pero no verifican si la implementación cumple con la lógica de negocio especificada. \textbf{Abstraktor} aborda esta limitación permitiendo comparar el comportamiento real de la implementación con especificaciones formales mediante EPAs.
+
+La solución implementada consiste en una aplicación Rust que coordina tres componentes: un instrumentador basado en LLVM para insertar código de monitoreo en puntos específicos del programa, una extensión del framework de fuzzing Mallory para ejecutar el sistema bajo condiciones adversas y capturar eventos de estado, y lógica de procesamiento para construir y exportar grafos de abstracciones. La herramienta utiliza un sistema de anotaciones insertadas en el código fuente para especificar qué estado capturar durante la ejecución.
+
+El desarrollo se realizó en colaboración con el laboratorio LaFHIS de la Universidad de Buenos Aires.
+
+\bigskip
+
+\textbf{Palabras Clave:} Protocolos distribuidos, validación, herramientas de testing, abstracciones, Raft, EPAs, Mallory, verificación.
+
+\bigskip
+
+\section{Abstract}
+This work presents the development of \textbf{Abstraktor}, a CLI tool for automatic generation of enabledness-preserving abstractions (EPAs) from distributed protocol implementations in C/C++. Current validation tools focus on detecting execution failures, but do not verify whether the implementation complies with the specified business logic. \textbf{Abstraktor} addresses this limitation by enabling comparison of the actual implementation behavior with formal specifications through EPAs.
+
+The implemented solution consists of a Rust application that coordinates three components: an LLVM-based instrumentor to insert monitoring code at specific program points, an extension of the Mallory fuzzing framework to execute the system under adverse conditions and capture state events, and processing logic to build and export abstraction graphs. The tool uses an annotation system inserted in the source code to specify which state to capture during execution.
+
+The development was carried out in collaboration with the LaFHIS laboratory at the University of Buenos Aires.
+
+\bigskip
+
+\textbf{Keywords:} Distributed protocols, validation, testing tools, abstractions, Raft, EPAs, Mallory, verification.
+
+\clearpage
+
+
+\section{Agradecimientos}
+
+Quiero agradecer a Nicolás Paez y Sebastián Uchitel por dirigir este trabajo. Su guía y apoyo fueron fundamentales para poder desarrollar este proyecto y aprender en el camino.
+
+También quiero agradecer a mi familia por haberme enseñado el valor del estudio y por motivarme siempre a seguir adelante.
+
+\section{Estado del arte}
+
+A continuación, se presenta el estado del arte de los distintos aspectos del problema a resolver: el protocolo distribuido a analizar, las herramientas actuales para testing y las abstracciones que se pretenden construir.
+
+\subsection{Protocolos distribuidos de consenso}
+
+Paxos es un protocolo de consenso distribuido que permite a múltiples nodos acordar un único valor, incluso en presencia de fallos en algunos de ellos. Funciona a través de una serie de fases que aseguran que solo un valor puede ser aceptado. Su funcionamiento principal se basa en tres roles: proponentes, aceptadores y aprendices \cite{lamport1998paxos}.
+
+\begin{itemize}
+    \item \textbf{Proponentes}: Proponen valores que los nodos deben acordar.
+    \item \textbf{Aceptadores}: Deciden si aceptan o rechazan una propuesta.
+    \item \textbf{Aprendices}: Observan el valor acordado y lo replican.
+\end{itemize}
+
+El protocolo se divide en dos fases principales:
+1. \textbf{Fase de preparación}: Un proponente solicita a los aceptadores la promesa de no aceptar propuestas anteriores a un número dado.
+2. \textbf{Fase de aceptación}: Si se logra la promesa, el proponente envía el valor propuesto a los aceptadores, quienes lo aceptan si cumplen las condiciones de la fase de preparación.
+
+Paxos garantiza propiedades de \textbf{seguridad}, asegurando que nunca se acuerden valores conflictivos, y de \textbf{vivacidad}, que intenta llegar a un consenso cuando las condiciones de la red lo permiten. Estos aspectos lo hacen adecuado para sistemas que requieren alta consistencia, aunque su complejidad y difícil implementación han llevado al desarrollo de alternativas como \textbf{Raft} \cite{ongaro2014raft}.
+
+
+\textbf{Raft} es un protocolo de consenso distribuido diseñado para ser comprensible y fácil de implementar, en comparación con protocolos previos como Paxos. Su objetivo es asegurar la replicación consistente de logs en sistemas distribuidos, a través de un proceso de consenso estructurado en períodos llamados \textit{terms}. Cada \textit{term} representa un ciclo en el cual se elige un líder que coordina las operaciones de consenso. Raft se organiza en tres mecanismos principales:
+
+\begin{itemize}
+    \item \textbf{Elección de líder}: Al inicio de cada \textit{term}, los nodos eligen un líder mediante votación. Este líder es responsable de recibir nuevas entradas de log y de replicarlas en otros nodos para mantener la coherencia.
+    \item \textbf{Replicación de log}: El líder recibe las entradas de log y las replica en los nodos seguidores (follower nodes), manteniendo así un log consistente.
+    \item \textbf{Compromiso de entradas}: Las entradas se consideran confirmadas o \textit{commiteadas} cuando han sido replicadas en una mayoría de nodos, asegurando su persistencia y consistencia a pesar de fallos.
+\end{itemize}
+
+Raft asegura propiedades críticas que garantizan la seguridad y disponibilidad del consenso en sistemas distribuidos:
+
+\begin{itemize}
+    \item \textbf{Election Safety}: En un \textit{term} dado, Raft garantiza que se elige al menos un líder válido, evitando conflictos de liderazgo.
+    \item \textbf{Leader Append-Only}: Un líder nunca sobreescribe ni elimina entradas en su log; solo añade (\textit{append}) nuevas entradas, asegurando que el log sea solo aditivo.
+    \item \textbf{Log Matching}: Si dos logs contienen una entrada con el mismo índice e \textit{term}, entonces el historial de logs es idéntico hasta ese índice. Esto garantiza que las copias de log en distintos nodos mantengan una estructura coherente.
+    \item \textbf{Leader Completeness}: Si una entrada de log es \textit{commiteada} en un \textit{term} dado, esa entrada estará presente en los logs de todos los líderes de términos superiores, asegurando que no se pierdan entradas ya confirmadas.
+    \item \textbf{State Machine Safety}: Si un servidor aplica una entrada de log en un índice específico en su máquina de estado, ningún otro servidor aplicará una entrada diferente en ese mismo índice, preservando la consistencia de los estados entre nodos.
+\end{itemize}
+
+Estas propiedades hacen de Raft un protocolo confiable y adecuado para sistemas distribuidos que requieren alta disponibilidad, consistencia, y tolerancia a fallos.
+
+\subsection{Herramientas de testing para sistemas distribuidos}
+
+\textbf{Jepsen} es un proyecto de investigación y prueba de sistemas distribuidos desarrollado por Kyle Kingsbury. Su objetivo principal es evaluar la consistencia, disponibilidad y tolerancia a fallos en sistemas distribuidos mediante la creación de condiciones adversas, como particiones de red, pérdida de mensajes y reinicios de nodos. Las pruebas de Jepsen han sido fundamentales para identificar limitaciones y problemas de implementación en varios protocolos de consenso, incluyendo Raft \cite{jepsen2020}.
+
+Jepsen utiliza un enfoque basado en la inyección de fallos para probar la robustez de sistemas distribuidos, verificando que los sistemas mantengan las propiedades de consistencia y disponibilidad bajo fallos parciales. Este enfoque es especialmente útil para sistemas como Raft, donde los escenarios de partición de red pueden provocar divergencias en el estado de los nodos o inconsistencias temporales en los logs. Jepsen permite detectar estos problemas y evaluar si las implementaciones cumplen con las garantías teóricas del protocolo.
+
+Jepsen es una herramienta importante para la verificación de implementaciones de protocolos distribuidos, ya que permite identificar problemas en condiciones no ideales y realizar ajustes en la implementación para alinearse mejor con los modelos teóricos de consenso.
+
+En su artículo \textit{"Greybox Fuzzing of Distributed Systems"}, Meng presenta \textbf{Mallory}, una herramienta que usa una metodología de fuzzing en caja gris (\textit{greybox}) especialmente adaptada a sistemas distribuidos \cite{meng2023}. Este enfoque permite observar parcialmente el estado interno de los nodos durante las pruebas, lo cual facilita ajustar las entradas en tiempo real para maximizar la cobertura de rutas y descubrir fallos complejos.
+
+En contraste con las herramientas tradicionales de fuzzing en caja negra, como Jepsen, que inyectan particiones de red y fallos de nodos de manera aleatoria, Mallory se adapta al comportamiento del sistema. Utiliza métricas para maximizar la cantidad de comportamientos observados, eligiendo secuencias de fallos que aumentan la probabilidad de encontrar nuevos errores. La clave de este enfoque es la construcción dinámica de cronologías de Lamport y su abstracción en resúmenes de \textit{happens-before}, que guían el proceso de fuzzing mediante Q-learning, permitiendo a Mallory introducir fallos basados en observaciones en tiempo real.
+
+Esta metodología ha demostrado ser más eficaz que los enfoques tradicionales, explorando un 54.27\% más de estados distintos en 24 horas y encontrando errores un 1.87 veces más rápido que Jepsen, además de descubrir vulnerabilidades no detectadas previamente en sistemas distribuidos ampliamente utilizados como Braft, Dqlite y Redis.
+
+
+\subsection{Abstracciones}
+
+Las abstracciones preservadoras de habilitación (\textbf{EPAs}, por sus siglas en inglés) son máquinas de estados que describen el comportamiento de las implementaciones de una API mediante la introducción de abstracciones de dos maneras distintas:
+
+En primer lugar, los estados alcanzados por la implementación mientras se ejecutan las operaciones de la API se ignoran; el enfoque se centra en los estados de la implementación antes y después de la ejecución de las operaciones.
+
+En segundo lugar, los valores reales de las estructuras de datos de la implementación son abstraídos; el enfoque se orienta en las operaciones que esos valores permiten o desautorizan. Por lo tanto, los estados de una EPA representan conjuntos de estados concretos de la implementación que permiten el mismo conjunto de operaciones.
+
+Finalmente, los parámetros y valores de retorno de las operaciones también se ignoran; el enfoque se centra en si existen valores para los parámetros de una operación de tal manera que la ejecución de la operación haga que la implementación transite de un estado abstracto a otro.
+
+Las EPAs capturan un superconjunto del comportamiento de la clase concreta. En la práctica, este nivel de abstracción proporciona un buen compromiso: es lo suficientemente abstracto como para mantener las EPAs concisas, y lo suficientemente preciso para que sigan siendo una fuente valiosa de información para que los humanos puedan inspeccionarlas. \cite{epas2013}
+
+\clearpage
+
+
+\section{Problema detectado}
+
+Las herramientas actuales para la validación de protocolos distribuidos se enfocan principalmente en la detección de fallas como crashes o problemas de concurrencia. Sin embargo, no permiten verificar si la implementación realmente cumple con la lógica de negocio especificada. Es decir, aunque pueden identificar errores técnicos en la ejecución del sistema, no aseguran que el protocolo implementado respete las garantías y comportamientos esperados. Esto deja un vacío en la validación funcional de las implementaciones, lo que puede derivar en errores sutiles pero críticos en entornos distribuidos.
+
+\bigskip
+
+\section{Solución implementada}
+
+La solución se implementó como una herramienta de línea de comandos que automatiza la generación de abstracciones (EPAs) para protocolos distribuidos implementados en C/C++. La herramienta integra diferentes componentes y aplicaciones en un flujo de trabajo unificado.
+
+\subsection{Arquitectura}
+
+La arquitectura se basa en tres programas principales:
+
+\vspace{0.5cm}
+
+{\centering
+\begin{tikzpicture}[
+  mainbox/.style={rectangle, draw, thick, rounded corners, minimum width=4cm, minimum height=1.2cm, align=center, font=\small, fill=blue!10},
+  component/.style={rectangle, draw, rounded corners, minimum width=3.5cm, minimum height=1cm, align=center, font=\small, fill=white},
+  output/.style={rectangle, draw, dashed, rounded corners, minimum width=3.5cm, minimum height=1cm, align=center, font=\small, fill=green!10},
+  arrow/.style={-{Latex[length=3mm]}, thick},
+  bidir/.style={<-{Latex[length=3mm]}, thick},
+  edgelabel/.style={font=\tiny, text=gray, align=center}
+]
+
+\node[component] (cli) at (0,0) {CLI Abstraktor\\(Rust)};
+\node[component] (llvm) at (-3,-2.5) {Instrumentador\\LLVM (C)};
+\node[component] (mallory) at (3,-2.5) {Fuzzer Mallory\\(Clojure/Rust)};
+\node[output] (abstractions) at (5, 0) {Abstracciones\\(EPAs)};
+
+\draw[bidir] (cli) -- (llvm) node[midway, above left, edgelabel] {JSON targets};
+\draw[bidir] (cli) -- (mallory) node[midway, above right, edgelabel] {logs eventos};
+\draw[arrow] (llvm) -- (mallory) node[midway, above, edgelabel] {binario\\instrumentado};
+\draw[arrow] (cli) -- (abstractions) node[midway, above, edgelabel] {genera};
+
+\end{tikzpicture}
+\par}
+
+\vspace{0.5cm}
+
+A continuación se describen los componentes:
+
+\subsubsection{CLI de Abstraktor}
+
+El punto de entrada es una aplicación CLI escrita en Rust que coordina la ejecución de los demás componentes e implementa lógica de negocio para el análisis de código fuente, procesamiento de logs y generación de abstracciones. Sus responsabilidades incluyen:
+
+\begin{itemize}
+    \item \textbf{Coordinación de herramientas:} Invoca y configura el instrumentador LLVM mediante variables de entorno y ejecución de scripts, estableciendo el contexto necesario para la compilación instrumentada.
+    
+    \item \textbf{Extracción de anotaciones y generación de metadatos:} Procesa archivos de código fuente C/C++ mediante expresiones regulares para identificar anotaciones especiales insertadas como comentarios, y las serializa en formato JSON con información de rutas de archivos, números de línea, y especificaciones de variables y campos a capturar.
+    
+    \item \textbf{Procesamiento de logs y generación de abstracciones:} Parsea los logs de eventos, construye grafos de transiciones de estados por nodo del sistema distribuido, y exporta las representaciones gráficas en formato DOT (GraphViz), con opción de renderizado a PNG o PDF.
+\end{itemize}
+
+La aplicación Rust utiliza las siguientes bibliotecas principales:
+
+\begin{itemize}
+    \item \texttt{clap}: Framework para parseo de argumentos de línea de comandos con soporte para subcomandos
+    \item \texttt{serde} y \texttt{serde\_json}: Serialización y deserialización de estructuras de datos
+    \item \texttt{regex}: Análisis de patrones en código fuente para extracción de anotaciones
+    \item \texttt{xshell}: Ejecución de comandos del sistema con manejo de directorios y variables de entorno
+    \item \texttt{anyhow}: Manejo de errores con contexto enriquecido
+\end{itemize}
+
+\subsubsection{Instrumentador (LLVM)}
+
+La instrumentación del código fuente se realiza mediante \textbf{afl-clang-fast}, un compilador basado en LLVM que inserta código en el paso de compilación. Se utilizó el instrumentador existente de AFL (American Fuzzy Lop) y se extendió para soportar la instrumentación selectiva basada en anotaciones. El instrumentador está escrito en C y se integra como un plugin de LLVM.
+
+El proceso de instrumentación:
+
+\begin{enumerate}
+    \item El CLI de Rust configura las variables de entorno necesarias:
+    \begin{itemize}
+        \item \texttt{CC}: Ruta al wrapper \texttt{afl-clang-fast}
+        \item \texttt{TARGETS\_FILE}: Ruta al archivo JSON con los targets de instrumentación
+        \item \texttt{AFL\_CC}: Compilador base a utilizar (\texttt{clang-11})
+    \end{itemize}
+    
+    \item Se invoca el script de compilación del sistema bajo prueba (\texttt{install.sh}), que utiliza automáticamente el compilador instrumentado a través de la variable \texttt{CC}
+    
+    \item El instrumentador de LLVM procesa el código durante la compilación, insertando llamadas que exponen el estado interno en los puntos especificados en el archivo de targets
+    
+    \item El resultado es un binario instrumentado que emite eventos durante su ejecución
+\end{enumerate}
+
+\subsubsection{Fuzzer (Mallory)}
+
+\textbf{Mallory} es un framework de testing para sistemas distribuidos que combina fuzzing de red con simulación de fallas. Se utilizó el framework existente y se extendió el componente Mediator para soportar la recolección y persistencia de eventos de estado generados por los binarios instrumentados. Mallory está implementado principalmente en \textbf{Clojure} (usando Jepsen como base) con componentes en \textbf{Rust} (mediator y coverage server).
+
+Arquitectura de Mallory:
+
+\begin{itemize}
+    \item \textbf{Infraestructura Docker:} Orquesta contenedores que ejecutan los nodos del sistema distribuido en un entorno de red controlado
+    
+    \item \textbf{Mediator (Rust):} Componente central que implementa algoritmos de aprendizaje por refuerzo (Q-learning) para guiar la exploración del espacio de estados.
+    
+    \item \textbf{Motor de fuzzing:} Genera tráfico de red, inyecta fallas y manipula condiciones de carrera
+    
+    \item \textbf{Recolección de eventos:} Captura las emisiones del binario instrumentado y las almacena en archivos de log con formato estructurado
+\end{itemize}
+
+\subsection{Interfaz de línea de comandos}
+
+El CLI de Abstraktor está dividido en varios subcomandos que permiten ejecutar individualmente las diferentes etapas del flujo de trabajo para generar EPAs, otorgando flexibilidad al usuario para ejecutar pasos específicos según sea necesario:
+
+\subsubsection{Comandos de instrumentación}
+
+\begin{itemize}
+    \item \texttt{get-targets}: Escanea directorios de código fuente C/C++ buscando anotaciones y genera un archivo JSON con los targets de instrumentación identificados.
+    
+    \item \texttt{llvm}: Configura variables de entorno e invoca el script de compilación del sistema bajo prueba utilizando el instrumentador LLVM con el archivo de targets especificado.
+    
+    \item \texttt{instrument}: Combina \texttt{get-targets} y \texttt{llvm} en un solo comando, automatizando todo el proceso de instrumentación.
+\end{itemize}
+
+\subsubsection{Comandos de configuración}
+
+\begin{itemize}
+    \item \texttt{setup docker}: Construye las imágenes Docker necesarias para el entorno de Mallory.
+    
+    \item \texttt{setup mediator}: Compila el componente Mediator de Mallory con opciones configurables (modo release, features de selfcheck y logsaving).
+    
+    \item \texttt{setup sut}: Configura el sistema bajo prueba.
+    
+    \item \texttt{setup all}: Ejecuta la configuración completa del entorno (Docker + Mediator).
+\end{itemize}
+
+\subsubsection{Comandos de ejecución y generación}
+
+\begin{itemize}
+    \item \texttt{run mallory}: Inicia el entorno de prueba de Mallory ejecutando los contenedores Docker configurados.
+    
+    \item \texttt{run mediator}: Ejecuta el binario del Mediator con parámetros de configuración (algoritmo Q-learning, tabla de eventos, factor de recompensa).
+    
+    \item \texttt{export-graphs}: Procesa los logs de eventos generados por Mallory, construye grafos de estados por nodo, y los exporta en formato DOT, PNG o PDF.
+\end{itemize}
+
+\subsection{Flujo de trabajo}
+
+El flujo de trabajo típico para generar EPAs con Abstraktor involucra la interacción entre la CLI y los componentes de instrumentación y fuzzing:
+
+\vspace{0.5cm}
+
+{\centering
+\begin{tikzpicture}[
+  actor/.style={rectangle, draw, minimum width=2cm, minimum height=0.8cm, align=center, font=\small},
+  lifeline/.style={draw, thick},
+  call/.style={-{Latex[length=2.5mm]}, thick},
+  return/.style={-{Latex[length=2.5mm]}, dashed, thick},
+  note/.style={font=\tiny, align=left}
+]
+
+\node[actor] (dev) at (0,0) {Developer};
+\node[actor] (cli) at (3.5,0) {Abstraktor};
+\node[actor] (llvm) at (7,0) {LLVM};
+\node[actor] (mallory) at (10.5,0) {Mallory};
+
+\draw[lifeline] (dev) -- (0,-8);
+\draw[lifeline] (cli) -- (3.5,-8);
+\draw[lifeline] (llvm) -- (7,-8);
+\draw[lifeline] (mallory) -- (10.5,-8);
+
+\draw[call] (0,-1) -- (3.5,-1) node[midway, above, note] {instrument};
+\draw[call] (3.5,-1.5) -- (7,-1.5) node[midway, above, note] {get-targets};
+\draw[return] (7,-2) -- (3.5,-2) node[midway, above, note] {JSON targets};
+\draw[call] (3.5,-2.5) -- (7,-2.5) node[midway, above, note] {instrumentar};
+\draw[return] (7,-3) -- (3.5,-3) node[midway, above, note] {binario};
+\draw[return] (3.5,-3.5) -- (0,-3.5) node[midway, above, note] {binario};
+
+\draw[call] (0,-4) -- (3.5,-4) node[midway, above, note] {run mallory};
+\draw[call] (3.5,-4.5) -- (10.5,-4.5) node[midway, above, note] {ejecutar};
+\draw[return] (10.5,-5) -- (3.5,-5) node[midway, above, note] {logs eventos};
+\draw[return] (3.5,-5.5) -- (0,-5.5) node[midway, above, note] {logs eventos};
+
+\draw[call] (0,-6) -- (3.5,-6) node[midway, above, note] {export-graphs};
+\draw[return] (3.5,-6.5) -- (0,-6.5) node[midway, above, note] {EPAs};
+
+\end{tikzpicture}
+\par}
+
+\vspace{0.5cm}
+
+El flujo completo consta de las siguientes etapas:
+
+\begin{enumerate}
+    \item \textbf{Anotación del código:} El desarrollador inserta anotaciones en el código fuente C/C++ para marcar los puntos de interés donde se desea capturar el estado interno.
+    
+    \item \textbf{Instrumentación:} El comando \texttt{instrument} extrae las anotaciones, genera el archivo JSON de targets, y compila el código usando el instrumentador LLVM para producir un binario instrumentado.
+    
+    \item \textbf{Fuzzing:} El comando \texttt{run mallory} ejecuta el binario instrumentado bajo el entorno de Mallory, que realiza fuzzing distribuido y recolecta los eventos de estado emitidos durante la ejecución.
+    
+    \item \textbf{Generación de EPAs:} El comando \texttt{export-graphs} procesa los logs de eventos, construye los grafos de transiciones de estados para cada nodo del sistema distribuido, y exporta las abstracciones en el formato deseado.
+\end{enumerate}
+
+\subsection{Sistema de anotaciones para instrumentación}
+
+Abstraktor utiliza un sistema de anotaciones insertadas como comentarios en el código fuente C/C++ para especificar qué partes del estado interno deben ser instrumentadas. Se soportan tres tipos de anotaciones:
+
+\subsubsection{ABSTRAKTOR\_BLOCK\_EVENT}
+
+Instrumenta un bloque de código específico para capturar el estado de variables en ese punto de ejecución. Soporta navegación en structs mediante la sintaxis de índices de campos.
+
+\textbf{Sintaxis:}
+\begin{verbatim}
+// ABSTRAKTOR_BLOCK_EVENT
+// ABSTRAKTOR_BLOCK_EVENT: variable
+// ABSTRAKTOR_BLOCK_EVENT: variable->campo
+// ABSTRAKTOR_BLOCK_EVENT: variable->campo1->campo2
+\end{verbatim}
+
+\textbf{Ejemplo 1 - Sin especificar variable:}
+
+\begin{verbatim}
+// ABSTRAKTOR_BLOCK_EVENT
+if (state == READY) {
+    process_request();
+}
+\end{verbatim}
+
+\textbf{Ejemplo 2 - Capturando una variable primitiva:}
+
+\begin{verbatim}
+// ABSTRAKTOR_BLOCK_EVENT: status
+handle_message(status);
+\end{verbatim}
+
+\textbf{Ejemplo 3 - Accediendo a un campo de struct (posición 3):}
+
+\begin{verbatim}
+// ABSTRAKTOR_BLOCK_EVENT: request->3
+process_field(request);
+\end{verbatim}
+
+\textbf{Ejemplo 4 - Accediendo a campos anidados (campo 2, luego campo 5):}
+
+\begin{verbatim}
+// ABSTRAKTOR_BLOCK_EVENT: config->2->5
+apply_config(config);
+\end{verbatim}
+
+La navegación mediante índices numéricos (\texttt{->campo}) permite acceder a campos específicos de estructuras. Si \texttt{r} es un struct, \texttt{r->5} accede al campo en la posición 5. Si ese campo también es un struct, \texttt{r->5->6} accede al campo 6 del struct anidado. Los índices se utilizan en lugar de nombres de campos porque estos se pierden en la representación intermedia (IR) de LLVM durante la compilación.
+
+\subsubsection{ABSTRAKTOR\_CONST}
+
+Instrumenta un bloque de código para emitir un valor constante específico, útil para marcar estados o transiciones conocidas sin necesidad de examinar variables.
+
+\textbf{Sintaxis:}
+\begin{verbatim}
+// ABSTRAKTOR_CONST: identificador
+\end{verbatim}
+
+\textbf{Ejemplo:}
+
+\begin{verbatim}
+// ABSTRAKTOR_CONST: LEADER_ELECTED
+if (is_leader) {
+    start_coordination();
+}
+
+// ABSTRAKTOR_CONST: FOLLOWER_MODE
+wait_for_instructions();
+\end{verbatim}
+
+\subsubsection{ABSTRAKTOR\_FUNC}
+
+Instrumenta una función completa, capturando el estado de los parámetros especificados. Solo puede trackear variables que sean parámetros de la función, no variables locales. Permite especificar múltiples parámetros separados por comas y soporta la misma sintaxis de navegación de campos que \texttt{ABSTRAKTOR\_BLOCK\_EVENT}.
+
+\textbf{Sintaxis:}
+\begin{verbatim}
+// ABSTRAKTOR_FUNC: parametro1, parametro2
+// ABSTRAKTOR_FUNC: parametro->campo
+// ABSTRAKTOR_FUNC: param1->campo1, param2->campo2->campo3
+\end{verbatim}
+
+\textbf{Ejemplo 1 - Capturando un parámetro primitivo:}
+
+\begin{verbatim}
+// ABSTRAKTOR_FUNC: status
+int process_message(int status) {
+    perform_action(status);
+    return status;
+}
+\end{verbatim}
+
+\textbf{Ejemplo 2 - Capturando múltiples parámetros con acceso a campos:}
+
+\begin{verbatim}
+// ABSTRAKTOR_FUNC: node->1, status
+void update_cluster_state(Node* node, int status) {
+    apply_changes(node, status);
+}
+\end{verbatim}
+
+\textbf{Ejemplo 3 - Navegación en campos anidados:}
+
+\begin{verbatim}
+// ABSTRAKTOR_FUNC: config->2->3, leader->5
+int reconfigure_system(Config* config, Node* leader) {
+    return apply_config(config, leader);
+}
+\end{verbatim}
+
+
+\subsection{Ejemplos de EPAs}
+
+Agregar ejemplos de epas
+
+\section{Metodología aplicada}
+
+El desarrollo de \textbf{Abstraktor} se llevó a cabo aplicando prácticas de ingeniería de software modernas, con un enfoque ágil basado en iteraciones cortas. Esta sección describe el contexto en el que se realizó el desarrollo, el proceso aplicado, las herramientas utilizadas y las prácticas de calidad implementadas.
+
+\subsection{Contexto del desarrollo}
+
+Este trabajo se realizó en colaboración con el \textbf{Laboratory on Foundations and Tools for Software Engineering (LaFHIS)} de la Facultad de Ciencias Exactas y Naturales de la Universidad de Buenos Aires. El laboratorio se encuentra investigando activamente la aplicación de \textbf{Enabledness-Preserving Abstractions (EPAs)} como técnica de verificación formal.
+
+Uno de los objetivos del laboratorio es aplicar EPAs a algoritmos distribuidos. \textbf{Abstraktor} surge como respuesta a esta necesidad, proporcionando un framework automatizado para la instrumentación de código, ejecución guiada mediante fuzzing y generación de EPAs a partir de implementaciones reales de protocolos distribuidos.
+
+El equipo de desarrollo estuvo compuesto por dos desarrolladores: un estudiante de ciencias de la computación trabajando en su tesis y un estudiante de ingeniería informática completando su Trabajo Profesional Final. Ambos estudiantes trabajaron guiados por un director de investigación que cumplió el rol de Product Owner. Adicionalmente, el director del Trabajo Profesional Final actuó como facilitador de reuniones y supervisor del desarrollo, asegurando la dirección y calidad del proyecto.
+
+\subsection{Proceso de desarrollo}
+
+El desarrollo de \textbf{Abstraktor} siguió un proceso ágil con iteraciones semanales, permitiendo una evolución incremental del sistema y ajustes dinámicos en función del progreso y los hallazgos experimentales.
+
+\subsubsection{Gestión del backlog y priorización}
+
+Se utilizó \textbf{GitHub Projects} para organizar el trabajo mediante un tablero Kanban, donde las tareas se priorizaron según su impacto en el proyecto y sus dependencias con otros componentes. Cada tarea fue estimada utilizando puntajes de dificultad (\textbf{1, 2 o 3}).
+
+El desarrollo de los componentes se realizó en simultáneo, priorizando funcionalidades \textit{end-to-end} que permitieran validar el flujo completo del sistema desde etapas tempranas. Esta estrategia facilitó la identificación temprana de problemas de integración y permitió obtener retroalimentación sobre el funcionamiento del sistema de manera incremental.
+
+\subsubsection{Flujo de trabajo con control de versiones}
+
+Se utilizó \textbf{GitHub} para el control de versiones, aplicando un flujo de trabajo basado en \textit{feature branches} y \textit{pull requests}. Cada nueva funcionalidad o fix se desarrolló en una branch separada. Los \textit{pull requests} incluyeron tests relevantes para cada cambio.
+
+\subsection{Estrategia de testing y calidad}
+
+Los tests fueron centrales durante el desarrollo de \textbf{Abstraktor}, con un enfoque en validar la funcionalidad del sistema y la estabilidad de las integraciones con componentes externos.
+
+\subsubsection{Tests}
+
+Se implementaron tests unitarios y de integración:
+
+\begin{itemize}
+    \item \textbf{Tests unitarios}: Cubrieron extensivamente la lógica del modelo central, incluyendo el parseo de anotaciones, la construcción de targets de instrumentación y la generación de grafos de eventos.
+    \item \textbf{Tests de integración automatizados}: Validaron las interacciones entre Abstraktor y el instrumentador.
+    \item \textbf{Tests de integración manuales}: Se desarrollaron especificaciones detalladas para tests de integración con Mallory que no fueron automatizados, ejecutándose manualmente durante el desarrollo.
+\end{itemize}
+
+\subsubsection{Convenciones de código y linting}
+
+Se aplicaron convenciones de código mediante el linter \textbf{Clippy} para Rust, asegurando consistencia en el estilo del código de manera automática.
+
+\subsection{Github Workflows}
+
+Se implementaron \textbf{GitHub Workflows} que se ejecutan automáticamente en cada \textit{pull request} y en cada cambio integrado a \textit{main}:
+
+\begin{itemize}
+    \item \textbf{Test workflow}: Ejecuta el build y la suite completa de tests utilizando \texttt{cargo test}.
+    \item \textbf{Coverage workflow}: Genera reportes de cobertura de código mediante \texttt{cargo-llvm-cov} y los publica automáticamente en Codecov.
+    \item \textbf{Linting workflow}: Se ejecuta Clippy para verificar el cumplimiento de las convenciones de código.
+\end{itemize}
+
+\subsection{Métricas obtenidas}
+
+Durante el desarrollo de \textbf{Abstraktor} se recopilaron métricas que evidencian el esfuerzo en testing y el uso de prácticas de gestión de proyectos:
+
+\begin{itemize}
+    \item \textbf{Tests automatizados}: Se implementaron \textbf{44 tests}.
+    
+    \item \textbf{Cobertura de código}: Se alcanzó una cobertura general del \textbf{74\%} medida con Codecov. El módulo central del modelo alcanzó una cobertura del \textbf{99.51\%}, donde las secciones no cubiertas fueron validadas mediante tests de integración manuales.
+    
+    \item \textbf{Pull Requests}: Se realizaron \textbf{46 pull requests} durante el desarrollo.
+    
+    \item \textbf{Issues}: Se gestionaron \textbf{76 issues} en GitHub Projects.
+\end{itemize}
+
+\section{Plan de actividades}
+
+El desarrollo de \textbf{Abstraktor} se organizó en hitos principales, con una duración total de \textbf{32 semanas} y una dedicación estimada de entre 12 y 14 horas semanales, representando un esfuerzo total de al menos 390 horas.
+
+\begin{enumerate}
+    \item \textbf{Investigación de Raft y generación de posibles abstracciones} (2 semanas): Estudio detallado del protocolo Raft y diseño inicial de abstracciones que representaran sus propiedades clave de manera verificable.
+    
+    \item \textbf{Investigación de Mallory} (2 semanas): Análisis de la herramienta Mallory para comprender su funcionamiento interno y evaluar las modificaciones necesarias para integrarla al flujo de trabajo de \textbf{Abstraktor}.
+    
+    \item \textbf{Instrumentación} (6 semanas): Implementación de los subcomandos \texttt{get-targets}, \texttt{llvm} e \texttt{instrument}, permitiendo analizar el código fuente y generar un binario instrumentado.
+        
+    \item \textbf{Integración con Mallory} (6 semanas): Implementación de los comandos \texttt{setup} y \texttt{run} para configurar y ejecutar Mallory, capturando eventos del binario instrumentado.
+        
+    \item \texttt{export-graphs} (versión inicial) (4 semanas): Desarrollo de una versión simplificada del comando para procesar logs y exportar abstracciones en formato DOT.
+        
+    \item \texttt{export-graphs} (mejorado) (4 semanas): Extensión del comando para soportar exportación en formatos PNG y PDF, y mejoras en la representación de abstracciones.
+    
+    \item \textbf{Validación y refinamiento de abstracciones} (4 semanas): Evaluación de la herramienta utilizando implementaciones conocidas de Raft, identificación de inconsistencias y ajustes en las abstracciones generadas.
+
+    \item \textbf{Generación de documentación} (2 semanas): Elaboración de documentación técnica detallada describiendo la arquitectura, uso de la herramienta, decisiones de diseño y ejemplos de generación de EPAs sobre implementaciones concretas.
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|c|l|c|}
+\hline
+\textbf{\#} & \textbf{Hito} & \textbf{Semanas} \\
+\hline
+1 & Investigación de Raft & 2 \\
+2 & Investigación de Mallory & 2 \\
+3 & Instrumentación & 6 \\
+4 & Integración con Mallory & 6 \\
+5 & \texttt{export-graphs} (inicial) & 4 \\
+6 & \texttt{export-graphs} (mejorado) & 4 \\
+7 & Validación y refinamiento de abstracciones & 4 \\
+8 & Generación de documentación & 2 \\
+\hline
+\textbf{-} & \textbf{Total} & \textbf{32} \\
+\hline
+\end{tabular}
+\caption{Hitos completados y duración de cada uno}
+\label{tab:hitos-abstraktor-realizados}
+\end{table}
+
+
+\section{Riesgos materializados y lecciones aprendidas}
+
+Esta sección describe los principales riesgos materializados durante el desarrollo de \textbf{Abstraktor}, las estrategias de mitigación aplicadas y las lecciones aprendidas. Los riesgos identificados incluyen incertidumbre técnica en las soluciones de implementación, y desafíos relacionados con la integración y extensión de software legacy.
+
+\subsection{Incertidumbre en la viabilidad de soluciones técnicas}
+
+No existía certeza sobre la viabilidad de las soluciones técnicas necesarias para cumplir con los requisitos funcionales de \textbf{Abstraktor}. La complejidad de la instrumentación de código C/C++, la integración con Mallory y la generación automática de abstracciones presentaban desafíos técnicos sin un enfoque de implementación claro desde el inicio.
+
+Esta incertidumbre requirió experimentación extensiva, resultando en múltiples branches de experimentación y pruebas de concepto. Sin embargo, estas branches no pudieron ser integradas directamente a main debido a la baja calidad del código: contenían valores hardcodeados, lógica ad-hoc, falta de tests y documentación insuficiente.
+
+Para mitigar este riesgo, se adoptó una estrategia de dos etapas: primero se realizó experimentación libre en branches separadas para validar la viabilidad técnica de las soluciones, y luego se reimplementaron los experimentos exitosos aplicando las prácticas de ingeniería de software establecidas antes de integrar al código principal. Este enfoque permitió validar soluciones técnicas sin comprometer la calidad del código base.
+
+\subsection{Falta de tests en software legacy}
+
+El software legacy Mallory, sobre el cual se construyó \textbf{Abstraktor}, no contaba con suficientes tests ni cobertura de código adecuada. Esto dificultó la comprensión del impacto de los cambios al modificar o extender el código. Sin tests apropiados, incluso modificaciones pequeñas representaban el riesgo de introducir bugs o romper funcionalidad existente.
+
+Para mitigar este riesgo, se desarrollaron tests de integración entre Abstraktor y Mallory. Estos tests garantizaron que los cambios no rompieran el flujo de trabajo general y que la funcionalidad clave permaneciera intacta al modificar o extender el código.
+
+\subsection{Falta de documentación en software legacy}
+
+Mallory presentaba documentación muy limitada. Proporcionaba escasa orientación sobre cómo compilar y ejecutar el software, y casi ninguna información sobre sus componentes internos, arquitectura o ubicación de lógica específica en el código.
+
+Como resultado, se invirtió mucho tiempo intentando comprender el sistema, no solo para utilizarlo, sino también para extenderlo con funcionalidad adicional requerida por Abstraktor. 
+
+Esta experiencia evidenció la importancia crítica de la documentación tanto para el desarrollo actual como para la mantenibilidad futura. La falta de documentación incrementó considerablemente el tiempo de onboarding y el esfuerzo necesario para realizar modificaciones en el código legacy.
+
+
+\section{Trabajos futuros}
+
+El desarrollo de \textbf{Abstraktor} representa un primer paso hacia la automatización de la generación de EPAs para protocolos distribuidos. Esta sección describe las líneas de trabajo futuras identificadas.
+
+\subsection{Experimentación y validación}
+
+El objetivo del laboratorio LaFHIS es utilizar \textbf{Abstraktor} para experimentar con implementaciones reales del protocolo Raft, generar EPAs automáticamente y comparar las abstracciones obtenidas con aquellas derivadas de especificaciones formales del protocolo.
+
+\subsection{Evolución de Abstraktor}
+
+\textbf{Abstraktor} requiere mantenimiento continuo y extensiones para ser utilizable en contextos más amplios. Se planea agregar funcionalidades una vez identificadas nuevas necesidades durante la experimentación.
+
+\subsection{Mejoras técnicas}
+
+Se identificaron áreas técnicas que requieren trabajo adicional:
+
+\begin{itemize}
+    \item \textbf{Tests más exhaustivos}: Ampliar la cobertura de tests e incluir más tests de integración en los GitHub Workflows.
+    
+    \item \textbf{Optimización de infraestructura}: Reducir el tiempo de setup de Mallory, que representa un cuello de botella significativo en el ciclo de desarrollo y experimentación.
+\end{itemize}
+
+\section{Conclusiones}
+
+Este trabajo presentó el desarrollo de \textbf{Abstraktor}, una herramienta CLI para la generación automática de EPAs a partir de implementaciones de protocolos distribuidos en C/C++. La solución integra un instrumentador basado en LLVM, una extensión del framework de fuzzing Mallory, y lógica de procesamiento para construir y exportar grafos de abstracciones, utilizando un sistema de anotaciones que permite especificar qué estado capturar durante la ejecución.
+
+Los principales desafíos enfrentados estuvieron relacionados con la incertidumbre técnica en las soluciones de implementación y la integración con software legacy. El trabajo con Mallory, un sistema sin documentación ni tests adecuados, evidenció la importancia crítica de estas prácticas para la mantenibilidad del software. La falta de documentación incrementó significativamente el tiempo necesario para comprender el sistema antes de poder extenderlo, mientras que la ausencia de tests dificultó evaluar el impacto de los cambios realizados.
+
+Estos desafíos se mitigaron mediante estrategias de experimentación controlada en branches separadas y el desarrollo de tests de integración que proporcionaron mayor confianza al modificar el código legacy. La experiencia refuerza la necesidad de priorizar la documentación y el testing desde las etapas tempranas del desarrollo, especialmente en proyectos de investigación que eventualmente serán extendidos o mantenidos por otros desarrolladores.
+
+\textbf{Abstraktor} constituye un aporte al laboratorio LaFHIS para la experimentación con EPAs en protocolos distribuidos reales. Al automatizar la generación de abstracciones desde implementaciones, la herramienta habilita la comparación directa entre el comportamiento real del código y las especificaciones formales. El trabajo futuro se enfocará en aplicar Abstraktor a implementaciones de Raft para evaluar la correspondencia entre las abstracciones generadas y las derivadas de especificaciones formales del protocolo.
+
+\clearpage
+
+\bibliographystyle{apalike}
+\bibliography{bibliografia.bib}
+
+\end{document}
