@@ -185,7 +185,7 @@ mod tests {
         logger.debug("string literal");
         logger.log(String::from("owned string"));
         logger.success(format!("formatted {}", "string"));
-        logger.warning(&"string reference");
+        logger.warning("string reference");
     }
 
     #[test]

@@ -78,7 +78,7 @@ impl Instrumentor {
                                 .map(|s| s.parse::<u32>().unwrap())
                                 .collect();
                         }
-                    } else {}
+                    } 
                         
                     map.insert(var_name, numbers);
                 }
@@ -101,7 +101,7 @@ impl Instrumentor {
                 let mut var_name: String = "".to_string();
                 let mut numbers: Vec<u32> = Vec::new();
                 let mut map_block: HashMap<String, Vec<u32>> = HashMap::new();
-                if let Some(_) = captures.get(1){
+                if captures.get(1).is_some(){
                     let list = &captures[1]; 
                     print!("{}", list);
                     let regex_variables = Regex::new(r"(\w+)((?:->\d+)*)").unwrap();
@@ -211,7 +211,7 @@ mod tests {
         let x = 1;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(&content, &path);
+        let targets = instrumentor.get_targets_single(content, path);
         assert!(targets.targets_block.is_empty());
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -229,7 +229,7 @@ mod tests {
         let z = 3;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(&content, &path);
+        let targets = instrumentor.get_targets_single(content, path);
 
         let expected = HashMap::from([
             (3, "x".to_string()),
@@ -253,7 +253,7 @@ mod tests {
         let z = 3;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(&content, &path);
+        let targets = instrumentor.get_targets_single(content, path);
         let expected_block = HashMap::from([(3_usize, HashMap::from([("".to_string(), Vec::new())])), (7_usize, HashMap::from([("".to_string(), Vec::new())]))]);
         let expected_const = HashMap::from([(5, "y".to_string())]);
         assert_eq!(targets.targets_block, expected_block);
@@ -269,7 +269,7 @@ mod tests {
         let x = 1;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(&content, &path);
+        let targets = instrumentor.get_targets_single(content, path);
         assert_eq!(targets.targets_block,HashMap::from([(3_usize, HashMap::from([("x".to_string(), vec![4])]))]));
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -283,7 +283,7 @@ mod tests {
         let x = 1;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(&content, &path);
+        let targets = instrumentor.get_targets_single(content, path);
         assert_eq!(targets.targets_block,HashMap::from([(3_usize, HashMap::from([("x".to_string(), vec![4,5])]))]));
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -300,7 +300,7 @@ mod tests {
         let z = 3;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(&content, &path);
+        let targets = instrumentor.get_targets_single(content, path);
         assert_eq!(targets.targets_block,HashMap::from([(3_usize, HashMap::from([("".to_string(), Vec::new())])), (5_usize, HashMap::from([("".to_string(), Vec::new())])), (7_usize, HashMap::from([("".to_string(), Vec::new())]))]));
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -319,7 +319,7 @@ mod tests {
         let y = 2;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(&content, &path);
+        let targets = instrumentor.get_targets_single(content, path);
         assert_eq!(targets.targets_block, HashMap::from([(4_usize, HashMap::from([("".to_string(), Vec::new())])), (8_usize, HashMap::from([("".to_string(), Vec::new())]))]));
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -338,7 +338,7 @@ mod tests {
         let y = 2;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(&content, &path);
+        let targets = instrumentor.get_targets_single(content, path);
         assert_eq!(targets.targets_block, HashMap::from([(5_usize, HashMap::from([("".to_string(), Vec::new())])), (8_usize, HashMap::from([("".to_string(), Vec::new())]))]));
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -354,7 +354,7 @@ mod tests {
         // ABSTRAKTOR_BLOCK_EVENT
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(&content, &path);
+        let targets = instrumentor.get_targets_single(content, path);
         assert_eq!(targets.targets_block, HashMap::from([(4_usize, HashMap::from([("".to_string(), Vec::new())]))]));
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -369,7 +369,7 @@ mod tests {
         // No actual code
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(&content, &path);
+        let targets = instrumentor.get_targets_single(content, path);
         assert!(targets.targets_block.is_empty());
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -384,7 +384,7 @@ mod tests {
         // No actual code
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(&content, &path);
+        let targets = instrumentor.get_targets_single(content, path);
         assert!(targets.targets_block.is_empty());
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -400,7 +400,7 @@ mod tests {
         { // start of new block
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(&content, &path);
+        let targets = instrumentor.get_targets_single(content, path);
         assert_eq!(targets.targets_block, HashMap::from([(3_usize, HashMap::from([("".to_string(), Vec::new())]))]));
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
