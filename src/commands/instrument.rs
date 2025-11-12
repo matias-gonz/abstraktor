@@ -125,7 +125,36 @@ mod tests {
     }
 
     #[test]
-    fn test_targets_generation_with_test_program() {
+    fn test_run_with_temp_path_fails_with_bad_instrumentor() {
+        let test_dir = Path::new("./tests/instrument_test");
+        if !test_dir.exists() {
+            return;
+        }
+
+        let logger = Logger::new(LogLevel::Quiet);
+        let sh = Shell::new().unwrap();
+        let temp_dir = TempDir::new().unwrap();
+        let temp_targets = temp_dir.path().join("temp_test_targets.json");
+
+        let args = InstrumentArgs {
+            path: test_dir.to_string_lossy().into_owned(),
+            llvm_path: Some("/fake/llvm/path".to_string()),
+        };
+
+        let result =
+            run_with_temp_path(args, &logger, &sh, temp_targets.to_string_lossy().as_ref());
+
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("Instrumentor not found"));
+
+        if temp_targets.exists() {
+            fs::remove_file(&temp_targets).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_run_with_temp_path_generates_targets() {
         let test_dir = Path::new("./tests/instrument_test");
         if !test_dir.exists() {
             return;
@@ -133,7 +162,7 @@ mod tests {
 
         let logger = Logger::new(LogLevel::Quiet);
         let temp_dir = TempDir::new().unwrap();
-        let temp_targets = temp_dir.path().join("instrument_test_targets.json");
+        let temp_targets = temp_dir.path().join("generate_test_targets.json");
 
         let get_targets_args = GetTargetsArgs {
             path: test_dir.to_string_lossy().into_owned(),
@@ -142,6 +171,7 @@ mod tests {
 
         let result = get_targets::run(get_targets_args, &logger);
         assert!(result.is_ok());
+        assert!(temp_targets.exists());
 
         let content = fs::read_to_string(&temp_targets).unwrap();
         let targets: serde_json::Value = serde_json::from_str(&content).unwrap();
@@ -151,27 +181,27 @@ mod tests {
     }
 
     #[test]
-    fn test_targets_file_created_and_cleaned() {
+    fn test_run_with_temp_path_step_1_creates_targets_file() {
         let test_dir = Path::new("./tests/instrument_test");
         if !test_dir.exists() {
             return;
         }
 
-        let temp_dir = TempDir::new().unwrap();
-        let temp_targets = temp_dir.path().join("cleanup_test_targets.json");
-
         let logger = Logger::new(LogLevel::Quiet);
+        let temp_dir = TempDir::new().unwrap();
+        let temp_targets = temp_dir.path().join("step1_test_targets.json");
+
         let get_targets_args = GetTargetsArgs {
             path: test_dir.to_string_lossy().into_owned(),
             output: temp_targets.to_string_lossy().into_owned(),
         };
 
         get_targets::run(get_targets_args, &logger).unwrap();
-
         assert!(temp_targets.exists());
 
-        fs::remove_file(&temp_targets).unwrap();
-        assert!(!temp_targets.exists());
+        let content = fs::read_to_string(&temp_targets).unwrap();
+        assert!(content.contains("main.c"));
+        assert!(content.contains("math_utils.c"));
     }
 
     #[test]
