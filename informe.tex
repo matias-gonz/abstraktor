@@ -277,7 +277,7 @@ El proceso de instrumentación:
 
 \subsubsection{Fuzzer (Mallory)}
 
-\textbf{Mallory} es un framework de testing para sistemas distribuidos que combina fuzzing de red con simulación de fallas. Se utilizó el framework existente y se extendió el componente Mediator para soportar la recolección y persistencia de eventos de estado generados por los binarios instrumentados. Mallory está implementado principalmente en \textbf{Clojure} (usando Jepsen como base) con componentes en \textbf{Rust} (mediator y coverage server).
+\textbf{Mallory} es un framework de testing para sistemas distribuidos, desarrollado por el quipo de Meng, que combina fuzzing de red con simulación de fallas. Se utilizó el framework existente y se extendió el componente Mediator para soportar la recolección y persistencia de eventos de estado generados por los binarios instrumentados. Mallory está implementado principalmente en \textbf{Clojure} (usando Jepsen como base) con componentes en \textbf{Rust} (mediator y coverage server).
 
 Arquitectura de Mallory:
 
@@ -499,7 +499,7 @@ Agregar ejemplos de epas
 
 \section{Metodología aplicada}
 
-El desarrollo de \textbf{Abstraktor} se llevó a cabo aplicando prácticas de ingeniería de software modernas, con un enfoque ágil basado en iteraciones cortas. Esta sección describe el contexto en el que se realizó el desarrollo, el proceso aplicado, las herramientas utilizadas y las prácticas de calidad implementadas.
+El desarrollo de \textbf{Abstraktor} se llevó a cabo aplicando prácticas de ingeniería de software modernas, con un enfoque ágil basado en iteraciones semanales. Esta sección describe el contexto en el que se realizó el desarrollo, el proceso aplicado, las herramientas utilizadas y las prácticas de calidad implementadas.
 
 \subsection{Contexto del desarrollo}
 
@@ -507,7 +507,7 @@ Este trabajo se realizó en colaboración con el \textbf{Laboratory on Foundatio
 
 Uno de los objetivos del laboratorio es aplicar EPAs a algoritmos distribuidos. \textbf{Abstraktor} surge como respuesta a esta necesidad, proporcionando un framework automatizado para la instrumentación de código, ejecución guiada mediante fuzzing y generación de EPAs a partir de implementaciones reales de protocolos distribuidos.
 
-El equipo de desarrollo estuvo compuesto por dos desarrolladores: un estudiante de ciencias de la computación trabajando en su tesis y un estudiante de ingeniería informática completando su Trabajo Profesional Final. Ambos estudiantes trabajaron guiados por un director de investigación que cumplió el rol de Product Owner. Adicionalmente, el director del Trabajo Profesional Final actuó como facilitador de reuniones y supervisor del desarrollo, asegurando la dirección y calidad del proyecto.
+El equipo de desarrollo estuvo compuesto por dos desarrolladores: Tomás Chimenti, un estudiante de ciencias de la computación trabajando en su tesis y Matías González, un estudiante de ingeniería informática completando su Trabajo Profesional Final. Ambos estudiantes trabajaron guiados por Sebastián Uchitel, chair de LaFHIS, que cumplió el rol de Product Owner. Adicionalmente, Nicolás Paez, director del Trabajo Profesional Final, actuó como facilitador de reuniones y supervisor del desarrollo, asegurando la dirección y calidad del proyecto.
 
 \subsection{Proceso de desarrollo}
 
@@ -564,50 +564,6 @@ Durante el desarrollo de \textbf{Abstraktor} se recopilaron métricas que eviden
     
     \item \textbf{Issues}: se gestionaron 76 issues en GitHub Projects.
 \end{itemize}
-
-\section{Plan de actividades}
-
-El desarrollo de \textbf{Abstraktor} se organizó en hitos principales, con una duración total de 32 semanas y una dedicación estimada de entre 12 y 14 horas semanales, representando un esfuerzo total de al menos 390 horas.
-
-\begin{enumerate}
-    \item \textbf{Investigación de Raft y generación de posibles abstracciones} (2 semanas): estudio detallado del protocolo Raft y diseño inicial de abstracciones que representaran sus propiedades clave de manera verificable.
-    
-    \item \textbf{Investigación de Mallory} (2 semanas): análisis de la herramienta Mallory para comprender su funcionamiento interno y evaluar las modificaciones necesarias para integrarla al flujo de trabajo de \textbf{Abstraktor}.
-    
-    \item \textbf{Instrumentación} (6 semanas): implementación de los subcomandos \texttt{get-targets}, \texttt{llvm} e \texttt{instrument}, permitiendo analizar el código fuente y generar un binario instrumentado.
-        
-    \item \textbf{Integración con Mallory} (6 semanas): implementación de los comandos \texttt{setup} y \texttt{run} para configurar y ejecutar Mallory, capturando eventos del binario instrumentado.
-        
-    \item \texttt{export-graphs} (versión inicial) (4 semanas): desarrollo de una versión simplificada del comando para procesar logs y exportar abstracciones en formato DOT.
-        
-    \item \texttt{export-graphs} (mejorado) (4 semanas): extensión del comando para soportar exportación en formatos PNG y PDF, y mejoras en la representación de abstracciones.
-    
-    \item \textbf{Validación y refinamiento de abstracciones} (4 semanas): evaluación de la herramienta utilizando implementaciones conocidas de Raft, identificación de inconsistencias y ajustes en las abstracciones generadas.
-
-    \item \textbf{Generación de documentación} (2 semanas): elaboración de documentación técnica detallada describiendo la arquitectura, uso de la herramienta, decisiones de diseño y ejemplos de generación de EPAs sobre implementaciones concretas.
-\end{enumerate}
-
-\begin{table}[H]
-\centering
-\begin{tabular}{|c|l|c|}
-\hline
-\textbf{\#} & \textbf{Hito} & \textbf{Semanas} \\
-\hline
-1 & Investigación de Raft & 2 \\
-2 & Investigación de Mallory & 2 \\
-3 & Instrumentación & 6 \\
-4 & Integración con Mallory & 6 \\
-5 & \texttt{export-graphs} (inicial) & 4 \\
-6 & \texttt{export-graphs} (mejorado) & 4 \\
-7 & Validación y refinamiento de abstracciones & 4 \\
-8 & Generación de documentación & 2 \\
-\hline
-\textbf{-} & \textbf{Total} & \textbf{32} \\
-\hline
-\end{tabular}
-\caption{Hitos completados y duración de cada uno}
-\label{tab:hitos-abstraktor-realizados}
-\end{table}
 
 
 \section{Riesgos materializados y lecciones aprendidas}
