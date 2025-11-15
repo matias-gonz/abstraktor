@@ -193,7 +193,7 @@ Las herramientas actuales para la validación de protocolos distribuidos se enfo
 
 Para abordar el problema de validación funcional, se propuso utilizar abstracciones preservadoras de habilitación (EPAs) que capturen el comportamiento observado de la implementación y permitan compararlo con las especificaciones formales del protocolo. Para generar estas EPAs automáticamente, se adopta la siguiente estrategia: instrumentar el código para exponer su estado interno en puntos relevantes, ejecutar el sistema bajo condiciones adversas controladas para explorar el espacio de estados, y procesar las trazas de ejecución para construir los grafos de abstracciones.
 
-\textbf{Abstraktor} es una implementación de esta estrategia en forma de herramienta de línea de comandos que automatiza la generación de EPAs para protocolos distribuidos implementados en C/C++. La herramienta integra diferentes componentes y aplicaciones en un flujo de trabajo unificado.
+\textbf{Abstraktor} es una implementación de esta estrategia en forma de herramienta de línea de comandos que automatiza la generación de EPAs para protocolos distribuidos implementados en C/C++. La herramienta integra diferentes componentes y aplicaciones en un flujo de trabajo unificado. El código fuente está disponible públicamente en \url{https://github.com/matias-gonz/abstraktor}.
 
 
 \subsection{Arquitectura}
