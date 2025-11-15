@@ -244,12 +244,15 @@ El punto de entrada es una aplicación CLI escrita en Rust que coordina la ejecu
 La aplicación Rust utiliza las siguientes bibliotecas principales:
 
 \begin{itemize}
-    \item \texttt{clap}: framework para parseo de argumentos de línea de comandos con soporte para subcomandos
-    \item \texttt{serde} y \texttt{serde\_json}: serialización y deserialización de estructuras de datos
-    \item \texttt{regex}: análisis de patrones en código fuente para extracción de anotaciones
-    \item \texttt{xshell}: ejecución de comandos del sistema con manejo de directorios y variables de entorno
-    \item \texttt{anyhow}: manejo de errores con contexto enriquecido
+    \item \textbf{clap}: framework para parseo de argumentos de línea de comandos con soporte para subcomandos
+    \item \textbf{serde} y \textbf{serde\_json}: serialización y deserialización de estructuras de datos
+    \item \textbf{regex}: análisis de patrones en código fuente para extracción de anotaciones
+    \item \textbf{xshell}: ejecución de comandos del sistema con manejo de directorios y variables de entorno
+    \item \textbf{anyhow}: manejo de errores con contexto enriquecido
 \end{itemize}
+
+La elección de Rust como lenguaje para el CLI de Abstraktor se basó en la experiencia previa con el lenguaje y sus bibliotecas, además de ser preferencia personal del equipo de desarrollo.
+
 
 \subsubsection{Instrumentador (LLVM)}
 
