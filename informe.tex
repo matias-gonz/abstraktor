@@ -217,8 +217,8 @@ La arquitectura se basa en tres programas principales:
 \node[component] (mallory) at (3,-2.5) {Fuzzer Mallory\\(Clojure/Rust)};
 \node[output] (abstractions) at (5, 0) {Abstracciones\\(EPAs)};
 
-\draw[bidir] (cli) -- (llvm) node[midway, above left, edgelabel] {JSON targets};
-\draw[bidir] (cli) -- (mallory) node[midway, above right, edgelabel] {logs eventos};
+\draw[arrow] (cli) -- (llvm) node[midway, above left, edgelabel] {JSON targets};
+\draw[arrow] (cli) -- (mallory) node[midway, above right, edgelabel] {logs eventos};
 \draw[arrow] (llvm) -- (mallory) node[midway, above, edgelabel] {binario\\instrumentado};
 \draw[arrow] (cli) -- (abstractions) node[midway, above, edgelabel] {genera};
 
@@ -492,10 +492,6 @@ int reconfigure_system(Config* config, Node* leader) {
 }
 \end{verbatim}
 
-
-\subsection{Ejemplos de EPAs}
-
-Agregar ejemplos de epas
 
 \section{Metodología aplicada}
 
