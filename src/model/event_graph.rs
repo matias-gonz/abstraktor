@@ -106,11 +106,11 @@ pub fn build_event_graph(log: &str) -> EventGraph {
         let mut states: Vec<String> = states_by_node
             .get(&node_id)
             .map(|s| s.iter().cloned().collect())
-            .unwrap_or_else(Vec::new);
+            .unwrap_or_default();
         let mut edges: Vec<Edge> = edges_by_node
             .get(&node_id)
             .map(|e| e.iter().cloned().collect())
-            .unwrap_or_else(Vec::new);
+            .unwrap_or_default();
 
         states.sort_unstable();
         edges.sort_unstable_by(|l, r| match l.from.cmp(&r.from) {
