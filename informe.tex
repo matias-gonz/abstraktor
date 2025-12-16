@@ -353,19 +353,19 @@ El flujo de trabajo típico para generar EPAs con Abstraktor involucra la intera
 \draw[lifeline] (mallory) -- (10.5,-8);
 
 \draw[call] (0,-1) -- (3.5,-1) node[midway, above, note] {instrument};
-\draw[call] (3.5,-1.5) -- (7,-1.5) node[midway, above, note] {get-targets};
-\draw[return] (7,-2) -- (3.5,-2) node[midway, above, note] {JSON targets};
-\draw[call] (3.5,-2.5) -- (7,-2.5) node[midway, above, note] {instrumentar};
-\draw[return] (7,-3) -- (3.5,-3) node[midway, above, note] {binario};
-\draw[return] (3.5,-3.5) -- (0,-3.5) node[midway, above, note] {binario};
+\draw[call] (3.5,-1.5) -- (4.5,-1.5) -- (4.5,-2) -- (3.5,-2);
+\node[note] at (5.2,-1.75) {get-targets};
+\draw[call] (3.5,-2.8) -- (7,-2.8) node[midway, above, note] {instrumentar\\(JSON targets)};
+\draw[return] (7,-3.3) -- (3.5,-3.3) node[midway, above, note] {binario};
+\draw[return] (3.5,-3.8) -- (0,-3.8) node[midway, above, note] {binario};
 
-\draw[call] (0,-4) -- (3.5,-4) node[midway, above, note] {run mallory};
-\draw[call] (3.5,-4.5) -- (10.5,-4.5) node[midway, above, note] {ejecutar};
-\draw[return] (10.5,-5) -- (3.5,-5) node[midway, above, note] {logs eventos};
-\draw[return] (3.5,-5.5) -- (0,-5.5) node[midway, above, note] {logs eventos};
+\draw[call] (0,-4.3) -- (3.5,-4.3) node[midway, above, note] {run mallory};
+\draw[call] (3.5,-4.8) -- (10.5,-4.8) node[midway, above, note] {ejecutar};
+\draw[return] (10.5,-5.3) -- (3.5,-5.3) node[midway, above, note] {logs eventos};
+\draw[return] (3.5,-5.8) -- (0,-5.8) node[midway, above, note] {logs eventos};
 
-\draw[call] (0,-6) -- (3.5,-6) node[midway, above, note] {export-graphs};
-\draw[return] (3.5,-6.5) -- (0,-6.5) node[midway, above, note] {EPAs};
+\draw[call] (0,-6.3) -- (3.5,-6.3) node[midway, above, note] {export-graphs};
+\draw[return] (3.5,-6.8) -- (0,-6.8) node[midway, above, note] {EPAs};
 
 \end{tikzpicture}
 \par}
