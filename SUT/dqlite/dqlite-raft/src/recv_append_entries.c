@@ -17,7 +17,7 @@ static void recvSendAppendEntriesResultCb(struct raft_io_send *req, int status)
     RaftHeapFree(req);
 }
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19, r->20->1
 int recvAppendEntries(struct raft *r,
                       raft_id id,
                       const char *address,

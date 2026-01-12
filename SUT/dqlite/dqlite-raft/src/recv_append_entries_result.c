@@ -7,7 +7,7 @@
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19, r->20->1
 int recvAppendEntriesResult(struct raft *r,
                             const raft_id id,
                             const char *address,
