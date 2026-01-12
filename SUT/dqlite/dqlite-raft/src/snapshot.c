@@ -29,7 +29,7 @@ void snapshotDestroy(struct raft_snapshot *s)
     raft_free(s);
 }
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19
 int snapshotRestore(struct raft *r, struct raft_snapshot *snapshot)
 {
     int rv;

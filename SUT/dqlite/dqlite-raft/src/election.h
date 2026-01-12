@@ -78,4 +78,6 @@ int electionVote(struct raft *r,
  * votes and won elections. */
 bool electionTally(struct raft *r, size_t voter_index);
 
+bool electionTallyTest(struct raft *r);
+
 #endif /* ELECTION_H_ */

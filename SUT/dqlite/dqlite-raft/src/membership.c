@@ -10,7 +10,7 @@
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19
 int membershipCanChangeConfiguration(struct raft *r)
 {
     int rv;
@@ -54,7 +54,7 @@ err:
     return rv;
 }
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19
 bool membershipUpdateCatchUpRound(struct raft *r)
 {
     unsigned server_index;
@@ -111,7 +111,7 @@ bool membershipUpdateCatchUpRound(struct raft *r)
     return false;
 }
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19
 int membershipUncommittedChange(struct raft *r,
                                 const raft_index index,
                                 const struct raft_entry *entry)
@@ -149,7 +149,7 @@ err:
     return rv;
 }
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19
 int membershipRollback(struct raft *r)
 {
     const struct raft_entry *entry;
