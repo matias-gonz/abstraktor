@@ -17,7 +17,7 @@ pub enum OutputFormat {
 
 #[derive(Parser, Debug)]
 pub struct ExportGraphsArgs {
-    #[arg(short = 'l', long = "log", default_value = "mediator-logs/events.log")]
+    #[arg(short = 'a', long = "log-path", default_value = "mediator-logs/events.log")]
     pub log_path: String,
 
     #[arg(short = 'o', long = "out", default_value = "abstractions")]

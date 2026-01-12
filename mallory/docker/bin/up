@@ -175,11 +175,7 @@ if [ -z "${DEV}" ]; then
         rsync -a --delete ./control/jepsen/ ./node/jepsen
 
     )
-    #INFO "Copying ../jepsen to node/jepsen"
-    #(
-        
-        #cp -r ./control/jepsen ./node/jepsen
-    #)
+ 
 fi
 
 if [ "${INIT_ONLY}" -eq 1 ]; then
@@ -215,7 +211,7 @@ if [ "${RUN_AS_DAEMON}" -eq 1 ]; then
 else
     INFO "Please run \`bin/console\` in another terminal to proceed"
     # shellcheck disable=SC2086
-    docker compose --compatibility -p jepsen -f docker-compose.yml ${COMPOSE} ${DEV} up
+    docker compose --compatibility -p jepsen -f docker-compose.yml ${COMPOSE} ${DEV} up -d
 fi
 
 popd

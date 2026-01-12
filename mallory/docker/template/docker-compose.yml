@@ -86,7 +86,7 @@ services:
 %%CONTROLNETS%%
     volumes:
       - "jepsen-shared:/var/jepsen/shared"
-      - "/home/ubuntu/distributed-fuzzing:/host"
+      - "/var/log/abstraktor:/host"
     extra_hosts:
     #   - "control:172.16.0.2"
 %%CONTROLHOSTS%%
