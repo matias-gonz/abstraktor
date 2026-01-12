@@ -8,7 +8,7 @@ pub struct InstrumentationTargets {
     pub path: String,
     pub targets_const: HashMap<usize, String>,
     pub targets_block: HashMap<usize, HashMap<String, Vec<u32>>>,
-    pub targets_function: HashMap<usize, HashMap<String, Vec<u32>>>,
+    pub targets_function: HashMap<usize, HashMap<String, Vec<Vec<u32>>>>,
 }
 
 pub struct Instrumentor {
@@ -61,7 +61,7 @@ impl Instrumentor {
 
                 let list = &captures[1]; 
 
-                let mut map: HashMap<String, Vec<u32>> = HashMap::new();
+                let mut map: HashMap<String, Vec<Vec<u32>>> = HashMap::new();
                 let regex_variables = Regex::new(r"(\w+)((?:->\d+)*)").unwrap();
 
                 for variables_captures in regex_variables.captures_iter(list) {
@@ -80,7 +80,14 @@ impl Instrumentor {
                         }
                     } 
                         
-                    map.insert(var_name, numbers);
+                    if !numbers.is_empty() {
+                        map.entry(var_name)
+                        .or_insert_with(Vec::new)
+                        .push(numbers);
+                    } else {
+                        map.entry(var_name)
+                        .or_insert_with(Vec::new);
+                    }
                 }
                 if let Some(block_line) = self.find_next_block_start(&lines, line_num) {
                     targets.targets_function.insert(block_line, map);
@@ -431,11 +438,11 @@ mod tests {
             targets[0].targets_const,
             HashMap::from([(5, "y".to_string())])
         );
-        let inside_map: HashMap<String, Vec<u32>> = HashMap::from([
-            ("r".to_string(), Vec::<u32>::new())
+        let inside_map: HashMap<String, Vec<Vec<u32>>> = HashMap::from([
+            ("r".to_string(), Vec::<Vec<u32>>::new())
         ]);
 
-        let expected: HashMap<usize, HashMap<String, Vec<u32>>> = HashMap::from([
+        let expected: HashMap<usize, HashMap<String, Vec<Vec<u32>>>> = HashMap::from([
             (3_usize, inside_map)
         ]);
 
@@ -468,11 +475,11 @@ mod tests {
             targets[0].targets_const,
             HashMap::from([(5, "y".to_string())])
         );
-        let inside_map: HashMap<String, Vec<u32>> = HashMap::from([
-            ("r".to_string(), vec![19])
+        let inside_map: HashMap<String, Vec<Vec<u32>>> = HashMap::from([
+            ("r".to_string(), vec![vec![19]])
         ]);
 
-        let expected: HashMap<usize, HashMap<String, Vec<u32>>> = HashMap::from([
+        let expected: HashMap<usize, HashMap<String, Vec<Vec<u32>>>> = HashMap::from([
             (3_usize, inside_map)
         ]);
 
@@ -505,11 +512,11 @@ mod tests {
             targets[0].targets_const,
             HashMap::from([(5, "y".to_string())])
         );
-        let inside_map: HashMap<String, Vec<u32>> = HashMap::from([
-            ("r".to_string(), vec![19,4,5])
+        let inside_map: HashMap<String, Vec<Vec<u32>>> = HashMap::from([
+            ("r".to_string(), vec![vec![19,4,5]])
         ]);
 
-        let expected: HashMap<usize, HashMap<String, Vec<u32>>> = HashMap::from([
+        let expected: HashMap<usize, HashMap<String, Vec<Vec<u32>>>> = HashMap::from([
             (3_usize, inside_map)
         ]);
 
@@ -539,16 +546,16 @@ mod tests {
         // Check first file
         assert_eq!(targets[0].path, "file1.c");
   
-        let inside_map: HashMap<String, Vec<u32>> = HashMap::from([
-            ("r".to_string(), vec![19,4,5]),
-            ("r2".to_string(), vec![15])
+        let inside_map: HashMap<String, Vec<Vec<u32>>> = HashMap::from([
+            ("r".to_string(), vec![vec![19,4,5]]),
+            ("r2".to_string(), vec![vec![15]])
         ]);
 
-        let second_inside_map: HashMap<String, Vec<u32>> = HashMap::from([
-            ("y2".to_string(), vec![15])
+        let second_inside_map: HashMap<String, Vec<Vec<u32>>> = HashMap::from([
+            ("y2".to_string(), vec![vec![15]])
         ]);
 
-        let expected: HashMap<usize, HashMap<String, Vec<u32>>> = HashMap::from([
+        let expected: HashMap<usize, HashMap<String, Vec<Vec<u32>>>> = HashMap::from([
             (3_usize, inside_map),
             (5_usize, second_inside_map)
             

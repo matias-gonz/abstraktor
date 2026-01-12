@@ -109,7 +109,7 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters)
   strcpy(evtVec_ptr[loc].stateBlockName, final_state);
 }
 
-void trigger_func_event(u16 evtID, char* function_name, void** parameters)
+void trigger_func_event(u16 evtID, char* function_name, void** parameters, int size)
 {
   /* find location to record this event */
   u16 loc = __atomic_add_fetch(&evtVec_ptr[0].evtCounter, 1, __ATOMIC_RELAXED);
@@ -124,8 +124,11 @@ void trigger_func_event(u16 evtID, char* function_name, void** parameters)
   evtVec_ptr[loc].ftimestamp = time;
   evtVec_ptr[loc].fevtID = evtID;
 
-  u16** parameter_state = (u16**)parameters;
-  u16* com = *parameters;
+  u16* com = (u16*)parameters[0];
+
+  int v = 0;
+  int n_voters = 5;
+
   u16 state = *com;
   char* final_state;
   if(state == 0){
@@ -134,6 +137,28 @@ void trigger_func_event(u16 evtID, char* function_name, void** parameters)
     final_state = "Follower";
   } else if (state == 2){
     final_state = "Candidate";
+    size_t half = n_voters / 2;
+
+  if (size == 2){
+      void* second_slot = parameters[1]; 
+
+      bool** votes_ptr = (bool**)second_slot;
+
+      bool* votes = *votes_ptr;
+
+      for(int i = 0; i < n_voters; i++){
+        if(votes[i]){
+          v++;
+        }
+      }
+      if (v >= half) {
+      final_state = "CandidateVotesInQuorum";
+    } else {
+      final_state = "CandidateNotVotesInQuorum";
+    }
+  }
+
+   
   } else if (state == 3){
     final_state = "Leader";
   } else {

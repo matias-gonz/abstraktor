@@ -409,7 +409,7 @@ impl FeedbackManager {
                     let state_str_end = state_buffer.iter().position(|&b| b == 0).unwrap_or(64);
                     let result_str = String::from_utf8_lossy(&state_buffer[..state_str_end]);
                     log::info!(
-                        "[BLOCK_EVENT_TYPE][Node {} Batch {} Entry {} / {}] BlockExecute {} @ functionName {} @ state {}",
+                        "[BLOCK_EVENT_TYPE][Node {} Batch {} Entry {} / {}] BlockExecute {} @ FunctionName {} @ state {}",
                         node_id,
                         batch_id,
                         db_entry_index,
