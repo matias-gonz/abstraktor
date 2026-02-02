@@ -436,7 +436,7 @@ u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE 
   }
   
   if (block_targets.containsLine(codefile, line)) {
-    if (func_targets.isFinalMark(codefile, line)) return 3;
+    if (block_targets.isFinalMark(codefile, line)) return 3;
     return 6;
   }
 
@@ -825,12 +825,7 @@ bool AFLCoverage::runOnModule(Module &M)
               groupsPointerValues.erase(groupID);
             
               // Cast to double pointer
-
-              vector<llvm::Value*> v = groupsPointerValues[groupID];
-              v.insert(v.end(), res.begin(), res.end());
-              groupsPointerValues.erase(groupID);
-              // Cast to double pointer
-              Value* arr = buildValuesArrayForFunction(res, IRB);
+              Value* arr = buildValuesArrayForFunction(v, IRB);
 
               Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
 
@@ -1030,64 +1025,75 @@ bool AFLCoverage::runOnModule(Module &M)
 
       std::vector<llvm::Value*> res = getValues(vec, F.args(), vec_selected_fields, IRB);
      
-      Value* arr = buildValuesArrayForFunction(res, IRB);
-
-      
       if(res.size() == 0){
 
       } else {
 
-        u16 *evtIDPtr = get_ID_ptr();
-        u16 evtID = *evtIDPtr;
-        Value *evtValue = ConstantInt::get(Int16Ty, evtID);
+        GroupID groupID = block_targets.getGroupID(filename, block_line);
 
-        // Cast to double pointer
-        Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
+        vector<llvm::Value*> v = groupsPointerValues[groupID]; 
 
-        //Get double pointer type
-        Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
+        v.insert(v.end(), res.begin(), res.end());
 
-        auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy, Int32Ty}, false);
-        auto helper_const = M.getOrInsertFunction("trigger_func_event", helperTy_const);
+        if (notBreak) {
+            // nada más que hacer
+        } else {
 
-        std::string function_name = F.getName().str();
+          groupsPointerValues.erase(groupID);
+          Value* arr = buildValuesArrayForFunction(v, IRB);
+
+          u16 *evtIDPtr = get_ID_ptr();
+          u16 evtID = *evtIDPtr;
+          Value *evtValue = ConstantInt::get(Int16Ty, evtID);
+
+          // Cast to double pointer
+          Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
+
+          //Get double pointer type
+          Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
+
+          auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy, Int32Ty}, false);
+          auto helper_const = M.getOrInsertFunction("trigger_func_event", helperTy_const);
+
+          std::string function_name = F.getName().str();
+            
+          Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
+          IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr, ConstantInt::get(Int32Ty, res.size())});
           
-        Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
-        IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr, ConstantInt::get(Int32Ty, res.size())});
-        
-        /* increase counter */
-        *evtIDPtr = ++evtID;
-        get_debug_loc(&(*InsertPoint), filename, line);
-        std::string func_name = F.getName().str();
-        if (codeLang == 0)
-        {
-          codeLang = check_code_language(filename);
-        }
-
-        if (codeLang == 2)
-        {
-          int demangled_status = -1;
-          char *demangled_char = abi::__cxa_demangle(F.getName().data(), nullptr,
-                                                    nullptr, &demangled_status);
-          if (demangled_status == 0)
+          /* increase counter */
+          *evtIDPtr = ++evtID;
+          get_debug_loc(&(*InsertPoint), filename, line);
+          std::string func_name = F.getName().str();
+          if (codeLang == 0)
           {
-            func_name = demangled_char;
+            codeLang = check_code_language(filename);
           }
-        }
-        else
-        {
-          int demangled_status = -1;
-          char *demangled_char = rustc_demangle(F.getName().data(), &demangled_status);
-          if (demangled_status == 0)
-          {
-            func_name = demangled_char;
-          }
-        }
-        printFuncLog(filename, line, evtID, func_name);
 
-        /* increase counter */
-        *evtIDPtr = ++evtID;
-        inst_blocks++;
+          if (codeLang == 2)
+          {
+            int demangled_status = -1;
+            char *demangled_char = abi::__cxa_demangle(F.getName().data(), nullptr,
+                                                      nullptr, &demangled_status);
+            if (demangled_status == 0)
+            {
+              func_name = demangled_char;
+            }
+          }
+          else
+          {
+            int demangled_status = -1;
+            char *demangled_char = rustc_demangle(F.getName().data(), &demangled_status);
+            if (demangled_status == 0)
+            {
+              func_name = demangled_char;
+            }
+          }
+          printFuncLog(filename, line, evtID, func_name);
+
+          /* increase counter */
+          *evtIDPtr = ++evtID;
+          inst_blocks++;
+        }
       }
     }
   }
