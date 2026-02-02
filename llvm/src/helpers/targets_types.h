@@ -51,8 +51,6 @@ struct TargetsTypes::Impl {
         GroupID id;
     };
 
-    struct 
-
     struct VarNode {
         StructIndexGroups structIndexGroups;
     };

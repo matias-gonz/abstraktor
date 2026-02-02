@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap};
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -12,14 +12,11 @@ pub struct TargetInfo {
 #[derive(Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct VarInfo {
     pub var_name: String,
-
-    #[serde(rename = "structIndexGroups")]
     pub struct_index_groups: Vec<Vec<u32>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct GroupInfo {
-    #[serde(rename = "endMark")]
     pub end_mark: bool,
     pub id: u32,
 }
@@ -27,9 +24,9 @@ pub struct GroupInfo {
 #[derive(Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct InstrumentationTargets {
     pub path: String,
-    pub targets_const: HashMap<usize, String>,
-    pub targets_block: HashMap<usize, TargetInfo>,
-    pub targets_function: HashMap<usize, TargetInfo>,
+    pub targets_const: BTreeMap<usize, String>,
+    pub targets_block: BTreeMap<usize, TargetInfo>,
+    pub targets_function: BTreeMap<usize, TargetInfo>,
 }
 
 pub struct Instrumentor {
@@ -79,7 +76,7 @@ impl Instrumentor {
 
         let has_end = line.trim_end().ends_with("END");
 
-        let mut map: HashMap<String, Vec<Vec<u32>>> = HashMap::new();
+        let mut map: BTreeMap<String, Vec<Vec<u32>>> = BTreeMap::new();
         let regex_variables = Regex::new(r"(\w+)((?:->\d+)*)").unwrap();
         for variables_captures in regex_variables.captures_iter(list) {
             let var_name = variables_captures[1].to_string();
@@ -272,7 +269,7 @@ mod tests {
         let path = "test.c";
         let targets = instrumentor.get_targets_single(content, path);
 
-        let expected = HashMap::from([
+        let expected = BTreeMap::from([
             (3, "x".to_string()),
             (5, "y".to_string()),
             (7, "z".to_string()),
@@ -296,7 +293,7 @@ mod tests {
         let path = "test.c";
         let targets = instrumentor.get_targets_single(content, path);
 
-        let expected_block: HashMap<usize, TargetInfo> = HashMap::from([
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
                 3_usize,
                 TargetInfo {
@@ -319,7 +316,7 @@ mod tests {
             ),
         ]);
 
-        let expected_const = HashMap::from([
+        let expected_const = BTreeMap::from([
             (5_usize, "y".to_string())
         ]);
 
@@ -339,7 +336,7 @@ mod tests {
         let path = "test.c";
         let targets = instrumentor.get_targets_single(content, path);
 
-        let expected_block: HashMap<usize, TargetInfo> = HashMap::from([
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
                 3_usize,
                 TargetInfo {
@@ -373,7 +370,7 @@ mod tests {
         let path = "test.c";
         let targets = instrumentor.get_targets_single(content, path);
 
-        let expected_block: HashMap<usize, TargetInfo> = HashMap::from([
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
                 3_usize,
                 TargetInfo {
@@ -410,7 +407,7 @@ mod tests {
         let path = "test.c";
         let targets = instrumentor.get_targets_single(content, path);
 
-        let expected_block: HashMap<usize, TargetInfo> = HashMap::from([
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
                 3_usize,
                 TargetInfo {
@@ -464,7 +461,7 @@ mod tests {
         let path = "test.c";
         let targets = instrumentor.get_targets_single(content, path);
 
-        let expected_block: HashMap<usize, TargetInfo> = HashMap::from([
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
                 4_usize,
                 TargetInfo {
@@ -508,7 +505,7 @@ mod tests {
         let path = "test.c";
         let targets = instrumentor.get_targets_single(content, path);
 
-        let expected_block: HashMap<usize, TargetInfo> = HashMap::from([
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
                 5_usize,
                 TargetInfo {
@@ -549,7 +546,7 @@ mod tests {
         let path = "test.c";
         let targets = instrumentor.get_targets_single(content, path);
 
-        let expected_block: HashMap<usize, TargetInfo> = HashMap::from([
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
                 4_usize,
                 TargetInfo {
@@ -612,7 +609,7 @@ mod tests {
         let path = "test.c";
         let targets = instrumentor.get_targets_single(content, path);
 
-        let expected_block: HashMap<usize, TargetInfo> = HashMap::from([
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
                 3_usize,
                 TargetInfo {
@@ -654,9 +651,9 @@ mod tests {
         assert_eq!(targets[0].path, "file1.c");
         assert_eq!(
             targets[0].targets_const,
-            HashMap::from([(5, "y".to_string())])
+            BTreeMap::from([(5, "y".to_string())])
         );
-        let expected: HashMap<usize, TargetInfo> = HashMap::from([
+        let expected: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
                 3_usize,
                 TargetInfo {
@@ -700,9 +697,9 @@ mod tests {
         assert_eq!(targets[0].path, "file1.c");
         assert_eq!(
             targets[0].targets_const,
-            HashMap::from([(5, "y".to_string())])
+            BTreeMap::from([(5, "y".to_string())])
         );
-        let expected: HashMap<usize, TargetInfo> = HashMap::from([
+        let expected: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
                 3_usize,
                 TargetInfo {
@@ -747,9 +744,9 @@ mod tests {
         assert_eq!(targets[0].path, "file1.c");
         assert_eq!(
             targets[0].targets_const,
-            HashMap::from([(5, "y".to_string())])
+            BTreeMap::from([(5, "y".to_string())])
         );
-        let expected: HashMap<usize, TargetInfo> = HashMap::from([
+        let expected: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
                 3_usize,
                 TargetInfo {
@@ -791,7 +788,7 @@ mod tests {
         let targets = instrumentor.get_targets(files);
         assert_eq!(targets.len(), 1);
 
-        let expected_block: HashMap<usize, TargetInfo> = HashMap::from([
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
                 5_usize,
                 TargetInfo {
@@ -830,7 +827,7 @@ mod tests {
             targets[0].targets_block,
             expected_block
         );
-        let expected_function: HashMap<usize, TargetInfo> = HashMap::from([
+        let expected_function: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
                 3_usize,
                 TargetInfo {
@@ -873,7 +870,7 @@ mod tests {
         // Check first file
         assert_eq!(targets[0].path, "file1.c");
 
-        let expected: HashMap<usize, TargetInfo> = HashMap::from([
+        let expected: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
                 3_usize,
                 TargetInfo {
@@ -935,7 +932,7 @@ mod tests {
         // Check first file
         assert_eq!(targets[0].path, "file1.c");
 
-        let expected: HashMap<usize, TargetInfo> = HashMap::from([
+        let expected: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
                 3_usize,
                 TargetInfo {
@@ -996,7 +993,7 @@ mod tests {
         //assert_eq!(targets[0].targets_block, vec![3]);
         assert_eq!(
             targets[0].targets_const,
-            HashMap::from([(5, "y".to_string())])
+            BTreeMap::from([(5, "y".to_string())])
         );
 
         // Check second file
@@ -1004,7 +1001,7 @@ mod tests {
         //assert_eq!(targets[1].targets_block, vec![3]);
         assert_eq!(
             targets[1].targets_const,
-            HashMap::from([(5, "w".to_string())])
+            BTreeMap::from([(5, "w".to_string())])
         );
     }
 }

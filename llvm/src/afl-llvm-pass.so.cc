@@ -123,6 +123,7 @@ namespace
     void changeStructPointersToStructTypes(std::vector<std::pair<llvm::Value*, ValueInfo>> &valueTypeMap);
     void extractValuesFromArgumentMap(std::vector<std::pair<llvm::Value*, ValueInfo>> &argument_map, IRBuilder<> &IRB,std::vector<llvm::Value*> &out_values); 
     Value* buildValuesArrayForFunction(std::vector<llvm::Value*> &values, IRBuilder<>& IRB);
+    static void processTargets(const std::string &codefile, TargetsTypes &targets, const nlohmann::json &targets_json);
     bool isPointerToPointer(llvm::Value *v);
     bool isPointerToStruct(llvm::Value* v);
     bool isClangUnionType(llvm::Type *T);
@@ -134,6 +135,30 @@ namespace
 
 std::error_code EC;
 llvm::raw_fd_ostream file2("mipass.log", EC, llvm::sys::fs::OpenFlags::OF_Append);
+
+void AFLCoverage::processTargets(const std::string &codefile, TargetsTypes &targets, const nlohmann::json &targets_json) {
+  for (auto it = targets_json.begin(); it != targets_json.end(); ++it) {
+      TargetsTypes::LineNum line_num = std::stoul(it.key());
+      const auto &variables_list = it.value();
+
+      for (auto &var_obj : variables_list["var_info"]) {
+          TargetsTypes::VarName var_name = var_obj["var_name"].get<TargetsTypes::VarName>();
+          for (auto &struct_indexes_row_json : var_obj["struct_index_groups"]) {
+              TargetsTypes::StructIndexGroup struct_indexes_row = struct_indexes_row_json.get<TargetsTypes::StructIndexGroup>();
+              targets.addStructIndexGroups(codefile, line_num, var_name, struct_indexes_row);
+          }
+      }
+      
+      const auto &group_json = variables_list["group"];
+      targets.addGroups(
+          codefile,
+          line_num,
+          group_json["end_mark"].get<bool>(),
+          group_json["id"].get<TargetsTypes::GroupID>()
+      );
+  }
+}
+
 
 Value* AFLCoverage::buildValuesArrayForFunction(std::vector<llvm::Value*> &values, IRBuilder<>& IRB) {
     LLVMContext& Ctx = IRB.getContext();
@@ -343,59 +368,18 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TargetsTypes &fun
     std::string codefile = target["path"];
     
     auto targets_block = target["targets_block"];
-    for (auto it = targets_block.begin(); it != targets_block.end(); ++it) {
-      unsigned line_num = std::stoul(it.key());
-      auto variables_list = it.value();
-      
-      // if (variables_list.empty()){
-      //   std::unordered_map<std::string, std::vector<unsigned int>> emptyDict;
-      //   block_targets[codefile][line_num] = emptyDict;
-      //   continue;
-      // }
-      for (auto it_variables = variables_list.begin(); it_variables != variables_list.end(); ++it_variables) {
-        auto var_info = it_variables["varInfo"];
-        for (auto it_var_info = var_info.begin(); it_var_info != var_info.end(); ++it_var_info) {
-          TargetsTypes::VarName var_name = it_var_info["name"];
-          GroupsTypes::StructIndexGroups struct_indexes_rows = it_var_info["structIndexGroups"];
-          for (const auto& struct_indexes_row : struct_indexes_rows) {
-            block_targets.addStructIndexGroups(codefile, line_num, var_name, struct_indexes_row.get<std::vector<unsigned int>>());
-          }
-        }
-        GroupsTypes::Groups group_info = it_variables["groups"];    
-        block_targets.addGroups(codefile, line_num, group_info.endMark, group_info.id);
-      }
-    }
+  
+    if (targets_block.is_object()) processTargets(codefile, block_targets, targets_block);
     
+    auto targets_func_json = target["targets_function"];
 
-    auto targets_func = target["targets_function"];
-
-    if (targets_func.is_object()) {
-      for (auto it = targets_func.begin(); it != targets_func.end(); ++it) {
-        TargetsTypes::LineNum line_num = std::stoul(it.key());
-        auto variables_list = it.value();
-        for (auto it_variables = variables_list.begin(); it_variables != variables_list.end(); ++it_variables) {
-          
-          auto var_info = it_variables["varInfo"];
-          for (auto it_var_info = var_info.begin(); it_var_info != var_info.end(); ++it_var_info) {
-            TargetsTypes::VarName var_name = it_var_info["name"];
-            GroupsTypes::StructIndexGroups struct_indexes_rows = it_var_info["structIndexGroups"];
-            for (const auto& struct_indexes_row : struct_indexes_rows) {
-              targets_func.addStructIndexGroups(codefile, line_num, var_name, struct_indexes_row.get<std::vector<unsigned int>>());
-            }
-        }   
-          GroupsTypes::Groups group_info = it_variables["groups"];
-          targets_func.addGroups(codefile, line_num, group_info.endMark, group_info.id);
-
-        }
-      }
-    }
-
+    if (targets_func_json.is_object()) processTargets(codefile, func_targets, targets_func_json);
+    
     auto targets_const = target["targets_const"];
     if (targets_const.is_object()) {
       for (auto it = targets_const.begin(); it != targets_const.end(); ++it) {
         unsigned line_num = std::stoul(it.key());
         std::string const_name = it.value().get<std::string>();
-        //file2 << "Codefile: " << codefile << ", Line num:" << line_num << "\n";
 
         const_targets[codefile][line_num] = const_name;
       }
@@ -642,7 +626,6 @@ bool AFLCoverage::runOnModule(Module &M)
   Int64PtrTy = Type::getInt64PtrTy(C);
   VoidPtrTy = Type::getInt8PtrTy(C);
 
-
   /* Show a banner */
 
   // char be_quiet = 0;
@@ -690,7 +673,7 @@ bool AFLCoverage::runOnModule(Module &M)
   CONST_TARGETS_TYPE const_targets;
   TargetsTypes func_targets;
   TargetsTypes block_targets;
-  std::ordered_map<GroupID, std::vector<Value*>> groupsPointerValues;
+  nlohmann::ordered_map<TargetsTypes::GroupID, std::vector<Value*>> groupsPointerValues;
   std::set<std::pair<std::string, int>> instrumented_const_targets;
   load_instr_targets(bb_targets, func_targets, block_targets, const_targets);
   u8 codeLang = 0;
@@ -707,8 +690,8 @@ bool AFLCoverage::runOnModule(Module &M)
     unsigned block_line = 0;
     unsigned targetLine = 0;
     
-
-    for (auto &BB : F)
+    bool notBreakFunction = false;
+    for (auto &BB : F) 
     {
       
       BasicBlock::iterator IP = BB.getFirstInsertionPt();
@@ -730,14 +713,14 @@ bool AFLCoverage::runOnModule(Module &M)
           continue;
         }
         u16 isTarget = is_target_loc(filename, line, bb_targets, func_targets, block_targets, const_targets);
-        //file2 << "Target: " << isTarget << "\n";
+        file2 << "Target: " << isTarget << "\n";
 
         if (isTarget == 2 || isTarget == 5)
         {
           //file2 << "Funcion: " << F.getName().str() << " " << line << "\n";
           targetLine = line;
           isTargetFunc = true;
-          if (isTarget == 5) notBreak = true;
+          if (isTarget == 5) notBreakFunction = true;
         }
         else if (isTarget == 3 || isTarget == 6)
         {
@@ -764,7 +747,6 @@ bool AFLCoverage::runOnModule(Module &M)
         continue;
       }
 
-    
       //std::vector<llvm::Value*> res =  //getValues(vec, F.args(), vec_selected_fields, IRB);
 
         /*file2 << "Funcion: " << F.getName().str() << " " << res.size() << "\n";
@@ -812,9 +794,9 @@ bool AFLCoverage::runOnModule(Module &M)
         if(res.size() == 0){
 
         } else {
-            GroupID groupID = block_targets.getGroupID(filename, block_line);
+            TargetsTypes::GroupID groupID = block_targets.getGroupID(filename, block_line);
 
-            vector<llvm::Value*>v = groupsPointerValues[groupID]; 
+            std::vector<llvm::Value*>v = groupsPointerValues[groupID]; 
 
             v.insert(v.end(), res.begin(), res.end());
 
@@ -847,80 +829,11 @@ bool AFLCoverage::runOnModule(Module &M)
               *evtIDPtr = ++evtID;
             }
           }
-
-         
         }
-      }
+    
 
-        /* instrument starting block point */
+      /* instrument starting block point */
       IRBuilder<> IRB(&(*IP));
-      //if (isTargetConstEvent)
-      //{
-
-      //   std::pair<std::string, int> const_key = std::make_pair(filename, const_line);
-      //   if (instrumented_const_targets.find(const_key) == instrumented_const_targets.end())
-      //   {
-      //     instrumented_const_targets.insert(const_key);
-          
-          //std::string constName = const_targets[filename][const_line];
-          // u16 *evtIDPtr = get_ID_ptr();
-          // u16 evtID = *evtIDPtr;
-          // Value *evtValue = ConstantInt::get(Int16Ty, evtID);
-
-      //     // Create a global string constant for the const name
-      //     Value *constNameValue = IRB.CreateGlobalString(StringRef(constName), "const_name");
-
-      //     Type *VoidPtrTy = IRB.getInt8PtrTy();
-      //     std::vector<llvm::Value*> res =  getValues(vec, F.args(), vec_selected_fields, IRB);      
-      //     //std::vector<llvm::Value*> res = { constNameValue };
-
-      //     // void** arr = malloc(sizeof(void*) * res.size);
-      //     Value* arr = IRB.CreateAlloca(VoidPtrTy, ConstantInt::get(Int32Ty, res.size()));
-
-      //     for (size_t i = 0; i < res.size(); ++i) {
-      //         Value* val = res[i];
-      //         // valor escalar: reservar memoria y guardar ahí
-
-      //         //val_type alloc;
-      //         Value* alloc = IRB.CreateAlloca(val->getType());
-              
-      //         // alloc = val;
-      //         IRB.CreateStore(val, alloc);
-
-      //         //void* casted_ptr_void = (void*)alloc;
-      //         Value* casted_ptr_void = IRB.CreateBitCast(alloc, VoidPtrTy);
-              
-      //         //Get a pointer to the ith position of the array
-      //         Value* gep = IRB.CreateGEP(arr, {ConstantInt::get(Int32Ty, i)});
-
-      //         //arr[i] = casted_ptr_void
-      //         IRB.CreateStore(casted_ptr_void, gep);
-      //     }
-
-      //     if(res.size() == 0){
-
-      //     } else {
-      //       // Cast to double pointer
-      //       Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
-
-      //       //Get double pointer type
-      //       Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
-
-      //       auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, VoidPtrPtrTy}, false);
-      //       auto helper_const = M.getOrInsertFunction("trigger_const_event", helperTy_const);
-
-      //       IRB.CreateCall(helper_const, {evtValue, arrPtr});
-            
-      //       /* store const ID info */
-      //       printConstLog(filename, const_line, evtID, constName);
-
-      // //       /* increase counter */
-      //       *evtIDPtr = ++evtID;
-      //     }
-
-          
-      //   }
-      //}
       
       if (false)
       {
@@ -954,46 +867,44 @@ bool AFLCoverage::runOnModule(Module &M)
           *evtIDPtr = ++evtID;
         }
       }
-     
-  
-
-    if (getenv("USE_TRADITIONAL_BRANCH")){
-      // Instrument all basicblocks to compute AFL feedback
-      unsigned int cur_loc = AFL_R(MAP_SIZE);
-
-      ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
-
-      /* Load prev_loc */
-
-      LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
-      PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
-
-      /* Load SHM pointer */
-
-      LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
-      MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *MapPtrIdx =
-          IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
-
-      /* Update bitmap */
-
-      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
-      Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
-      IRB.CreateStore(Incr, MapPtrIdx)
-          ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-
-      /* Set prev_loc to cur_loc >> 1 */
-
-      StoreInst *Store =
-          IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
-      Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-    }
-
-    inst_blocks++;
     
-  }
+      if (getenv("USE_TRADITIONAL_BRANCH")){
+        // Instrument all basicblocks to compute AFL feedback
+        unsigned int cur_loc = AFL_R(MAP_SIZE);
+
+        ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
+
+        /* Load prev_loc */
+
+        LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
+        PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
+
+        /* Load SHM pointer */
+
+        LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+        MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        Value *MapPtrIdx =
+            IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
+
+        /* Update bitmap */
+
+        LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+        Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
+        IRB.CreateStore(Incr, MapPtrIdx)
+            ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+        /* Set prev_loc to cur_loc >> 1 */
+
+        StoreInst *Store =
+            IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
+        Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      }
+
+      inst_blocks++;
+    
+    }
 
     /* Instrument function if it is one target or the size is above threshold */
     // if (isTargetFunc || F.getInstructionCount() > instr_func_size)
@@ -1029,13 +940,13 @@ bool AFLCoverage::runOnModule(Module &M)
 
       } else {
 
-        GroupID groupID = block_targets.getGroupID(filename, block_line);
+        TargetsTypes::GroupID groupID = block_targets.getGroupID(filename, block_line);
 
-        vector<llvm::Value*> v = groupsPointerValues[groupID]; 
+        std::vector<llvm::Value*> v = groupsPointerValues[groupID]; 
 
         v.insert(v.end(), res.begin(), res.end());
 
-        if (notBreak) {
+        if (notBreakFunction) {
             // nada más que hacer
         } else {
 
@@ -1097,6 +1008,7 @@ bool AFLCoverage::runOnModule(Module &M)
       }
     }
   }
+  
   file2.close();
   return true;
 }
