@@ -15,7 +15,7 @@ static void installSnapshotSendCb(struct raft_io_send *req, int status)
     raft_free(req);
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19, r->20->1 END
 int recvInstallSnapshot(struct raft *r,
                         const raft_id id,
                         const char *address,

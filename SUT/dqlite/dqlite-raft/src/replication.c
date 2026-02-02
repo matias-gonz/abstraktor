@@ -46,7 +46,7 @@ struct sendAppendEntries
 static void sendAppendEntriesCb(struct raft_io_send *send, const int status)
 {
     struct sendAppendEntries *req = send->data;
-    // ABSTRAKTOR_BLOCK_EVENT: r->19
+    // ABSTRAKTOR_BLOCK_EVENT: r->19 END
     struct raft *r = req->raft;
     unsigned i = configurationIndexOf(&r->configuration, req->server_id);
 
@@ -66,7 +66,7 @@ static void sendAppendEntriesCb(struct raft_io_send *send, const int status)
 
 /* Send an AppendEntries message to the i'th server, including all log entries
  * from the given point onwards. */
-// ABSTRAKTOR_FUNC: r->19
+// ABSTRAKTOR_FUNC: r->19 END
 static int sendAppendEntries(struct raft *r,
                              const unsigned i,
                              const raft_index prev_index,
@@ -156,7 +156,7 @@ struct sendInstallSnapshot
 static void sendInstallSnapshotCb(struct raft_io_send *send, int status)
 {
     struct sendInstallSnapshot *req = send->data;
-    // ABSTRAKTOR_BLOCK_EVENT: r->19
+    // ABSTRAKTOR_BLOCK_EVENT: r->19 END
     struct raft *r = req->raft;
     const struct raft_server *server;
 
@@ -182,7 +182,7 @@ static void sendSnapshotGetCb(struct raft_io_snapshot_get *get,
                               int status)
 {
     struct sendInstallSnapshot *req = get->data;
-    // ABSTRAKTOR_BLOCK_EVENT: r->19
+    // ABSTRAKTOR_BLOCK_EVENT: r->19 END
     struct raft *r = req->raft;
     struct raft_message message;
     struct raft_install_snapshot *args = &message.install_snapshot;
@@ -254,7 +254,7 @@ out:
 }
 
 /* Send the latest snapshot to the i'th server */
-// ABSTRAKTOR_FUNC: r->19
+// ABSTRAKTOR_FUNC: r->19 END
 static int sendSnapshot(struct raft *r, const unsigned i)
 {
     struct raft_server *server = &r->configuration.servers[i];
@@ -678,7 +678,7 @@ err:
     return rv;
 }
 
-// ABSTRAKTOR_FUNC: r->19
+// ABSTRAKTOR_FUNC: r->19 END
 int replicationUpdate(struct raft *r,
                       const struct raft_server *server,
                       const struct raft_append_entries_result *result)
@@ -808,7 +808,7 @@ static void sendAppendEntriesResultCb(struct raft_io_send *req, int status)
     RaftHeapFree(req);
 }
 
-// ABSTRAKTOR_FUNC: r->19
+// ABSTRAKTOR_FUNC: r->19 END
 static void sendAppendEntriesResult(
     struct raft *r,
     const struct raft_append_entries_result *result)
@@ -1002,7 +1002,7 @@ static int checkLogMatchingProperty(struct raft *r,
  * The i output parameter will be set to the array index of the first new log
  * entry that we don't have yet in our log, among the ones included in the given
  * AppendEntries request. */
-// ABSTRAKTOR_FUNC: r->19
+// ABSTRAKTOR_FUNC: r->19 END
 static int deleteConflictingEntries(struct raft *r,
                                     const struct raft_append_entries *args,
                                     size_t *i)
@@ -1061,7 +1061,7 @@ static int deleteConflictingEntries(struct raft *r,
     return 0;
 }
 
-// ABSTRAKTOR_FUNC: r->19
+// ABSTRAKTOR_FUNC: r->19 END
 int replicationAppend(struct raft *r,
                       const struct raft_append_entries *args,
                       raft_index *rejected,
@@ -1487,7 +1487,7 @@ static bool shouldTakeSnapshot(struct raft *r)
  * When taking a snapshot, ownership of the snapshot data is with raft if
  * `snapshot_finalize` is NULL.
  */
-// ABSTRAKTOR_FUNC: r->19
+// ABSTRAKTOR_FUNC: r->19 END
 static void takeSnapshotClose(struct raft *r, struct raft_snapshot *s)
 {
     if (r->fsm->version == 1 ||
@@ -1659,7 +1659,7 @@ abort:
     return rv;
 }
 
-// ABSTRAKTOR_FUNC: r->19
+// ABSTRAKTOR_FUNC: r->19 END
 int replicationApply(struct raft *r)
 {
     raft_index index;
@@ -1725,7 +1725,7 @@ void replicationQuorum(struct raft *r, const raft_index index)
     if (index <= r->commit_index) {
         return;
     }
-
+    // ABSTRAKTOR_BLOCK_EVENT: term END
     term = logTermOf(r->log, index);
 
     /* TODO: fuzzy-test --seed 0x8db5fccc replication/entries/partitioned
