@@ -42,8 +42,8 @@ fn parse_mediator_log_line(line: &str) -> Option<EventRecord> {
     let function_end = relevant_part[function_start..].find(" @ ")?;
     let transition = relevant_part[function_start..function_start + function_end].to_string();
 
-    let state = if let Some(state_marker_pos) = relevant_part.find("@ state: ") {
-        let state_start = state_marker_pos + "@ state: ".len();
+    let state = if let Some(state_marker_pos) = relevant_part.find("@ state ") {
+        let state_start = state_marker_pos + "@ state ".len();
         relevant_part[state_start..].trim().to_string()
     } else if let Some(const_marker_pos) = relevant_part.find("@ constant ") {
         let const_start = const_marker_pos + "@ constant ".len();
@@ -169,11 +169,11 @@ mod tests {
 
     #[test]
     fn builds_cyclic_graph_with_four_states() {
-        let log = "[2025-11-10 19:56:55.000001][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 1 / 5] FunctionExecute 1 @ FunctionName init @ state: idle
-[2025-11-10 19:56:55.000002][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 2 / 5] FunctionExecute 2 @ FunctionName start @ state: active
-[2025-11-10 19:56:55.000003][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 3 / 5] FunctionExecute 3 @ FunctionName process @ state: busy
-[2025-11-10 19:56:55.000004][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 4 / 5] FunctionExecute 4 @ FunctionName complete @ state: ready
-[2025-11-10 19:56:55.000005][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 5 / 5] FunctionExecute 5 @ FunctionName reset @ state: idle";
+        let log = "[2025-11-10 19:56:55.000001][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 1 / 5] FunctionExecute 1 @ FunctionName init @ state idle
+[2025-11-10 19:56:55.000002][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 2 / 5] FunctionExecute 2 @ FunctionName start @ state active
+[2025-11-10 19:56:55.000003][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 3 / 5] FunctionExecute 3 @ FunctionName process @ state busy
+[2025-11-10 19:56:55.000004][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 4 / 5] FunctionExecute 4 @ FunctionName complete @ state ready
+[2025-11-10 19:56:55.000005][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 5 / 5] FunctionExecute 5 @ FunctionName reset @ state idle";
         let g = build_event_graph(log);
         let node = g.nodes.get(&1).unwrap();
 
@@ -221,15 +221,15 @@ mod tests {
 
     #[test]
     fn builds_complex_non_cyclic_graph_with_five_states() {
-        let log = "[2025-11-10 19:56:55.000001][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 1 / 9] BlockExecute 1 @ FunctionName boot @ state: startup
-[2025-11-10 19:56:55.000002][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 2 / 9] BlockExecute 2 @ FunctionName load @ state: config
-[2025-11-10 19:56:55.000003][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 3 / 9] BlockExecute 3 @ FunctionName validate @ state: ready
-[2025-11-10 19:56:55.000004][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 4 / 9] BlockExecute 4 @ FunctionName connect @ state: network
-[2025-11-10 19:56:55.000005][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 5 / 9] BlockExecute 5 @ FunctionName auth @ state: authenticated
-[2025-11-10 19:56:55.000006][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 6 / 9] BlockExecute 6 @ FunctionName error @ state: network
-[2025-11-10 19:56:55.000007][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 7 / 9] BlockExecute 7 @ FunctionName retry @ state: authenticated
-[2025-11-10 19:56:55.000008][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 8 / 9] BlockExecute 8 @ FunctionName shutdown @ state: config
-[2025-11-10 19:56:55.000009][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 9 / 9] BlockExecute 9 @ FunctionName cleanup @ state: startup";
+        let log = "[2025-11-10 19:56:55.000001][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 1 / 9] BlockExecute 1 @ FunctionName boot @ state startup
+[2025-11-10 19:56:55.000002][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 2 / 9] BlockExecute 2 @ FunctionName load @ state config
+[2025-11-10 19:56:55.000003][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 3 / 9] BlockExecute 3 @ FunctionName validate @ state ready
+[2025-11-10 19:56:55.000004][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 4 / 9] BlockExecute 4 @ FunctionName connect @ state network
+[2025-11-10 19:56:55.000005][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 5 / 9] BlockExecute 5 @ FunctionName auth @ state authenticated
+[2025-11-10 19:56:55.000006][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 6 / 9] BlockExecute 6 @ FunctionName error @ state network
+[2025-11-10 19:56:55.000007][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 7 / 9] BlockExecute 7 @ FunctionName retry @ state authenticated
+[2025-11-10 19:56:55.000008][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 8 / 9] BlockExecute 8 @ FunctionName shutdown @ state config
+[2025-11-10 19:56:55.000009][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 1 Entry 9 / 9] BlockExecute 9 @ FunctionName cleanup @ state startup";
         let g = build_event_graph(log);
         let node = g.nodes.get(&1).unwrap();
         //println!(node.states);
@@ -285,12 +285,12 @@ mod tests {
 
     #[test]
     fn builds_separate_graphs_for_different_node_ids() {
-        let log = "[2025-11-10 19:56:55.000001][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 1 / 2] FunctionExecute 1 @ FunctionName start @ state: idle
-[2025-11-10 19:56:55.000002][INFO] [FUNC_EVENT_TYPE][Node 2 Batch 1 Entry 1 / 2] FunctionExecute 2 @ FunctionName init @ state: stopped
-[2025-11-10 19:56:55.000003][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 2 / 2] FunctionExecute 3 @ FunctionName work @ state: active
-[2025-11-10 19:56:55.000004][INFO] [FUNC_EVENT_TYPE][Node 2 Batch 1 Entry 2 / 2] FunctionExecute 4 @ FunctionName boot @ state: running
-[2025-11-10 19:56:55.000005][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 2 Entry 1 / 1] FunctionExecute 5 @ FunctionName finish @ state: idle
-[2025-11-10 19:56:55.000006][INFO] [FUNC_EVENT_TYPE][Node 2 Batch 2 Entry 1 / 1] FunctionExecute 6 @ FunctionName halt @ state: stopped";
+        let log = "[2025-11-10 19:56:55.000001][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 1 / 2] FunctionExecute 1 @ FunctionName start @ state idle
+[2025-11-10 19:56:55.000002][INFO] [FUNC_EVENT_TYPE][Node 2 Batch 1 Entry 1 / 2] FunctionExecute 2 @ FunctionName init @ state stopped
+[2025-11-10 19:56:55.000003][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 2 / 2] FunctionExecute 3 @ FunctionName work @ state active
+[2025-11-10 19:56:55.000004][INFO] [FUNC_EVENT_TYPE][Node 2 Batch 1 Entry 2 / 2] FunctionExecute 4 @ FunctionName boot @ state running
+[2025-11-10 19:56:55.000005][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 2 Entry 1 / 1] FunctionExecute 5 @ FunctionName finish @ state idle
+[2025-11-10 19:56:55.000006][INFO] [FUNC_EVENT_TYPE][Node 2 Batch 2 Entry 1 / 1] FunctionExecute 6 @ FunctionName halt @ state stopped";
         let g = build_event_graph(log);
 
         let n1 = g.nodes.get(&1).unwrap();
@@ -330,15 +330,15 @@ mod tests {
 
     #[test]
     fn skips_invalid_lines_and_continues_processing() {
-        let log = "[2025-11-10 19:56:55.000001][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 1 / 4] FunctionExecute 1 @ FunctionName start @ state: idle
+        let log = "[2025-11-10 19:56:55.000001][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 1 / 4] FunctionExecute 1 @ FunctionName start @ state idle
 invalid line with no numbers
-[2025-11-10 19:56:55.000002][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 2 / 4] FunctionExecute 2 @ FunctionName work @ state: active
+[2025-11-10 19:56:55.000002][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 2 / 4] FunctionExecute 2 @ FunctionName work @ state active
 not enough parts
 too many parts here now
-[2025-11-10 19:56:55.000003][INFO] [FUNC_EVENT_TYPE][Node X Batch 1 Entry 3 / 4] FunctionExecute 3 @ FunctionName invalid_id @ state: active
-[2025-11-10 19:56:55.000004][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 3 / 4] FunctionExecute 4 @ FunctionName finish @ state: idle
+[2025-11-10 19:56:55.000003][INFO] [FUNC_EVENT_TYPE][Node X Batch 1 Entry 3 / 4] FunctionExecute 3 @ FunctionName invalid_id @ state active
+[2025-11-10 19:56:55.000004][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 3 / 4] FunctionExecute 4 @ FunctionName finish @ state idle
    
-[2025-11-10 19:56:55.000005][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 4 / 4] FunctionExecute 5 @ FunctionName restart @ state: active";
+[2025-11-10 19:56:55.000005][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 4 / 4] FunctionExecute 5 @ FunctionName restart @ state active";
         let g = build_event_graph(log);
         let node = g.nodes.get(&1).unwrap();
 
@@ -366,9 +366,9 @@ too many parts here now
 
     #[test]
     fn renders_dot_for_node_graph() {
-        let log = "[2025-11-10 19:56:55.000001][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 1 / 3] FunctionExecute 1 @ FunctionName A @ state: s0
-[2025-11-10 19:56:55.000002][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 2 / 3] FunctionExecute 2 @ FunctionName B @ state: s1
-[2025-11-10 19:56:55.000003][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 3 / 3] FunctionExecute 3 @ FunctionName C @ state: s0";
+        let log = "[2025-11-10 19:56:55.000001][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 1 / 3] FunctionExecute 1 @ FunctionName A @ state s0
+[2025-11-10 19:56:55.000002][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 2 / 3] FunctionExecute 2 @ FunctionName B @ state s1
+[2025-11-10 19:56:55.000003][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 3 / 3] FunctionExecute 3 @ FunctionName C @ state s0";
         let g = build_event_graph(log);
         let dot = dot_for_node_graph(g.nodes.get(&1).unwrap());
         assert!(dot.contains("digraph G{"));
@@ -381,11 +381,11 @@ too many parts here now
 
     #[test]
     fn renders_dot_labels_grouped_and_sorted() {
-        let log = "[2025-11-10 19:56:55.000001][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 1 / 5] FunctionExecute 1 @ FunctionName A @ state: s0
-[2025-11-10 19:56:55.000002][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 2 / 5] FunctionExecute 2 @ FunctionName B @ state: s1
-[2025-11-10 19:56:55.000003][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 3 / 5] FunctionExecute 3 @ FunctionName C @ state: s0
-[2025-11-10 19:56:55.000004][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 4 / 5] FunctionExecute 4 @ FunctionName D @ state: s1
-[2025-11-10 19:56:55.000005][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 5 / 5] FunctionExecute 5 @ FunctionName E @ state: s0";
+        let log = "[2025-11-10 19:56:55.000001][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 1 / 5] FunctionExecute 1 @ FunctionName A @ state s0
+[2025-11-10 19:56:55.000002][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 2 / 5] FunctionExecute 2 @ FunctionName B @ state s1
+[2025-11-10 19:56:55.000003][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 3 / 5] FunctionExecute 3 @ FunctionName C @ state s0
+[2025-11-10 19:56:55.000004][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 4 / 5] FunctionExecute 4 @ FunctionName D @ state s1
+[2025-11-10 19:56:55.000005][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 1 Entry 5 / 5] FunctionExecute 5 @ FunctionName E @ state s0";
         let g = build_event_graph(log);
         let dot = dot_for_node_graph(g.nodes.get(&1).unwrap());
         assert!(dot.contains("\"s0\" -> \"s1\" [label=<A<BR/>C>];"));
@@ -394,10 +394,10 @@ too many parts here now
 
     #[test]
     fn parses_mediator_log_format() {
-        let log = "[2025-11-10 19:56:55.000001][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 2 Entry 1 / 3] BlockExecute 42 @ FunctionName init @ state: idle
-[2025-11-10 19:56:55.000002][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 2 Entry 2 / 3] FunctionExecute 43 @ FunctionName process @ state: active
+        let log = "[2025-11-10 19:56:55.000001][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 2 Entry 1 / 3] BlockExecute 42 @ FunctionName init @ state idle
+[2025-11-10 19:56:55.000002][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 2 Entry 2 / 3] FunctionExecute 43 @ FunctionName process @ state active
 [2025-11-10 19:56:55.000003][INFO] [CONST_EVENT_TYPE][Node 1 Batch 2 Entry 3 / 3] ConstantExecute 44 @ FunctionName reset @ constant idle
-[2025-11-10 19:56:55.000004][INFO] [BLOCK_EVENT_TYPE][Node 2 Batch 3 Entry 1 / 1] BlockExecute 50 @ FunctionName start @ state: running";
+[2025-11-10 19:56:55.000004][INFO] [BLOCK_EVENT_TYPE][Node 2 Batch 3 Entry 1 / 1] BlockExecute 50 @ FunctionName start @ state running";
         let g = build_event_graph(log);
 
         let n1 = g.nodes.get(&1).unwrap();
@@ -427,9 +427,9 @@ too many parts here now
     #[test]
     fn skips_non_event_log_lines_in_mediator_format() {
         let log = "[2025-11-10 19:56:55.000001][INFO] Some informational message
-[2025-11-10 19:56:55.000002][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 2 Entry 1 / 2] BlockExecute 42 @ FunctionName init @ state: idle
+[2025-11-10 19:56:55.000002][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 2 Entry 1 / 2] BlockExecute 42 @ FunctionName init @ state idle
 [2025-11-10 19:56:55.000003][DEBUG] Debug message without relevant data
-[2025-11-10 19:56:55.000004][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 2 Entry 2 / 2] FunctionExecute 43 @ FunctionName process @ state: active
+[2025-11-10 19:56:55.000004][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 2 Entry 2 / 2] FunctionExecute 43 @ FunctionName process @ state active
 Random log line without brackets
 [2025-11-10 19:56:55.000005][ERROR] Error message";
         let g = build_event_graph(log);
@@ -450,8 +450,8 @@ Random log line without brackets
 
     #[test]
     fn parses_mediator_log_with_timestamps_and_log_levels() {
-        let log = "[2025-11-10 19:56:55.662761][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 68 Entry 51 / 56] BlockExecute 94 @ FunctionName sendAppendEntries @ state: Leader
-[2025-11-10 19:56:55.662800][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 68 Entry 52 / 56] FunctionExecute 95 @ FunctionName processResponse @ state: Follower
+        let log = "[2025-11-10 19:56:55.662761][INFO] [BLOCK_EVENT_TYPE][Node 1 Batch 68 Entry 51 / 56] BlockExecute 94 @ FunctionName sendAppendEntries @ state Leader
+[2025-11-10 19:56:55.662800][INFO] [FUNC_EVENT_TYPE][Node 1 Batch 68 Entry 52 / 56] FunctionExecute 95 @ FunctionName processResponse @ state Follower
 [2025-11-10 19:56:55.663000][DEBUG] [CONST_EVENT_TYPE][Node 2 Batch 10 Entry 1 / 1] ConstantExecute 10 @ FunctionName timeout @ constant Candidate";
         let g = build_event_graph(log);
 

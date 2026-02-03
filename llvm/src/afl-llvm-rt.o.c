@@ -75,7 +75,7 @@ __thread u32 __afl_prev_loc;
 /***
  * instrument block starting point
  ***/
-void trigger_block_event(u16 evtID, char* function_name, void** parameters)
+void trigger_block_event(u16 evtID, char* function_name, void** parameters, int size)
 {
   /* find location to record this event */
   u16 loc = __atomic_add_fetch(&evtVec_ptr[0].evtCounter, 1, __ATOMIC_RELAXED);
@@ -90,8 +90,10 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters)
   evtVec_ptr[loc].blockEventTimestamp = time;
   evtVec_ptr[loc].blockEventID = evtID;
 
-  u16** parameter_state = (u16**)parameters;
-  u16* com = *parameters;
+  u16* com = (u16*)parameters[0];
+
+  int v = 0;
+
   u16 state = *com;
   char* final_state;
   if(state == 0){
@@ -100,11 +102,39 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters)
     final_state = "Follower";
   } else if (state == 2){
     final_state = "Candidate";
+
+  if (size == 3){
+      void* second_slot = parameters[1]; 
+
+      bool** votes_ptr = (bool**)second_slot;
+
+      bool* votes = *votes_ptr;
+
+      void* third_slot = parameters[2];
+      u64* n_voters_ptr = (u64*)third_slot;
+      long long n_voters = *n_voters_ptr;
+      //long long n_voters = 5;
+      size_t half = n_voters / 2;
+
+      for(int i = 0; i < n_voters; i++){
+        if(votes[i]){
+          v++;
+        }
+      }
+      if (v >= half) {
+      final_state = "CandidateVotesInQuorum";
+    } else {
+      final_state = "CandidateNotVotesInQuorum";
+    }
+  }
+
+   
   } else if (state == 3){
     final_state = "Leader";
   } else {
     final_state = "Unknown";
   }
+
   strcpy(evtVec_ptr[loc].stateBlockName, function_name);
   strcpy(evtVec_ptr[loc].stateBlockName, final_state);
 }
@@ -127,7 +157,6 @@ void trigger_func_event(u16 evtID, char* function_name, void** parameters, int s
   u16* com = (u16*)parameters[0];
 
   int v = 0;
-  int n_voters = 5;
 
   u16 state = *com;
   char* final_state;
@@ -137,26 +166,31 @@ void trigger_func_event(u16 evtID, char* function_name, void** parameters, int s
     final_state = "Follower";
   } else if (state == 2){
     final_state = "Candidate";
-    size_t half = n_voters / 2;
 
-  if (size == 2){
-      void* second_slot = parameters[1]; 
+  // if (size == 3){
+  //     void* second_slot = parameters[1]; 
 
-      bool** votes_ptr = (bool**)second_slot;
+  //     bool** votes_ptr = (bool**)second_slot;
 
-      bool* votes = *votes_ptr;
+  //     bool* votes = *votes_ptr;
 
-      for(int i = 0; i < n_voters; i++){
-        if(votes[i]){
-          v++;
-        }
-      }
-      if (v >= half) {
-      final_state = "CandidateVotesInQuorum";
-    } else {
-      final_state = "CandidateNotVotesInQuorum";
-    }
-  }
+  //     void* third_slot = parameters[2];
+  //     u16* n_voters_ptr = (u16*)third_slot;
+  //     int n_voters = *n_voters_ptr;
+  //     //long long n_voters = 5;
+  //     size_t half = n_voters / 2;
+
+  //     for(int i = 0; i < n_voters; i++){
+  //       if(votes[i]){
+  //         v++;
+  //       }
+  //     }
+  //     if (v >= half) {
+  //     final_state = "CandidateVotesInQuorum";
+  //   } else {
+  //     final_state = "CandidateNotVotesInQuorum";
+  //   }
+  // }
 
    
   } else if (state == 3){

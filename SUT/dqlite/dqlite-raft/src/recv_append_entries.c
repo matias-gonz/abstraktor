@@ -8,6 +8,7 @@
 #include "recv.h"
 #include "replication.h"
 #include "tracing.h"
+#include "configuration.h"
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
@@ -17,12 +18,15 @@ static void recvSendAppendEntriesResultCb(struct raft_io_send *req, int status)
     RaftHeapFree(req);
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1 END
+// ABSTRAKTOR_FUNC: r->19, r->20->1
 int recvAppendEntries(struct raft *r,
                       raft_id id,
                       const char *address,
                       const struct raft_append_entries *args)
 {
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    (void)n_voters; /* Supress unused variable warning */    
     struct raft_io_send *req;
     struct raft_message message;
     struct raft_append_entries_result *result = &message.append_entries_result;

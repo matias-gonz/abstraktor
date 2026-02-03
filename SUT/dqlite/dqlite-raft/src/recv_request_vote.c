@@ -5,6 +5,7 @@
 #include "recv.h"
 #include "replication.h"
 #include "tracing.h"
+#include "configuration.h"
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
@@ -14,12 +15,16 @@ static void requestVoteSendCb(struct raft_io_send *req, int status)
     raft_free(req);
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1 END
+// ABSTRAKTOR_FUNC: r->19, r->20->1
 int recvRequestVote(struct raft *r,
                     const raft_id id,
                     const char *address,
                     const struct raft_request_vote *args)
 {
+    
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    (void)n_voters; /* Supress unused variable warning */
     struct raft_io_send *req;
     struct raft_message message;
     struct raft_request_vote_result *result = &message.request_vote_result;

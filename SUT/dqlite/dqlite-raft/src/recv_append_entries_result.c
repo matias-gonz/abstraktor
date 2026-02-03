@@ -7,12 +7,15 @@
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1 END
+// ABSTRAKTOR_FUNC: r->19, r->20->1
 int recvAppendEntriesResult(struct raft *r,
                             const raft_id id,
                             const char *address,
                             const struct raft_append_entries_result *result)
 {
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    (void)n_voters; /* Supress unused variable warning */
     int match;
     const struct raft_server *server;
     int rv;
@@ -55,6 +58,8 @@ int recvAppendEntriesResult(struct raft *r,
     assert(result->term == r->current_term);
 
     /* Ignore responses from servers that have been removed */
+    //server->id, r->commit_index, raft_log_len(&r->log), r->current_term);
+
     server = configurationGet(&r->configuration, id);
     if (server == NULL) {
         tracef("unknown server -> ignore");

@@ -18,9 +18,12 @@ struct followerOrCandidateState
 };
 
 /* Return a pointer to either the follower or candidate state. */
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->20->1
 struct followerOrCandidateState *getFollowerOrCandidateState(struct raft *r)
 {
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    (void)n_voters; /* Supress unused variable warning */
     struct followerOrCandidateState *state;
     assert(r->state == RAFT_FOLLOWER || r->state == RAFT_CANDIDATE);
     if (r->state == RAFT_FOLLOWER) {
@@ -31,9 +34,12 @@ struct followerOrCandidateState *getFollowerOrCandidateState(struct raft *r)
     return state;
 }
 
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->20->1
 void electionResetTimer(struct raft *r)
 {
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    (void)n_voters; /* Supress unused variable warning */
     struct followerOrCandidateState *state = getFollowerOrCandidateState(r);
     unsigned timeout = (unsigned)r->io->random(r->io, (int)r->election_timeout,
                                                2 * (int)r->election_timeout);
@@ -43,9 +49,12 @@ void electionResetTimer(struct raft *r)
     r->election_timer_start = r->io->time(r->io);
 }
 
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->20->1
 bool electionTimerExpired(struct raft *r)
 {
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    (void)n_voters; /* Supress unused variable warning */
     struct followerOrCandidateState *state = getFollowerOrCandidateState(r);
     raft_time now = r->io->time(r->io);
     return now - r->election_timer_start >= state->randomized_election_timeout;
@@ -58,9 +67,13 @@ static void sendRequestVoteCb(struct raft_io_send *send, int status)
 }
 
 /* Send a RequestVote RPC to the given server. */
-// ABSTRAKTOR_FUNC: r->19, r->20->1 END
+// ABSTRAKTOR_FUNC: r->19, r->20->1
 static int electionSend(struct raft *r, const struct raft_server *server)
 {
+    
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    (void)n_voters; /* Supress unused variable warning */
     struct raft_message message;
     struct raft_io_send *send;
     raft_term term;
@@ -181,11 +194,14 @@ err:
     return rv;
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1 END
+// ABSTRAKTOR_FUNC: r->19, r->20->1
 int electionVote(struct raft *r,
                  const struct raft_request_vote *args,
                  bool *granted)
 {
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    (void)n_voters; /* Supress unused variable warning */
     const struct raft_server *local_server;
     raft_index local_last_index;
     raft_term local_last_term;
@@ -288,9 +304,10 @@ grant_vote:
     return 0;
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1 END
+// ABSTRAKTOR_FUNC: r->19, r->20->1
 bool electionTallyTest(struct raft *r)
 {
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
     size_t n_voters = configurationVoterCount(&r->configuration);
     size_t votes = 0;
     size_t i;
@@ -305,10 +322,13 @@ bool electionTallyTest(struct raft *r)
     return votes >= half + 1;
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1 END
+// ABSTRAKTOR_FUNC: r->19, r->20->1
 bool electionTally(struct raft *r, size_t voter_index)
 {
 
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    (void)n_voters; /* Supress unused variable warning */
     assert(r->state == RAFT_CANDIDATE);
     assert(r->candidate_state.votes != NULL);
 
@@ -316,5 +336,6 @@ bool electionTally(struct raft *r, size_t voter_index)
 
     return electionTallyTest(r);
 }
+
 
 #undef tracef

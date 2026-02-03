@@ -583,6 +583,21 @@ enum { RAFT_UNAVAILABLE, RAFT_FOLLOWER, RAFT_CANDIDATE, RAFT_LEADER };
 
 struct raft_progress;
 
+struct raft; /* Forward declaration. */
+
+/**
+ * Close callback.
+ *
+ * It's safe to release the memory of a raft instance only after this callback
+ * has fired.
+ */
+typedef void (*raft_close_cb)(struct raft *raft);
+
+struct raft_change;   /* Forward declaration */
+struct raft_transfer; /* Forward declaration */
+
+struct raft_log;
+
 struct follower_state
 {
     unsigned randomized_election_timeout; /* Timer expiration. */
@@ -614,21 +629,6 @@ struct leader_state
     void *requests[2];              /* Outstanding client requests. */
     uint64_t reserved[8];           /* Future use */
 };
-
-struct raft; /* Forward declaration. */
-
-/**
- * Close callback.
- *
- * It's safe to release the memory of a raft instance only after this callback
- * has fired.
- */
-typedef void (*raft_close_cb)(struct raft *raft);
-
-struct raft_change;   /* Forward declaration */
-struct raft_transfer; /* Forward declaration */
-
-struct raft_log;
 
 /**
  * Hold and drive the state of a single raft server in a cluster.

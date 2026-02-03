@@ -677,7 +677,7 @@ bool AFLCoverage::runOnModule(Module &M)
   CONST_TARGETS_TYPE const_targets;
   TargetsTypes func_targets;
   TargetsTypes block_targets;
-  nlohmann::ordered_map<TargetsTypes::GroupID, std::vector<Value*>> groupsPointerValues;
+  std::map<TargetsTypes::GroupID, std::vector<Value*>> groupsPointerValues;
   std::set<std::pair<std::string, int>> instrumented_const_targets;
   load_instr_targets(bb_targets, func_targets, block_targets, const_targets);
   u8 codeLang = 0;
@@ -766,6 +766,7 @@ bool AFLCoverage::runOnModule(Module &M)
       */
 
       if (isTargetFunc) {
+        isTargetFunc = false;
         BasicBlock *BB = &F.getEntryBlock();
         Instruction *InsertPoint = &(*(BB->getFirstInsertionPt()));
         IRBuilder<> IRB(InsertPoint);
@@ -797,7 +798,7 @@ bool AFLCoverage::runOnModule(Module &M)
 
         } else {
 
-          TargetsTypes::GroupID groupID = block_targets.getGroupID(filename, block_line);
+          TargetsTypes::GroupID groupID = func_targets.getGroupID(filename, targetLine);
 
           std::vector<llvm::Value*> v = groupsPointerValues[groupID]; 
 
@@ -812,6 +813,13 @@ bool AFLCoverage::runOnModule(Module &M)
           } else {
 
             groupsPointerValues.erase(groupID);
+            file2 << " Filename " << filename << " Line: " << line << " Size: " << v.size() << " GroupID: " << groupID << "\n";
+            
+            for(auto &val : v){
+              file2 << " Value Type: ";
+              val->getType()->print(file2);
+              file2 << "\n";
+            }
             Value* arr = buildValuesArrayForFunction(v, IRB);
 
             u16 *evtIDPtr = get_ID_ptr();
@@ -918,7 +926,6 @@ bool AFLCoverage::runOnModule(Module &M)
             } else {
 
               groupsPointerValues.erase(groupID);
-            
               // Cast to double pointer
               Value* arr = buildValuesArrayForFunction(v, IRB);
 
@@ -927,7 +934,7 @@ bool AFLCoverage::runOnModule(Module &M)
               //Get double pointer type
               Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
 
-              auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy}, false);
+              auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy, Int32Ty}, false);
               //file2 << "Not breaking function: " << F.getName().str() << " with " << v.size() << " values \n";
 
               auto helper_const = M.getOrInsertFunction("trigger_block_event", helperTy_const);

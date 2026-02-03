@@ -1713,7 +1713,7 @@ int replicationApply(struct raft *r)
     return rv;
 }
 
-// ABSTRAKTOR_FUNC: r->19
+// ABSTRAKTOR_FUNC: r->19 END
 void replicationQuorum(struct raft *r, const raft_index index)
 {
     size_t votes = 0;
@@ -1725,7 +1725,7 @@ void replicationQuorum(struct raft *r, const raft_index index)
     if (index <= r->commit_index) {
         return;
     }
-    // ABSTRAKTOR_BLOCK_EVENT: term END
+
     term = logTermOf(r->log, index);
 
     /* TODO: fuzzy-test --seed 0x8db5fccc replication/entries/partitioned

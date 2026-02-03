@@ -127,9 +127,12 @@ static void convertClear(struct raft *r)
     }
 }
 
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->20->1
 void convertToFollower(struct raft *r)
 {
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    (void)n_voters; /* Supress unused variable warning */
     convertClear(r);
     convertSetState(r, RAFT_FOLLOWER);
 
@@ -145,6 +148,7 @@ int convertToCandidate(struct raft *r, bool disrupt_leader)
 {
     const struct raft_server *server;
     size_t n_voters = configurationVoterCount(&r->configuration);
+    (void)n_voters; /* Supress unused variable warning */
     int rv;
 
     (void)server; /* Only used for assertions. */
@@ -188,9 +192,10 @@ void convertInitialBarrierCb(struct raft_barrier *req, int status)
     raft_free(req);
 }
 
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->20->1
 int convertToLeader(struct raft *r)
 {
+
     int rv;
 
     convertClear(r);
@@ -218,6 +223,8 @@ int convertToLeader(struct raft *r)
 
     /* By definition, all entries until the last_stored entry will be committed if
      * we are the only voter around. */
+
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
     size_t n_voters = configurationVoterCount(&r->configuration);
     if (n_voters == 1 && (r->last_stored > r->commit_index)) {
         tracef("apply log entries after self election %llu %llu", r->last_stored, r->commit_index);
