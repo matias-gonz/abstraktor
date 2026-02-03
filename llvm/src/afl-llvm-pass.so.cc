@@ -143,8 +143,14 @@ void AFLCoverage::processTargets(const std::string &codefile, TargetsTypes &targ
 
       for (auto &var_obj : variables_list["var_info"]) {
           TargetsTypes::VarName var_name = var_obj["var_name"].get<TargetsTypes::VarName>();
+          if (var_obj["struct_index_groups"].empty()) {
+            std::vector<TargetsTypes::StructIndex> empty_struct_index_groups;
+            targets.addStructIndexGroups(codefile, line_num, var_name, empty_struct_index_groups);
+            continue;
+          }
           for (auto &struct_indexes_row_json : var_obj["struct_index_groups"]) {
               TargetsTypes::StructIndexGroup struct_indexes_row = struct_indexes_row_json.get<TargetsTypes::StructIndexGroup>();
+
               targets.addStructIndexGroups(codefile, line_num, var_name, struct_indexes_row);
           }
       }
@@ -244,6 +250,10 @@ void AFLCoverage::extractValuesFromArgumentMap(
       std::vector<llvm::Value*> tmp;
       llvm::Value* target_value = pair.first;
       llvm::Type* target_type = pair.second.type;
+      if (pair.second.indexes.empty()) {
+          out_values.push_back(target_value);
+          continue;
+      }
       for(auto &selected_field: pair.second.indexes){
         llvm::Value* zero  = llvm::ConstantInt::get(IRB.getInt32Ty(), 0);
         llvm::Value* offset = llvm::ConstantInt::get(IRB.getInt32Ty(), selected_field);
@@ -366,14 +376,15 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TargetsTypes &fun
     }
 
     std::string codefile = target["path"];
+
+    auto targets_func_json = target["targets_function"];
+
+    if (targets_func_json.is_object()) processTargets(codefile, func_targets, targets_func_json);
     
     auto targets_block = target["targets_block"];
   
     if (targets_block.is_object()) processTargets(codefile, block_targets, targets_block);
     
-    auto targets_func_json = target["targets_function"];
-
-    if (targets_func_json.is_object()) processTargets(codefile, func_targets, targets_func_json);
     
     auto targets_const = target["targets_const"];
     if (targets_const.is_object()) {
@@ -406,13 +417,6 @@ u8 AFLCoverage::is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE 
       }
     }
   }
-
-  // file2 << "Codefile at target loc: " << codefile << "\n";
-  
-  // for (const auto& [key, _] : func_targets) {
-  //   file2 << "Key: " << key << "\n";
-  // }
-
 
   if (func_targets.containsLine(codefile, line)) {
     if (func_targets.isFinalMark(codefile, line)) return 2;
@@ -699,7 +703,7 @@ bool AFLCoverage::runOnModule(Module &M)
       // in each basic block, check if it is a target
       bool isTargetBlockEvent = false;
       bool isTargetConstEvent = false;
-      bool notBreak = true;
+      bool notBreak = false;
       llvm::Value* rhs;
       llvm::Value* lhs;
       llvm::Instruction* nextI;
@@ -713,11 +717,11 @@ bool AFLCoverage::runOnModule(Module &M)
           continue;
         }
         u16 isTarget = is_target_loc(filename, line, bb_targets, func_targets, block_targets, const_targets);
-        file2 << "Target: " << isTarget << "\n";
+
+        //file2 << "Target: " << isTarget << " For: " << filename << ":" << line << "\n";
 
         if (isTarget == 2 || isTarget == 5)
         {
-          //file2 << "Funcion: " << F.getName().str() << " " << line << "\n";
           targetLine = line;
           isTargetFunc = true;
           if (isTarget == 5) notBreakFunction = true;
@@ -725,8 +729,8 @@ bool AFLCoverage::runOnModule(Module &M)
         else if (isTarget == 3 || isTarget == 6)
         {
           block_line = line;
+          isTargetBlockEvent = true;
           if (auto *SI = dyn_cast<StoreInst>(&I)) {
-            isTargetBlockEvent = true;
             rhs = SI->getValueOperand();
             lhs = SI->getPointerOperand();
             nextI = I.getNextNode();
@@ -760,6 +764,111 @@ bool AFLCoverage::runOnModule(Module &M)
           file2 << " Param " << idx++ << " (" << typeStr << " " << "): " << "\n";
         }
       */
+
+      if (isTargetFunc) {
+        BasicBlock *BB = &F.getEntryBlock();
+        Instruction *InsertPoint = &(*(BB->getFirstInsertionPt()));
+        IRBuilder<> IRB(InsertPoint);
+        std::vector<std::vector<unsigned int>> vec_selected_fields;
+
+        std::vector<std::string> vec;
+        if (!func_targets.containsLine(filename, targetLine)) {
+          get_debug_loc(&(*InsertPoint), filename, line);
+          continue;
+        }
+
+        TargetsTypes::LineEntries entries;
+        
+        if (!func_targets.getLineEntries(filename, targetLine, entries)) {
+            continue;
+        }
+
+        for (const auto& entry : entries) {
+          const auto& var = entry.first;
+          const auto& index_row = entry.second;
+
+          vec.push_back(var);
+          vec_selected_fields.push_back(index_row);
+        }
+
+        std::vector<llvm::Value*> res = getValues(vec, F.args(), vec_selected_fields, IRB);
+      
+        if(res.size() == 0){
+
+        } else {
+
+          TargetsTypes::GroupID groupID = block_targets.getGroupID(filename, block_line);
+
+          std::vector<llvm::Value*> v = groupsPointerValues[groupID]; 
+
+          v.insert(v.end(), res.begin(), res.end());
+
+          groupsPointerValues[groupID] =  v;
+
+          //file2 << "Function Event: " << F.getName().str() << " with " << v.size() << " values \n";
+
+          if (notBreakFunction) {
+              // nada más que hacer
+          } else {
+
+            groupsPointerValues.erase(groupID);
+            Value* arr = buildValuesArrayForFunction(v, IRB);
+
+            u16 *evtIDPtr = get_ID_ptr();
+            u16 evtID = *evtIDPtr;
+            Value *evtValue = ConstantInt::get(Int16Ty, evtID);
+
+            // Cast to double pointer
+            Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
+
+            //Get double pointer type
+            Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
+
+            auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy, Int32Ty}, false);
+            auto helper_const = M.getOrInsertFunction("trigger_func_event", helperTy_const);
+
+            std::string function_name = F.getName().str();
+              
+
+            Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
+            IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr, ConstantInt::get(Int32Ty, v.size())});
+            
+            /* increase counter */
+            *evtIDPtr = ++evtID;
+            get_debug_loc(&(*InsertPoint), filename, line);
+            std::string func_name = F.getName().str();
+            if (codeLang == 0)
+            {
+              codeLang = check_code_language(filename);
+            }
+
+            if (codeLang == 2)
+            {
+              int demangled_status = -1;
+              char *demangled_char = abi::__cxa_demangle(F.getName().data(), nullptr,
+                                                        nullptr, &demangled_status);
+              if (demangled_status == 0)
+              {
+                func_name = demangled_char;
+              }
+            }
+            else
+            {
+              int demangled_status = -1;
+              char *demangled_char = rustc_demangle(F.getName().data(), &demangled_status);
+              if (demangled_status == 0)
+              {
+                func_name = demangled_char;
+              }
+            }
+            printFuncLog(filename, line, evtID, func_name);
+
+            /* increase counter */
+            *evtIDPtr = ++evtID;
+            inst_blocks++;
+          }
+        }
+      }
       if (isTargetBlockEvent)
       {
 
@@ -790,15 +899,19 @@ bool AFLCoverage::runOnModule(Module &M)
 
         std::vector<llvm::Value*> res;
         extractValuesFromArgumentMap(argument_map, IRB, res);
-
+        //file2 << "Block Event Function: " << F.getName().str() << " with " << res.size() << " values \n";
         if(res.size() == 0){
 
         } else {
             TargetsTypes::GroupID groupID = block_targets.getGroupID(filename, block_line);
 
-            std::vector<llvm::Value*>v = groupsPointerValues[groupID]; 
+            std::vector<llvm::Value*>v = groupsPointerValues[groupID];
+            //file2 << "V: " << v.size() << "\n";
+ 
 
             v.insert(v.end(), res.begin(), res.end());
+
+            groupsPointerValues[groupID] = v;
 
             if (notBreak) {
                 // nada más que hacer
@@ -815,12 +928,14 @@ bool AFLCoverage::runOnModule(Module &M)
               Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
 
               auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy}, false);
+              //file2 << "Not breaking function: " << F.getName().str() << " with " << v.size() << " values \n";
+
               auto helper_const = M.getOrInsertFunction("trigger_block_event", helperTy_const);
 
               std::string function_name = F.getName().str();
                 
               Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
-              IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr});
+              IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr, ConstantInt::get(Int32Ty, v.size())});
 
               /* store BB ID info */
               printBlockLog(filename, line, evtID);
@@ -908,105 +1023,7 @@ bool AFLCoverage::runOnModule(Module &M)
 
     /* Instrument function if it is one target or the size is above threshold */
     // if (isTargetFunc || F.getInstructionCount() > instr_func_size)
-    if (isTargetFunc) {
-      BasicBlock *BB = &F.getEntryBlock();
-      Instruction *InsertPoint = &(*(BB->getFirstInsertionPt()));
-      IRBuilder<> IRB(InsertPoint);
-      std::vector<std::vector<unsigned int>> vec_selected_fields;
-
-      std::vector<std::string> vec;
-      if (!func_targets.containsLine(filename, targetLine)) {
-        get_debug_loc(&(*InsertPoint), filename, line);
-        continue;
-      }
-
-      TargetsTypes::LineEntries entries;
-      
-      if (!func_targets.getLineEntries(filename, targetLine, entries)) {
-          continue;
-      }
-
-      for (const auto& entry : entries) {
-        const auto& var = entry.first;
-        const auto& index_row = entry.second;
-
-        vec.push_back(var);
-        vec_selected_fields.push_back(index_row);
-      }
-
-      std::vector<llvm::Value*> res = getValues(vec, F.args(), vec_selected_fields, IRB);
-     
-      if(res.size() == 0){
-
-      } else {
-
-        TargetsTypes::GroupID groupID = block_targets.getGroupID(filename, block_line);
-
-        std::vector<llvm::Value*> v = groupsPointerValues[groupID]; 
-
-        v.insert(v.end(), res.begin(), res.end());
-
-        if (notBreakFunction) {
-            // nada más que hacer
-        } else {
-
-          groupsPointerValues.erase(groupID);
-          Value* arr = buildValuesArrayForFunction(v, IRB);
-
-          u16 *evtIDPtr = get_ID_ptr();
-          u16 evtID = *evtIDPtr;
-          Value *evtValue = ConstantInt::get(Int16Ty, evtID);
-
-          // Cast to double pointer
-          Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
-
-          //Get double pointer type
-          Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
-
-          auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy, Int32Ty}, false);
-          auto helper_const = M.getOrInsertFunction("trigger_func_event", helperTy_const);
-
-          std::string function_name = F.getName().str();
-            
-          Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
-          IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr, ConstantInt::get(Int32Ty, res.size())});
-          
-          /* increase counter */
-          *evtIDPtr = ++evtID;
-          get_debug_loc(&(*InsertPoint), filename, line);
-          std::string func_name = F.getName().str();
-          if (codeLang == 0)
-          {
-            codeLang = check_code_language(filename);
-          }
-
-          if (codeLang == 2)
-          {
-            int demangled_status = -1;
-            char *demangled_char = abi::__cxa_demangle(F.getName().data(), nullptr,
-                                                      nullptr, &demangled_status);
-            if (demangled_status == 0)
-            {
-              func_name = demangled_char;
-            }
-          }
-          else
-          {
-            int demangled_status = -1;
-            char *demangled_char = rustc_demangle(F.getName().data(), &demangled_status);
-            if (demangled_status == 0)
-            {
-              func_name = demangled_char;
-            }
-          }
-          printFuncLog(filename, line, evtID, func_name);
-
-          /* increase counter */
-          *evtIDPtr = ++evtID;
-          inst_blocks++;
-        }
-      }
-    }
+    
   }
   
   file2.close();
