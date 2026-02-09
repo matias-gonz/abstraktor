@@ -10,7 +10,7 @@
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->7, r->17
 int membershipCanChangeConfiguration(struct raft *r)
 {
     int rv;
@@ -21,6 +21,21 @@ int membershipCanChangeConfiguration(struct raft *r)
         goto err;
     }
 
+    // ABSTRAKTOR_BLOCK_EVENT: log
+    raft_index log = logLastIndex(r->log); 
+    (void)log;
+
+    // ABSTRAKTOR_BLOCK_EVENT: exists
+    bool exists = progressTestExistsOneIndexQuorum(r);
+    (void)exists;
+
+    // ABSTRAKTOR_BLOCK_EVENT: max
+    raft_index max = progressTestGetMaxIndexQuorum(r);
+    (void)max;
+
+    // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+    raft_term logTerm = logTermOf(r->log, max);
+    (void)logTerm;
     if (r->configuration_uncommitted_index != 0) {
         tracef("r->configuration_uncommitted_index %llu", r->configuration_uncommitted_index);
         rv = RAFT_CANTCHANGE;
@@ -54,7 +69,7 @@ err:
     return rv;
 }
 
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->7, r->17
 bool membershipUpdateCatchUpRound(struct raft *r)
 {
     unsigned server_index;
@@ -64,6 +79,22 @@ bool membershipUpdateCatchUpRound(struct raft *r)
     raft_time round_duration;
     bool is_up_to_date;
     bool is_fast_enough;
+
+    // ABSTRAKTOR_BLOCK_EVENT: log
+    raft_index log = logLastIndex(r->log); 
+    (void)log;
+
+    // ABSTRAKTOR_BLOCK_EVENT: exists
+    bool exists = progressTestExistsOneIndexQuorum(r);
+    (void)exists;
+
+    // ABSTRAKTOR_BLOCK_EVENT: max
+    raft_index max = progressTestGetMaxIndexQuorum(r);
+    (void)max;
+
+    // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+    raft_term logTerm = logTermOf(r->log, max);
+    (void)logTerm;
 
     assert(r->state == RAFT_LEADER);
     assert(r->leader_state.promotee_id != 0);

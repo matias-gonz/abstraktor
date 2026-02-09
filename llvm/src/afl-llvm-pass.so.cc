@@ -691,13 +691,12 @@ bool AFLCoverage::runOnModule(Module &M)
     std::string filename;
     unsigned line = 0;
     unsigned const_line = 0;
-    unsigned block_line = 0;
     unsigned targetLine = 0;
     
     bool notBreakFunction = false;
     for (auto &BB : F) 
     {
-      
+      std::set<std::tuple<unsigned, bool, llvm::Value*, llvm::Instruction*, llvm::BasicBlock*>> block_lines;
       BasicBlock::iterator IP = BB.getFirstInsertionPt();
 
       // in each basic block, check if it is a target
@@ -705,7 +704,6 @@ bool AFLCoverage::runOnModule(Module &M)
       bool isTargetConstEvent = false;
       bool notBreak = false;
       llvm::Value* rhs;
-      llvm::Value* lhs;
       llvm::Instruction* nextI;
       llvm::BasicBlock* nextIFinal;
       for (auto &I : BB)
@@ -718,7 +716,7 @@ bool AFLCoverage::runOnModule(Module &M)
         }
         u16 isTarget = is_target_loc(filename, line, bb_targets, func_targets, block_targets, const_targets);
 
-        //file2 << "Target: " << isTarget << " For: " << filename << ":" << line << "\n";
+        //file2 << "Target: " << isTarget << " For: " << F.getName().str() << ":" << line << "\n";
 
         if (isTarget == 2 || isTarget == 5)
         {
@@ -728,15 +726,14 @@ bool AFLCoverage::runOnModule(Module &M)
         }
         else if (isTarget == 3 || isTarget == 6)
         {
-          block_line = line;
+
           isTargetBlockEvent = true;
           if (auto *SI = dyn_cast<StoreInst>(&I)) {
             rhs = SI->getValueOperand();
-            lhs = SI->getPointerOperand();
             nextI = I.getNextNode();
             if (nextI == nullptr) nextIFinal = I.getParent();
+            block_lines.insert(std::make_tuple(line, isTarget == 6, rhs, nextI, nextIFinal));
           }
-          if (isTarget == 6) notBreak = true;
         }
         else if (isTarget == 4)
         {
@@ -751,25 +748,14 @@ bool AFLCoverage::runOnModule(Module &M)
         continue;
       }
 
-      //std::vector<llvm::Value*> res =  //getValues(vec, F.args(), vec_selected_fields, IRB);
-
-        /*file2 << "Funcion: " << F.getName().str() << " " << res.size() << "\n";
-
-        int idx = 0;
-        for(int i = 0; i < res.size(); i++){
-          std::string typeStr;
-          llvm::raw_string_ostream rso(typeStr);
-          res[i]->getType()->print(rso);
-          rso.flush();
-          file2 << " Param " << idx++ << " (" << typeStr << " " << "): " << "\n";
-        }
-      */
+      IRBuilder<> IRB(&(*IP));
+      BasicBlock *BB2 = &F.getEntryBlock();
+      Instruction *InsertPoint = &(*(BB2->getFirstInsertionPt()));
+      // IRBuilder<> IRB(InsertPoint);
 
       if (isTargetFunc) {
         isTargetFunc = false;
-        BasicBlock *BB = &F.getEntryBlock();
-        Instruction *InsertPoint = &(*(BB->getFirstInsertionPt()));
-        IRBuilder<> IRB(InsertPoint);
+        
         std::vector<std::vector<unsigned int>> vec_selected_fields;
 
         std::vector<std::string> vec;
@@ -806,20 +792,13 @@ bool AFLCoverage::runOnModule(Module &M)
 
           groupsPointerValues[groupID] =  v;
 
-          //file2 << "Function Event: " << F.getName().str() << " with " << v.size() << " values \n";
 
           if (notBreakFunction) {
               // nada más que hacer
           } else {
 
             groupsPointerValues.erase(groupID);
-            file2 << " Filename " << filename << " Line: " << line << " Size: " << v.size() << " GroupID: " << groupID << "\n";
-            
-            for(auto &val : v){
-              file2 << " Value Type: ";
-              val->getType()->print(file2);
-              file2 << "\n";
-            }
+          
             Value* arr = buildValuesArrayForFunction(v, IRB);
 
             u16 *evtIDPtr = get_ID_ptr();
@@ -877,85 +856,86 @@ bool AFLCoverage::runOnModule(Module &M)
           }
         }
       }
+      
       if (isTargetBlockEvent)
       {
+        for (auto [block_line, not_break, rhs, nextI, nextIFinal] : block_lines) {
+          
 
-        IRBuilder<> IRB(nextI);
-        if (!nextI) IRB.SetInsertPoint(nextIFinal);
-        u16 *evtIDPtr = get_ID_ptr();
-        u16 evtID = *evtIDPtr;
-        Value *evtValue = ConstantInt::get(Int16Ty, evtID);
+          std::vector<std::pair<llvm::Value*, ValueInfo>> argument_map;
 
-        Type  *rhsType = rhs->getType();
+          TargetsTypes::LineEntries entries;
 
-        std::vector<std::pair<llvm::Value*, ValueInfo>> argument_map;
-
-        TargetsTypes::LineEntries entries;
-
-        // Can we have a function that returns the index only for blocks?
-        if (!block_targets.getLineEntries(filename, block_line, entries)) {
-          continue;
-        }
-
-        struct ValueInfo valueInfo;
-        valueInfo.type = rhsType;
-
-        // TODO: Change for multiple variables
-        valueInfo.indexes = entries[0].second;
-
-        argument_map.push_back(std::make_pair(rhs, valueInfo));
-
-        std::vector<llvm::Value*> res;
-        extractValuesFromArgumentMap(argument_map, IRB, res);
-        //file2 << "Block Event Function: " << F.getName().str() << " with " << res.size() << " values \n";
-        if(res.size() == 0){
-
-        } else {
-            TargetsTypes::GroupID groupID = block_targets.getGroupID(filename, block_line);
-
-            std::vector<llvm::Value*>v = groupsPointerValues[groupID];
-            //file2 << "V: " << v.size() << "\n";
- 
-
-            v.insert(v.end(), res.begin(), res.end());
-
-            groupsPointerValues[groupID] = v;
-
-            if (notBreak) {
-                // nada más que hacer
-            } else {
-
-              groupsPointerValues.erase(groupID);
-              // Cast to double pointer
-              Value* arr = buildValuesArrayForFunction(v, IRB);
-
-              Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
-
-              //Get double pointer type
-              Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
-
-              auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy, Int32Ty}, false);
-              //file2 << "Not breaking function: " << F.getName().str() << " with " << v.size() << " values \n";
-
-              auto helper_const = M.getOrInsertFunction("trigger_block_event", helperTy_const);
-
-              std::string function_name = F.getName().str();
-                
-              Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
-              IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr, ConstantInt::get(Int32Ty, v.size())});
-
-              /* store BB ID info */
-              printBlockLog(filename, line, evtID);
-
-              /* increase counter */
-              *evtIDPtr = ++evtID;
-            }
+          // Can we have a function that returns the index only for blocks?
+          if (!block_targets.getLineEntries(filename, block_line, entries)) {
+            continue;
           }
-        }
-    
 
-      /* instrument starting block point */
-      IRBuilder<> IRB(&(*IP));
+          struct ValueInfo valueInfo;
+          llvm::Type* rhsType = rhs->getType();
+        
+          valueInfo.type = rhsType;
+
+          // TODO: Change for multiple variables
+          valueInfo.indexes = entries[0].second;
+
+          argument_map.push_back(std::make_pair(rhs, valueInfo));
+
+          std::vector<llvm::Value*> res;
+          extractValuesFromArgumentMap(argument_map, IRB, res);
+          if(res.size() == 0){
+
+          } else {
+              
+              if (nextI) IRB.SetInsertPoint(nextI);
+              else IRB.SetInsertPoint(nextIFinal);
+              u16 *evtIDPtr = get_ID_ptr();
+              u16 evtID = *evtIDPtr;
+              
+              TargetsTypes::GroupID groupID = block_targets.getGroupID(filename, block_line);
+
+              std::vector<llvm::Value*>v = groupsPointerValues[groupID];
+              //file2 << "V: " << v.size() << "\n";
+  
+              v.insert(v.end(), res.begin(), res.end());
+
+              groupsPointerValues[groupID] = v;
+
+              if (not_break) {
+                // nada más que hacer
+              } else {
+
+              
+                Value *evtValue = ConstantInt::get(Int16Ty, evtID);
+                groupsPointerValues.erase(groupID);
+                // Cast to double pointer
+            
+                Value* arr = buildValuesArrayForFunction(v, IRB);
+
+                Value* arrPtr = IRB.CreateBitCast(arr, PointerType::getUnqual(VoidPtrTy));
+
+                //Get double pointer type
+                Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
+
+                auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy, Int32Ty}, false);
+                //file2 << "Not breaking function: " << F.getName().str() << " with " << v.size() << " values \n";
+
+                auto helper_const = M.getOrInsertFunction("trigger_block_event", helperTy_const);
+
+                std::string function_name = F.getName().str();
+                  
+                Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
+                IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr, ConstantInt::get(Int32Ty, v.size())});
+
+                /* store BB ID info */
+                printBlockLog(filename, line, evtID);
+
+                /* increase counter */
+                *evtIDPtr = ++evtID;
+              }
+            }
+        }
+      }
       
       if (false)
       {

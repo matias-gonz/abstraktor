@@ -103,7 +103,7 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters, int 
   } else if (state == 2){
     final_state = "Candidate";
 
-  if (size == 3){
+    if (size == 3){
       void* second_slot = parameters[1]; 
 
       bool** votes_ptr = (bool**)second_slot;
@@ -131,6 +131,57 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters, int 
    
   } else if (state == 3){
     final_state = "Leader";
+
+    if (size == 7) {
+      void* second_slot = parameters[1]; 
+
+      u32* current_term_ptr = (u32*)second_slot;
+
+      u32 current_term = *current_term_ptr;
+
+      void* third_slot = parameters[2];
+      u64* commit_index_ptr = (u64*)third_slot;
+      u64 commit_index = *commit_index_ptr;
+
+      void* fourth_slot = parameters[3];
+      u64* last_log_index_ptr = (u64*)fourth_slot;
+      u64 last_log_index = *last_log_index_ptr;
+
+      void* fifth_slot = parameters[4];
+      bool* exist_ptr = (bool*)fifth_slot;
+      bool existIndex = *exist_ptr;
+
+      void* sixth_slot = parameters[5];
+      u64* max_index_quorum_ptr = (u64*)sixth_slot;
+      u64 max_index_quorum = *max_index_quorum_ptr;
+
+      void* seventh_slot = parameters[6];
+      u64* log_term_max_index_quorum_ptr = (u64*)seventh_slot;
+      u64 log_term_max_index_quorum = *log_term_max_index_quorum_ptr;
+
+      bool matching_quorum = existIndex && (log_term_max_index_quorum == current_term);
+
+      bool not_matching_quorum = !matching_quorum;
+
+      bool commit_at_end = (commit_index == last_log_index);
+
+      bool commit_not_at_end = !commit_at_end;
+
+      bool leaderNotMatchingQuorumLogUpdated = not_matching_quorum && commit_at_end;
+      bool leaderMatchingQuorumLogUpdated = matching_quorum && commit_at_end;
+      bool leaderNotMatchingQuorumNotLogUpdated = not_matching_quorum && commit_not_at_end;
+      bool leaderMatchingQuorumNotLogUpdated = matching_quorum && commit_not_at_end;
+
+      if (leaderNotMatchingQuorumLogUpdated) {
+        final_state = "LeaderNotMatchingQuorumLogUpdated";
+      } else if (leaderMatchingQuorumLogUpdated) {
+        final_state = "LeaderMatchingQuorumLogUpdated";
+      } else if (leaderNotMatchingQuorumNotLogUpdated) {
+        final_state = "LeaderNotMatchingQuorumNotLogUpdated";
+      } else if (leaderMatchingQuorumNotLogUpdated) {
+        final_state = "LeaderMatchingQuorumNotLogUpdated";
+      }
+    }
   } else {
     final_state = "Unknown";
   }
