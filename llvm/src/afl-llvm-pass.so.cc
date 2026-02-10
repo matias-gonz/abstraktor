@@ -55,7 +55,7 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/IR/TypeFinder.h"
 #include "llvm/Support/FileSystem.h"
-#include "./helpers/targets_types.h"
+#include "./targets_types.h"
 
 #include "../rustc-demangle/crates/capi/include/rustc_demangle.h"
 #include <nlohmann/json.hpp>
@@ -171,9 +171,11 @@ Value* AFLCoverage::buildValuesArrayForFunction(std::vector<llvm::Value*> &value
     Type* Int32Ty = Type::getInt32Ty(Ctx);
     Type *VoidPtrTy = IRB.getInt8PtrTy();
 
+    Function *F = IRB.GetInsertBlock()->getParent();
+    IRBuilder<> EntryBuilder(&F->getEntryBlock(), F->getEntryBlock().getFirstInsertionPt());
 
     // void** arr = alloca(void*, values.size)
-    Value* arr = IRB.CreateAlloca(
+    Value* arr = EntryBuilder.CreateAlloca(
         VoidPtrTy,
         ConstantInt::get(Int32Ty, values.size())
     );
@@ -182,7 +184,7 @@ Value* AFLCoverage::buildValuesArrayForFunction(std::vector<llvm::Value*> &value
         Value* val = values[i];
 
         // T* alloc = alloca(T)
-        Value* alloc = IRB.CreateAlloca(val->getType());
+        Value* alloc = EntryBuilder.CreateAlloca(val->getType());
 
         // *alloc = val
         IRB.CreateStore(val, alloc);
@@ -301,7 +303,7 @@ void AFLCoverage::extractValuesFromArgumentMap(
           target_value = casted;
           target_type  = realStruct;
           continue;
-      }
+        }
 
         // struct*
         if (field_ty->isPointerTy() &&
@@ -672,7 +674,6 @@ bool AFLCoverage::runOnModule(Module &M)
         0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
   }
 
-  int inst_blocks = 0;
   TARGETS_TYPE bb_targets;
   CONST_TARGETS_TYPE const_targets;
   TargetsTypes func_targets;
@@ -703,7 +704,7 @@ bool AFLCoverage::runOnModule(Module &M)
       bool isTargetBlockEvent = false;
       bool isTargetConstEvent = false;
       bool notBreak = false;
-      llvm::Value* rhs;
+      llvm::Value* valueOperandLeftSize;
       llvm::Instruction* nextI;
       llvm::BasicBlock* nextIFinal;
       for (auto &I : BB)
@@ -729,10 +730,10 @@ bool AFLCoverage::runOnModule(Module &M)
 
           isTargetBlockEvent = true;
           if (auto *SI = dyn_cast<StoreInst>(&I)) {
-            rhs = SI->getValueOperand();
+            valueOperandLeftSize = SI->getValueOperand();
             nextI = I.getNextNode();
             if (nextI == nullptr) nextIFinal = I.getParent();
-            block_lines.insert(std::make_tuple(line, isTarget == 6, rhs, nextI, nextIFinal));
+            block_lines.insert(std::make_tuple(line, isTarget == 6, valueOperandLeftSize, nextI, nextIFinal));
           }
         }
         else if (isTarget == 4)
@@ -748,19 +749,17 @@ bool AFLCoverage::runOnModule(Module &M)
         continue;
       }
 
-      IRBuilder<> IRB(&(*IP));
-      BasicBlock *BB2 = &F.getEntryBlock();
-      Instruction *InsertPoint = &(*(BB2->getFirstInsertionPt()));
-      // IRBuilder<> IRB(InsertPoint);
-
       if (isTargetFunc) {
+
+        Instruction *InsertPoint = &(*F.getEntryBlock().getFirstInsertionPt());
+        IRBuilder<> IRB(InsertPoint);
         isTargetFunc = false;
         
         std::vector<std::vector<unsigned int>> vec_selected_fields;
 
         std::vector<std::string> vec;
         if (!func_targets.containsLine(filename, targetLine)) {
-          get_debug_loc(&(*InsertPoint), filename, line);
+          get_debug_loc(&(*InsertPoint), filename, targetLine);
           continue;
         }
 
@@ -790,19 +789,20 @@ bool AFLCoverage::runOnModule(Module &M)
 
           v.insert(v.end(), res.begin(), res.end());
 
-          groupsPointerValues[groupID] =  v;
-
-
           if (notBreakFunction) {
               // nada más que hacer
+              groupsPointerValues[groupID] = v;
           } else {
 
-            groupsPointerValues.erase(groupID);
           
             Value* arr = buildValuesArrayForFunction(v, IRB);
 
+            groupsPointerValues.erase(groupID);
+
             u16 *evtIDPtr = get_ID_ptr();
             u16 evtID = *evtIDPtr;
+
+            file2 << "Instrumenting function event for " << F.getName().str() << " with evtID " << evtID << " values \n";
             Value *evtValue = ConstantInt::get(Int16Ty, evtID);
 
             // Cast to double pointer
@@ -811,18 +811,18 @@ bool AFLCoverage::runOnModule(Module &M)
             //Get double pointer type
             Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
 
-            auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy, Int32Ty}, false);
+            auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy, Int64Ty}, false);
             auto helper_const = M.getOrInsertFunction("trigger_func_event", helperTy_const);
 
             std::string function_name = F.getName().str();
               
 
             Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
-            IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr, ConstantInt::get(Int32Ty, v.size())});
+            IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr, ConstantInt::get(Int64Ty, v.size())});
             
             /* increase counter */
             *evtIDPtr = ++evtID;
-            get_debug_loc(&(*InsertPoint), filename, line);
+            get_debug_loc(&(*InsertPoint), filename, targetLine);
             std::string func_name = F.getName().str();
             if (codeLang == 0)
             {
@@ -851,16 +851,17 @@ bool AFLCoverage::runOnModule(Module &M)
             printFuncLog(filename, line, evtID, func_name);
 
             /* increase counter */
-            *evtIDPtr = ++evtID;
-            inst_blocks++;
+            //*evtIDPtr = ++evtID;
           }
         }
       }
       
       if (isTargetBlockEvent)
       {
-        for (auto [block_line, not_break, rhs, nextI, nextIFinal] : block_lines) {
-          
+        for (auto [block_line, not_break, valueOperandLeftSize, nextI, nextIFinal] : block_lines) {
+          file2 << "Processing block event for line " << block_lines.size() << "\n";
+          Instruction *Pos = nextI ? nextI : nextIFinal->getTerminator();
+          IRBuilder<> IRB(Pos);
 
           std::vector<std::pair<llvm::Value*, ValueInfo>> argument_map;
 
@@ -872,23 +873,22 @@ bool AFLCoverage::runOnModule(Module &M)
           }
 
           struct ValueInfo valueInfo;
-          llvm::Type* rhsType = rhs->getType();
+          llvm::Type* valueOperandLeftSizeType = valueOperandLeftSize->getType();
         
-          valueInfo.type = rhsType;
+          valueInfo.type = valueOperandLeftSizeType;
 
           // TODO: Change for multiple variables
           valueInfo.indexes = entries[0].second;
 
-          argument_map.push_back(std::make_pair(rhs, valueInfo));
+          argument_map.push_back(std::make_pair(valueOperandLeftSize, valueInfo));
 
           std::vector<llvm::Value*> res;
           extractValuesFromArgumentMap(argument_map, IRB, res);
+          
           if(res.size() == 0){
 
           } else {
               
-              if (nextI) IRB.SetInsertPoint(nextI);
-              else IRB.SetInsertPoint(nextIFinal);
               u16 *evtIDPtr = get_ID_ptr();
               u16 evtID = *evtIDPtr;
               
@@ -904,7 +904,6 @@ bool AFLCoverage::runOnModule(Module &M)
               if (not_break) {
                 // nada más que hacer
               } else {
-
               
                 Value *evtValue = ConstantInt::get(Int16Ty, evtID);
                 groupsPointerValues.erase(groupID);
@@ -917,18 +916,19 @@ bool AFLCoverage::runOnModule(Module &M)
                 //Get double pointer type
                 Type *VoidPtrPtrTy = PointerType::getUnqual(VoidPtrTy); 
 
-                auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy, Int32Ty}, false);
+                auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy, Int64Ty}, false);
                 //file2 << "Not breaking function: " << F.getName().str() << " with " << v.size() << " values \n";
+                file2 << "Instrumenting block event for " << F.getName().str() << " with evtID " << evtID << " values \n";
 
                 auto helper_const = M.getOrInsertFunction("trigger_block_event", helperTy_const);
 
                 std::string function_name = F.getName().str();
                   
                 Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
-                IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr, ConstantInt::get(Int32Ty, v.size())});
+                IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr, ConstantInt::get(Int64Ty, v.size())});
 
                 /* store BB ID info */
-                printBlockLog(filename, line, evtID);
+                printBlockLog(filename, block_line, evtID);
 
                 /* increase counter */
                 *evtIDPtr = ++evtID;
@@ -937,40 +937,42 @@ bool AFLCoverage::runOnModule(Module &M)
         }
       }
       
-      if (false)
-      {
+      // if (false)
+      // {
 
-
-        std::pair<std::string, int> const_key = std::make_pair(filename, const_line);
-        if (instrumented_const_targets.find(const_key) == instrumented_const_targets.end())
-        {
-          instrumented_const_targets.insert(const_key);
+        
+      //   std::pair<std::string, int> const_key = std::make_pair(filename, const_line);
+      //   if (instrumented_const_targets.find(const_key) == instrumented_const_targets.end())
+      //   {
+      //     instrumented_const_targets.insert(const_key);
           
-          std::string constName = const_targets[filename][const_line];
-          u16 *evtIDPtr = get_ID_ptr();
-          u16 evtID = *evtIDPtr;
-          Value *evtValue = ConstantInt::get(Int16Ty, evtID);
+      //     std::string constName = const_targets[filename][const_line];
+      //     u16 *evtIDPtr = get_ID_ptr();
+      //     u16 evtID = *evtIDPtr;
+      //     Value *evtValue = ConstantInt::get(Int16Ty, evtID);
 
-          // Create a global string constant for the const name
-          Value *constNameValue = IRB.CreateGlobalString(StringRef(constName), "const_name");
+      //     // Create a global string constant for the const name
+      //     Value *constNameValue = IRB.CreateGlobalString(StringRef(constName), "const_name");
 
-          auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, Int8PtrTy}, false);
-          auto helper_const = M.getOrInsertFunction("trigger_const_event", helperTy_const);
+      //     auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, Int8PtrTy}, false);
+      //     auto helper_const = M.getOrInsertFunction("trigger_const_event", helperTy_const);
           
-          std::string function_name = F.getName().str();
-          Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
+      //     std::string function_name = F.getName().str();
+      //     Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
 
-          IRB.CreateCall(helper_const, {evtValue, function_name_value, constNameValue});
+      //     IRB.CreateCall(helper_const, {evtValue, function_name_value, constNameValue});
 
-          /* store const ID info */
-          printConstLog(filename, const_line, evtID, constName);
+      //     /* store const ID info */
+      //     printConstLog(filename, const_line, evtID, constName);
 
-          /* increase counter */
-          *evtIDPtr = ++evtID;
-        }
-      }
+      //     /* increase counter */
+      //     *evtIDPtr = ++evtID;
+      //   }
+      // }
     
       if (getenv("USE_TRADITIONAL_BRANCH")){
+        Instruction *Term = BB.getTerminator();
+        IRBuilder<> IRB(Term);
         // Instrument all basicblocks to compute AFL feedback
         unsigned int cur_loc = AFL_R(MAP_SIZE);
 
@@ -1002,10 +1004,7 @@ bool AFLCoverage::runOnModule(Module &M)
         StoreInst *Store =
             IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
         Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      }
-
-      inst_blocks++;
-    
+      }    
     }
 
     /* Instrument function if it is one target or the size is above threshold */
