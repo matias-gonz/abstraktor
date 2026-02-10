@@ -66,8 +66,7 @@ static void sendAppendEntriesCb(struct raft_io_send *send, const int status)
 
 /* Send an AppendEntries message to the i'th server, including all log entries
  * from the given point onwards. */
- // r->state, r->current_term, r->commit_index
-// ABSTRAKTOR_FUNC: r->19, r->7, r->17
+// ABSTRAKTOR_FUNC: r->19 END
 static int sendAppendEntries(struct raft *r,
                              const unsigned i,
                              const raft_index prev_index,
@@ -79,22 +78,6 @@ static int sendAppendEntries(struct raft *r,
     struct sendAppendEntries *req;
     raft_index next_index = prev_index + 1;
     int rv;
-
-    // ABSTRAKTOR_BLOCK_EVENT: log
-    raft_index log = logLastIndex(r->log); 
-    (void)log;
-
-    // ABSTRAKTOR_BLOCK_EVENT: exists
-    bool exists = progressTestExistsOneIndexQuorum(r);
-    (void)exists;
-
-    // ABSTRAKTOR_BLOCK_EVENT: max
-    raft_index max = progressTestGetMaxIndexQuorum(r);
-    (void)max;
-
-    // ABSTRAKTOR_BLOCK_EVENT: logTerm END
-    raft_term logTerm = logTermOf(r->log, max);
-    (void)logTerm;
 
     args->term = r->current_term;
     args->prev_log_index = prev_index;
@@ -695,7 +678,7 @@ err:
     return rv;
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->7, r->17
+// ABSTRAKTOR_FUNC: r->19 END
 int replicationUpdate(struct raft *r,
                       const struct raft_server *server,
                       const struct raft_append_entries_result *result)
@@ -704,22 +687,6 @@ int replicationUpdate(struct raft *r,
     raft_index last_index;
     unsigned i;
     int rv;
-
-    // ABSTRAKTOR_BLOCK_EVENT: log
-    raft_index log = logLastIndex(r->log); 
-    (void)log;
-
-    // ABSTRAKTOR_BLOCK_EVENT: exists
-    bool exists = progressTestExistsOneIndexQuorum(r);
-    (void)exists;
-
-    // ABSTRAKTOR_BLOCK_EVENT: max
-    raft_index max = progressTestGetMaxIndexQuorum(r);
-    (void)max;
-
-    // ABSTRAKTOR_BLOCK_EVENT: logTerm END
-    raft_term logTerm = logTermOf(r->log, max);
-    (void)logTerm;
 
     i = configurationIndexOf(&r->configuration, server->id);
 
@@ -1692,27 +1659,11 @@ abort:
     return rv;
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->7, r->17
+// ABSTRAKTOR_FUNC: r->19 END
 int replicationApply(struct raft *r)
 {
     raft_index index;
     int rv = 0;
-
-    // ABSTRAKTOR_BLOCK_EVENT: log
-    raft_index log = logLastIndex(r->log); 
-    (void)log;
-
-    // ABSTRAKTOR_BLOCK_EVENT: exists
-    bool exists = progressTestExistsOneIndexQuorum(r);
-    (void)exists;
-
-    // ABSTRAKTOR_BLOCK_EVENT: max
-    raft_index max = progressTestGetMaxIndexQuorum(r);
-    (void)max;
-
-    // ABSTRAKTOR_BLOCK_EVENT: logTerm END
-    raft_term logTerm = logTermOf(r->log, max);
-    (void)logTerm;
 
     assert(r->state == RAFT_LEADER || r->state == RAFT_FOLLOWER);
     assert(r->last_applied <= r->commit_index);
@@ -1762,28 +1713,12 @@ int replicationApply(struct raft *r)
     return rv;
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->7, r->17
+// ABSTRAKTOR_FUNC: r->19 END
 void replicationQuorum(struct raft *r, const raft_index index)
 {
     size_t votes = 0;
     size_t i;
     raft_term term;
-
-    // ABSTRAKTOR_BLOCK_EVENT: log
-    raft_index log = logLastIndex(r->log); 
-    (void)log;
-
-    // ABSTRAKTOR_BLOCK_EVENT: exists
-    bool exists = progressTestExistsOneIndexQuorum(r);
-    (void)exists;
-
-    // ABSTRAKTOR_BLOCK_EVENT: max
-    raft_index max = progressTestGetMaxIndexQuorum(r);
-    (void)max;
-
-    // ABSTRAKTOR_BLOCK_EVENT: logTerm END
-    raft_term logTerm = logTermOf(r->log, max);
-    (void)logTerm;
 
     assert(r->state == RAFT_LEADER);
 

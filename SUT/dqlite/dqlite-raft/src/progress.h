@@ -122,13 +122,4 @@ bool progressMaybeDecrement(struct raft *r,
 /* Return true if match_index is equal or higher than the snapshot_index. */
 bool progressSnapshotDone(struct raft *r, unsigned i);
 
-/* ABSTRAKTOR */
-bool progressTestExistIndex(struct raft *r, size_t i, raft_index index);
-
-bool progressTestExistIndexQuorum(struct raft *r, raft_index index);
-
-raft_index progressTestGetMaxIndexQuorum(struct raft *r);
-
-bool progressTestExistsOneIndexQuorum(struct raft *r);
-
 #endif /* PROGRESS_H_ */
