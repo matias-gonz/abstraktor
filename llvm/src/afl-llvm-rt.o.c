@@ -75,7 +75,7 @@ __thread u32 __afl_prev_loc;
 /***
  * instrument block starting point
  ***/
-void trigger_block_event(u16 evtID, char* function_name, void** parameters, int size)
+void trigger_block_event(u16 evtID, char* function_name, void** parameters, long long size)
 {
   /* find location to record this event */
   u16 loc = __atomic_add_fetch(&evtVec_ptr[0].evtCounter, 1, __ATOMIC_RELAXED);
@@ -122,11 +122,11 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters, int 
         }
       }
       if (v >= half) {
-      final_state = "CandidateVotesInQuorum";
-    } else {
-      final_state = "CandidateNotVotesInQuorum";
+        final_state = "CandidateVotesInQuorum";
+      } else {
+        final_state = "CandidateNotVotesInQuorum";
+      }
     }
-  }
 
    
   } else if (state == 3){
@@ -186,11 +186,11 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters, int 
     final_state = "Unknown";
   }
 
-  strcpy(evtVec_ptr[loc].stateBlockName, function_name);
+  strcpy(evtVec_ptr[loc].blockFuncName, function_name);
   strcpy(evtVec_ptr[loc].stateBlockName, final_state);
 }
 
-void trigger_func_event(u16 evtID, char* function_name, void** parameters, int size)
+void trigger_func_event(u16 evtID, char* function_name, void** parameters, long long size)
 {
   /* find location to record this event */
   u16 loc = __atomic_add_fetch(&evtVec_ptr[0].evtCounter, 1, __ATOMIC_RELAXED);
