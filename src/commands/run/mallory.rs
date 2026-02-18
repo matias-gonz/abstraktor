@@ -7,7 +7,10 @@ use xshell::Shell;
 use crate::logger::Logger;
 
 #[derive(Parser, Debug)]
-pub struct RunMalloryArgs {}
+pub struct RunMalloryArgs {
+	#[arg(long, default_value = "5")]
+	pub node_count: usize,
+}
 
 pub fn run(_args: RunMalloryArgs, logger: &Logger, sh: &Shell) -> Result<()> {
 	logger.log("Starting Mallory test environment");
@@ -47,6 +50,8 @@ pub fn run(_args: RunMalloryArgs, logger: &Logger, sh: &Shell) -> Result<()> {
 	sh.cmd("sudo")
 		.arg(up_path.to_string_lossy().as_ref())
 		.arg("--no-build")
+		.arg("--node-count")
+		.arg(_args.node_count.to_string())
 		.run()
 		.context("Failed to run mallory up")?;
 
