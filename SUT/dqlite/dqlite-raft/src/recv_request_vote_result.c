@@ -16,6 +16,9 @@ int recvRequestVoteResult(struct raft *r,
                           const char *address,
                           const struct raft_request_vote_result *result)
 {
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    (void)n_voters; /* Supress unused variable warning */    
     size_t votes_index;
     int match;
     int rv;
