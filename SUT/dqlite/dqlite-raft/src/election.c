@@ -305,8 +305,14 @@ grant_vote:
 }
 
 // ABSTRAKTOR_FUNC: r->19, r->20->1
-bool electionTallyTest(struct raft *r)
+bool electionTally(struct raft *r, size_t voter_index)
 {
+
+    assert(r->state == RAFT_CANDIDATE);
+    assert(r->candidate_state.votes != NULL);
+
+    r->candidate_state.votes[voter_index] = true;
+
     // ABSTRAKTOR_BLOCK_EVENT: n_voters END
     size_t n_voters = configurationVoterCount(&r->configuration);
     size_t votes = 0;
@@ -321,21 +327,5 @@ bool electionTallyTest(struct raft *r)
 
     return votes >= half + 1;
 }
-
-// ABSTRAKTOR_FUNC: r->19, r->20->1
-bool electionTally(struct raft *r, size_t voter_index)
-{
-
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
-    size_t n_voters = configurationVoterCount(&r->configuration);
-    (void)n_voters; /* Supress unused variable warning */
-    assert(r->state == RAFT_CANDIDATE);
-    assert(r->candidate_state.votes != NULL);
-
-    r->candidate_state.votes[voter_index] = true;
-
-    return electionTallyTest(r);
-}
-
 
 #undef tracef
