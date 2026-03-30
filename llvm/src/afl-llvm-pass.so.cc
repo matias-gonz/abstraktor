@@ -872,15 +872,14 @@ bool AFLCoverage::runOnModule(Module &M)
             continue;
           }
 
-          struct ValueInfo valueInfo;
           llvm::Type* valueOperandLeftSizeType = valueOperandLeftSize->getType();
-        
-          valueInfo.type = valueOperandLeftSizeType;
 
-          // TODO: Change for multiple variables
-          valueInfo.indexes = entries[0].second;
-
-          argument_map.push_back(std::make_pair(valueOperandLeftSize, valueInfo));
+          for (const auto& entry : entries) {
+            struct ValueInfo valueInfo;
+            valueInfo.type = valueOperandLeftSizeType;
+            valueInfo.indexes = entry.second;
+            argument_map.push_back(std::make_pair(valueOperandLeftSize, valueInfo));
+          }
 
           std::vector<llvm::Value*> res;
           extractValuesFromArgumentMap(argument_map, IRB, res);
