@@ -113,7 +113,6 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters, long
       void* third_slot = parameters[2];
       u64* n_voters_ptr = (u64*)third_slot;
       long long n_voters = *n_voters_ptr;
-      //long long n_voters = 5;
       size_t half = n_voters / 2;
 
       for(int i = 0; i < n_voters; i++){
@@ -136,7 +135,6 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters, long
       void* third_slot = parameters[4];
       u64* n_voters_ptr = (u64*)third_slot;
       long long n_voters = *n_voters_ptr;
-      //long long n_voters = 5;
       size_t half = n_voters / 2;
 
       for(int i = 0; i < n_voters; i++){
@@ -156,9 +154,9 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters, long
     if (size == 7) {
       void* second_slot = parameters[1]; 
 
-      u32* current_term_ptr = (u32*)second_slot;
+      u64* current_term_ptr = (u64*)second_slot;
 
-      u32 current_term = *current_term_ptr;
+      u64 current_term = *current_term_ptr;
 
       void* third_slot = parameters[2];
       u64* commit_index_ptr = (u64*)third_slot;
@@ -203,11 +201,11 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters, long
         final_state = "LeaderMatchingQuorumNotLogUpdated";
       }
     } else if (size == 9){
-      void* second_slot = parameters[2]; 
+      void* second_slot = parameters[2];
 
-      u32* current_term_ptr = (u32*)second_slot;
+      u64* current_term_ptr = (u64*)second_slot;
 
-      u32 current_term = *current_term_ptr;
+      u64 current_term = *current_term_ptr;
 
       void* third_slot = parameters[3];
       u64* commit_index_ptr = (u64*)third_slot;

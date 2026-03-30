@@ -127,7 +127,7 @@ static void convertClear(struct raft *r)
     }
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1, r->7, r->17
+// ABSTRAKTOR_FUNC: r->19, r->20->1, r->6, r->16
 void convertToFollower(struct raft *r)
 {
     // ABSTRAKTOR_BLOCK_EVENT: n_voters 

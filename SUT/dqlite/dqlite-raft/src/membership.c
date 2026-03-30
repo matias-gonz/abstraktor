@@ -10,7 +10,7 @@
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
-// ABSTRAKTOR_FUNC: r->19, r->7, r->17
+// ABSTRAKTOR_FUNC: r->19, r->6, r->16
 int membershipCanChangeConfiguration(struct raft *r)
 {
     int rv;
@@ -77,7 +77,7 @@ err:
     return rv;
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->7, r->17
+// ABSTRAKTOR_FUNC: r->19, r->6, r->16
 bool membershipUpdateCatchUpRound(struct raft *r)
 {
     unsigned server_index;
