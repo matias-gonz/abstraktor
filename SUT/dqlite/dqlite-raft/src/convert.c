@@ -159,9 +159,13 @@ void convertToFollower(struct raft *r)
         logTerm = exists ? logTermOf(r->log, max) : 0;
         (void)logTerm;
     } else {
-        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->20->1
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->20->1, _r->18
         _r = r;
         (void)_r;
+
+        // ABSTRAKTOR_BLOCK_EVENT: _log
+        raft_index _log = logLastIndex(r->log);
+        (void)_log;
 
         // ABSTRAKTOR_BLOCK_EVENT: _nv END
         size_t _nv = n_voters;
@@ -177,13 +181,16 @@ void convertToFollower(struct raft *r)
     r->follower_state.current_leader.address = NULL;
 }
 
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->18
 int convertToCandidate(struct raft *r, bool disrupt_leader)
 {
     const struct raft_server *server;
     size_t n_voters = configurationVoterCount(&r->configuration);
     (void)n_voters; /* Supress unused variable warning */
     int rv;
+    // ABSTRAKTOR_BLOCK_EVENT: _log END
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
 
     (void)server; /* Only used for assertions. */
 
@@ -226,7 +233,7 @@ void convertInitialBarrierCb(struct raft_barrier *req, int status)
     raft_free(req);
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19, r->20->1, r->18
 int convertToLeader(struct raft *r)
 {
 
@@ -258,6 +265,9 @@ int convertToLeader(struct raft *r)
     /* By definition, all entries until the last_stored entry will be committed if
      * we are the only voter around. */
 
+    // ABSTRAKTOR_BLOCK_EVENT: _log
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
     // ABSTRAKTOR_BLOCK_EVENT: n_voters END
     size_t n_voters = configurationVoterCount(&r->configuration);
     if (n_voters == 1 && (r->last_stored > r->commit_index)) {
@@ -283,9 +293,14 @@ int convertToLeader(struct raft *r)
     return rv;
 }
 
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->18
 void convertToUnavailable(struct raft *r)
 {
+    int _anchor = 0;
+    (void)_anchor;
+    // ABSTRAKTOR_BLOCK_EVENT: _log END
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
     /* Abort any pending leadership transfer request. */
     if (r->transfer != NULL) {
         membershipLeadershipTransferClose(r);

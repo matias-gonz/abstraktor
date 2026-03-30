@@ -944,14 +944,17 @@ static void sendAppendEntriesResultCb(struct raft_io_send *req, int status)
     RaftHeapFree(req);
 }
 
-// ABSTRAKTOR_FUNC: r->19 END
 static void sendAppendEntriesResult(
     struct raft *r,
     const struct raft_append_entries_result *result)
 {
+    // ABSTRAKTOR_FUNC: r->19, r->18
     struct raft_message message;
     struct raft_io_send *req;
     int rv;
+    // ABSTRAKTOR_BLOCK_EVENT: _log END
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
 
     assert(r->state == RAFT_FOLLOWER);
     message.type = RAFT_IO_APPEND_ENTRIES_RESULT;
@@ -1138,13 +1141,16 @@ static int checkLogMatchingProperty(struct raft *r,
  * The i output parameter will be set to the array index of the first new log
  * entry that we don't have yet in our log, among the ones included in the given
  * AppendEntries request. */
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->18
 static int deleteConflictingEntries(struct raft *r,
                                     const struct raft_append_entries *args,
                                     size_t *i)
 {
     size_t j;
     int rv;
+    // ABSTRAKTOR_BLOCK_EVENT: _log END
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
 
     for (j = 0; j < args->n_entries; j++) {
         struct raft_entry *entry = &args->entries[j];
@@ -1197,7 +1203,7 @@ static int deleteConflictingEntries(struct raft *r,
     return 0;
 }
 
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->18
 int replicationAppend(struct raft *r,
                       const struct raft_append_entries *args,
                       raft_index *rejected,
@@ -1209,6 +1215,9 @@ int replicationAppend(struct raft *r,
     size_t i;
     size_t j;
     int rv;
+    // ABSTRAKTOR_BLOCK_EVENT: _log END
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
 
     assert(r != NULL);
     assert(args != NULL);

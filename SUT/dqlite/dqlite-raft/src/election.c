@@ -30,9 +30,12 @@ struct followerOrCandidateState *getFollowerOrCandidateState(struct raft *r)
     return state;
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19, r->20->1, r->18
 void electionResetTimer(struct raft *r)
 {
+    // ABSTRAKTOR_BLOCK_EVENT: _log
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
     // ABSTRAKTOR_BLOCK_EVENT: n_voters END
     size_t n_voters = configurationVoterCount(&r->configuration);
     (void)n_voters; /* Supress unused variable warning */
@@ -45,9 +48,12 @@ void electionResetTimer(struct raft *r)
     r->election_timer_start = r->io->time(r->io);
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19, r->20->1, r->18
 bool electionTimerExpired(struct raft *r)
 {
+    // ABSTRAKTOR_BLOCK_EVENT: _log
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
     // ABSTRAKTOR_BLOCK_EVENT: n_voters END
     size_t n_voters = configurationVoterCount(&r->configuration);
     (void)n_voters; /* Supress unused variable warning */
@@ -63,10 +69,12 @@ static void sendRequestVoteCb(struct raft_io_send *send, int status)
 }
 
 /* Send a RequestVote RPC to the given server. */
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19, r->20->1, r->18
 static int electionSend(struct raft *r, const struct raft_server *server)
 {
-    
+    // ABSTRAKTOR_BLOCK_EVENT: _log
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
     // ABSTRAKTOR_BLOCK_EVENT: n_voters END
     size_t n_voters = configurationVoterCount(&r->configuration);
     (void)n_voters; /* Supress unused variable warning */
@@ -190,11 +198,14 @@ err:
     return rv;
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19, r->20->1, r->18
 int electionVote(struct raft *r,
                  const struct raft_request_vote *args,
                  bool *granted)
 {
+    // ABSTRAKTOR_BLOCK_EVENT: _log
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
     // ABSTRAKTOR_BLOCK_EVENT: n_voters END
     size_t n_voters = configurationVoterCount(&r->configuration);
     (void)n_voters; /* Supress unused variable warning */
@@ -300,7 +311,7 @@ grant_vote:
     return 0;
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19, r->20->1, r->18
 bool electionTally(struct raft *r, size_t voter_index)
 {
 
@@ -309,6 +320,9 @@ bool electionTally(struct raft *r, size_t voter_index)
 
     r->candidate_state.votes[voter_index] = true;
 
+    // ABSTRAKTOR_BLOCK_EVENT: _log
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
     // ABSTRAKTOR_BLOCK_EVENT: n_voters END
     size_t n_voters = configurationVoterCount(&r->configuration);
     size_t votes = 0;

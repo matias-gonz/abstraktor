@@ -59,9 +59,13 @@ int recvAppendEntries(struct raft *r,
         logTerm = exists ? logTermOf(r->log, max) : 0;
         (void)logTerm;
     } else {
-        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->20->1
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->20->1, _r->18
         _r = r;
         (void)_r;
+
+        // ABSTRAKTOR_BLOCK_EVENT: _log
+        raft_index _log = logLastIndex(r->log);
+        (void)_log;
 
         // ABSTRAKTOR_BLOCK_EVENT: _nv END
         size_t _nv = n_voters;

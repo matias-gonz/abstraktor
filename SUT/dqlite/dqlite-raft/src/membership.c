@@ -156,7 +156,7 @@ bool membershipUpdateCatchUpRound(struct raft *r)
     return false;
 }
 
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->18
 int membershipUncommittedChange(struct raft *r,
                                 const raft_index index,
                                 const struct raft_entry *entry)
@@ -164,6 +164,9 @@ int membershipUncommittedChange(struct raft *r,
     struct raft_configuration configuration;
     int rv;
     char msg[128];
+    // ABSTRAKTOR_BLOCK_EVENT: _log END
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
 
     assert(r != NULL);
     assert(r->state == RAFT_FOLLOWER);
@@ -194,11 +197,14 @@ err:
     return rv;
 }
 
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->18
 int membershipRollback(struct raft *r)
 {
     const struct raft_entry *entry;
     int rv;
+    // ABSTRAKTOR_BLOCK_EVENT: _log END
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
 
     assert(r != NULL);
     assert(r->state == RAFT_FOLLOWER);

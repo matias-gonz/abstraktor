@@ -9,7 +9,7 @@
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->18
 int recvTimeoutNow(struct raft *r,
                    const raft_id id,
                    const char *address,
@@ -18,6 +18,9 @@ int recvTimeoutNow(struct raft *r,
     const struct raft_server *local_server;
     raft_index local_last_index;
     raft_term local_last_term;
+    // ABSTRAKTOR_BLOCK_EVENT: _log END
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
     int match;
     int rv;
 

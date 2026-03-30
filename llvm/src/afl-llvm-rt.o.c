@@ -100,18 +100,42 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters, long
     final_state = "Unavailable";
   } else if (state == 1){
     final_state = "Follower";
+
+    u64* last_stored_ptr = NULL;
+    u64* log_idx_ptr = NULL;
+
+    if (size == 3){
+      last_stored_ptr = (u64*)parameters[1];
+      log_idx_ptr = (u64*)parameters[2];
+    } else if (size == 5){
+      last_stored_ptr = (u64*)parameters[2];
+      log_idx_ptr = (u64*)parameters[3];
+    }
+
+    if (last_stored_ptr && log_idx_ptr){
+      u64 last_stored = *last_stored_ptr;
+      u64 log_last_index = *log_idx_ptr;
+
+      if (last_stored < log_last_index) {
+          final_state = "FollowerWithInFlight";
+      } else {
+          final_state = "FollowerNoInFlight";
+      }
+    }
   } else if (state == 2){
     final_state = "Candidate";
 
-    if (size == 3){
-      void* second_slot = parameters[1]; 
-
-      bool** votes_ptr = (bool**)second_slot;
-
+    if (size == 5){
+      bool** votes_ptr = (bool**)parameters[1];
       bool* votes = *votes_ptr;
 
-      void* third_slot = parameters[2];
-      u64* n_voters_ptr = (u64*)third_slot;
+      u64* last_stored_ptr = (u64*)parameters[2];
+      u64 last_stored = *last_stored_ptr;
+
+      u64* log_idx_ptr = (u64*)parameters[3];
+      u64 log_last_index = *log_idx_ptr;
+
+      u64* n_voters_ptr = (u64*)parameters[4];
       long long n_voters = *n_voters_ptr;
       size_t half = n_voters / 2;
 
@@ -120,10 +144,18 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters, long
           v++;
         }
       }
-      if (v > half) {
-        final_state = "CandidateVotesInQuorum";
+
+      bool persisted = (last_stored >= log_last_index);
+      bool quorum = (v > half);
+
+      if (persisted && quorum) {
+        final_state = "CandidatePersistedLogVotesInQuorum";
+      } else if (persisted && !quorum) {
+        final_state = "CandidatePersistedLogNotVotesInQuorum";
+      } else if (!persisted && quorum) {
+        final_state = "CandidateUnpersistedLogVotesInQuorum";
       } else {
-        final_state = "CandidateNotVotesInQuorum";
+        final_state = "CandidateUnpersistedLogNotVotesInQuorum";
       }
     }
   } else if (state == 3){
@@ -212,41 +244,22 @@ void trigger_func_event(u16 evtID, char* function_name, void** parameters, long 
     final_state = "Unavailable";
   } else if (state == 1){
     final_state = "Follower";
-  } else if (state == 2){
-    final_state = "Candidate";
 
     if (size == 3){
-      bool** votes_ptr = (bool**)parameters[1];
-      bool* votes = *votes_ptr;
-      u64* n_voters_ptr = (u64*)parameters[2];
-      long long n_voters = *n_voters_ptr;
-      size_t half = n_voters / 2;
+      u64* last_stored_ptr = (u64*)parameters[1];
+      u64 last_stored = *last_stored_ptr;
 
-      for(int i = 0; i < n_voters; i++){
-        if(votes[i]){ v++; }
-      }
-      if (v > half) {
-        final_state = "CandidateVotesInQuorum";
-      } else {
-        final_state = "CandidateNotVotesInQuorum";
-      }
-    } else if (size == 9){
-      bool** votes_ptr = (bool**)parameters[1];
-      bool* votes = *votes_ptr;
-      u64* n_voters_ptr = (u64*)parameters[4];
-      long long n_voters = *n_voters_ptr;
-      size_t half = n_voters / 2;
+      u64* log_idx_ptr = (u64*)parameters[2];
+      u64 log_last_index = *log_idx_ptr;
 
-      for(int i = 0; i < n_voters; i++){
-        if(votes[i]){ v++; }
-      }
-      if (v > half) {
-        final_state = "CandidateVotesInQuorum";
+      if (last_stored < log_last_index) {
+        final_state = "FollowerWithInFlight";
       } else {
-        final_state = "CandidateNotVotesInQuorum";
+        final_state = "FollowerNoInFlight";
       }
     }
-
+  } else if (state == 2){
+    final_state = "Candidate";
   } else if (state == 3){
     final_state = "Leader";
   } else {

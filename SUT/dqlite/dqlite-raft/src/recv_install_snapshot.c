@@ -16,12 +16,15 @@ static void installSnapshotSendCb(struct raft_io_send *req, int status)
     raft_free(req);
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19, r->20->1, r->18
 int recvInstallSnapshot(struct raft *r,
                         const raft_id id,
                         const char *address,
                         struct raft_install_snapshot *args)
 {
+    // ABSTRAKTOR_BLOCK_EVENT: _log
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
     // ABSTRAKTOR_BLOCK_EVENT: n_voters END
     size_t n_voters = configurationVoterCount(&r->configuration);
     (void)n_voters; /* Supress unused variable warning */    

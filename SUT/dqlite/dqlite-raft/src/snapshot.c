@@ -30,10 +30,13 @@ void snapshotDestroy(struct raft_snapshot *s)
     raft_free(s);
 }
 
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->18
 int snapshotRestore(struct raft *r, struct raft_snapshot *snapshot)
 {
     int rv;
+    // ABSTRAKTOR_BLOCK_EVENT: _log END
+    raft_index _log = logLastIndex(r->log);
+    (void)_log;
 
     assert(snapshot->n_bufs == 1);
 

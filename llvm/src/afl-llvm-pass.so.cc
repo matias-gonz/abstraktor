@@ -717,7 +717,7 @@ bool AFLCoverage::runOnModule(Module &M)
         }
         u16 isTarget = is_target_loc(filename, line, bb_targets, func_targets, block_targets, const_targets);
 
-        //file2 << "Target: " << isTarget << " For: " << F.getName().str() << ":" << line << "\n";
+        file2 << "Target: " << isTarget << " For: " << F.getName().str() << ":" << line << "\n";
 
         if (isTarget == 2 || isTarget == 5)
         {
@@ -790,7 +790,7 @@ bool AFLCoverage::runOnModule(Module &M)
           v.insert(v.end(), res.begin(), res.end());
 
           if (notBreakFunction) {
-              // nada más que hacer
+              file2 << "FUNC accumulate for " << F.getName().str() << " group=" << groupID << " size=" << v.size() << "\n";
               groupsPointerValues[groupID] = v;
           } else {
 
@@ -894,7 +894,7 @@ bool AFLCoverage::runOnModule(Module &M)
               TargetsTypes::GroupID groupID = block_targets.getGroupID(filename, block_line);
 
               std::vector<llvm::Value*>v = groupsPointerValues[groupID];
-              //file2 << "V: " << v.size() << "\n";
+              file2 << "V (from groupsPointerValues[" << groupID << "]): " << v.size() << " + res: " << res.size() << "\n";
   
               v.insert(v.end(), res.begin(), res.end());
 
