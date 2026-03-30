@@ -2,6 +2,7 @@
   "Command line interface. Provides a default main method for common Jepsen
   functions (like the web interface), and utility functions for Jepsen tests to
   create their own test runners."
+
   (:gen-class)
   (:refer-clojure :exclude [run!])
   (:require [clojure.pprint :refer [pprint]]
@@ -9,13 +10,18 @@
             [clojure.tools.logging :refer :all]
             [clojure.string :as str]
             [clojure.java.io :as io]
+            [clojure.edn :as edn]
             [dom-top.core :refer [assert+]]
             [jepsen [core :as jepsen]
                     [store :as store]
                     [util :as util :refer [map-vals]]
                     [web :as web]]))
 
-(def default-nodes ["n1" "n2" "n3" "n4" "n5"])
+(defn read-config []
+    (let [config (edn/read-string (slurp "config.edn"))]
+    (:nodes config)))
+
+(def default-nodes (read-config))
 
 (defn one-of
   "Takes a collection and returns a string like \"Must be one of ...\" and a
