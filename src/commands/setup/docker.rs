@@ -10,30 +10,25 @@ pub struct DockerArgs {
 	pub node_count: usize,
 }
 
+pub fn write_config_edn(n: usize) -> Result<()> {
+    let path = "mallory/tests/mallory/dqlite/config.edn";
 
-//FIX
-pub fn escribir_config_edn(n: usize) -> Result<()> {
-    // Definimos la ruta exacta
-    let ruta = "mallory/tests/mallory/dqlite/config.edn";
-
-    // Generamos la lista de nodos ["n1" "n2" ... "nN"]
-    let nodos: Vec<String> = (1..=n)
+    // Generate the nodes ["n1" "n2" ... "nN"]
+    let nodes: Vec<String> = (1..=n)
         .map(|i| format!("\"n{}\"", i))
         .collect();
     
-    let contenido = format!("{{:nodes [{}]}}", nodos.join(" "));
+    let content = format!("{{:nodes [{}]}}", nodes.join(" "));
 
-    // Escribimos directamente. Si la carpeta no existe, esto fallará.
-    fs::write(ruta, contenido)
-        .context(format!("No se pudo escribir en {}. ¿Existe la carpeta?", ruta))?;
+    fs::write(path, content)
+        .context(format!("Can't write to {}. That's the folder exists?", path))?;
 
     Ok(())
 }
 
 pub fn run(_args: DockerArgs, logger: &Logger, sh: &Shell) -> Result<()> {
 	logger.log("Building Docker images for Mallory");
-	logger.debug(&format!("Writing config.edn with {} nodes", _args.node_count));
-	escribir_config_edn(_args.node_count)?;
+	write_config_edn(_args.node_count)?;
 	logger.debug("Changing directory to mallory/docker");
 	
 	let _dir = sh.push_dir("mallory/docker");
