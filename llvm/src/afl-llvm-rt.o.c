@@ -121,7 +121,7 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters, long
           v++;
         }
       }
-      if (v >= half) {
+      if (v > half) {
         final_state = "CandidateVotesInQuorum";
       } else {
         final_state = "CandidateNotVotesInQuorum";
@@ -144,7 +144,7 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters, long
           v++;
         }
       }
-      if (v >= half) {
+      if (v > half) {
         final_state = "CandidateVotesInQuorum";
       } else {
         final_state = "CandidateNotVotesInQuorum";
@@ -180,7 +180,7 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters, long
       u64* log_term_max_index_quorum_ptr = (u64*)seventh_slot;
       u64 log_term_max_index_quorum = *log_term_max_index_quorum_ptr;
 
-      bool matching_quorum = /*existIndex && */(log_term_max_index_quorum == current_term);
+      bool matching_quorum = existIndex && (log_term_max_index_quorum == current_term);
 
       bool not_matching_quorum = !matching_quorum;
 
@@ -288,32 +288,38 @@ void trigger_func_event(u16 evtID, char* function_name, void** parameters, long 
   } else if (state == 2){
     final_state = "Candidate";
 
-  // if (size == 3){
-  //     void* second_slot = parameters[1]; 
+    if (size == 3){
+      bool** votes_ptr = (bool**)parameters[1];
+      bool* votes = *votes_ptr;
+      u64* n_voters_ptr = (u64*)parameters[2];
+      long long n_voters = *n_voters_ptr;
+      size_t half = n_voters / 2;
 
-  //     bool** votes_ptr = (bool**)second_slot;
+      for(int i = 0; i < n_voters; i++){
+        if(votes[i]){ v++; }
+      }
+      if (v > half) {
+        final_state = "CandidateVotesInQuorum";
+      } else {
+        final_state = "CandidateNotVotesInQuorum";
+      }
+    } else if (size == 9){
+      bool** votes_ptr = (bool**)parameters[1];
+      bool* votes = *votes_ptr;
+      u64* n_voters_ptr = (u64*)parameters[4];
+      long long n_voters = *n_voters_ptr;
+      size_t half = n_voters / 2;
 
-  //     bool* votes = *votes_ptr;
+      for(int i = 0; i < n_voters; i++){
+        if(votes[i]){ v++; }
+      }
+      if (v > half) {
+        final_state = "CandidateVotesInQuorum";
+      } else {
+        final_state = "CandidateNotVotesInQuorum";
+      }
+    }
 
-  //     void* third_slot = parameters[2];
-  //     u16* n_voters_ptr = (u16*)third_slot;
-  //     int n_voters = *n_voters_ptr;
-  //     //long long n_voters = 5;
-  //     size_t half = n_voters / 2;
-
-  //     for(int i = 0; i < n_voters; i++){
-  //       if(votes[i]){
-  //         v++;
-  //       }
-  //     }
-  //     if (v >= half) {
-  //     final_state = "CandidateVotesInQuorum";
-  //   } else {
-  //     final_state = "CandidateNotVotesInQuorum";
-  //   }
-  // }
-
-   
   } else if (state == 3){
     final_state = "Leader";
   } else {

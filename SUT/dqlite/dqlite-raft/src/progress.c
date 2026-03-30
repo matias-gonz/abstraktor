@@ -312,7 +312,10 @@ bool progressTestExistIndexQuorum(struct raft *r, raft_index index)
     size_t n_voters = configurationVoterCount(&r->configuration);
     size_t count = 0;
 
-    for (size_t i = 0; i < n_voters; i++) {
+    for (size_t i = 0; i < r->configuration.n; i++) {
+        if (r->configuration.servers[i].role != RAFT_VOTER) {
+            continue;
+        }
         if (progressTestExistIndex(r, i, index)) count++;
     }
 
@@ -330,10 +333,7 @@ raft_index progressTestGetMaxIndexQuorum(struct raft *r)
 
 bool progressTestExistsOneIndexQuorum(struct raft *r)
 {
-    if(progressTestGetMaxIndexQuorum(r) != 0) {
-        return true;
-    }
-    return false;
+    return progressTestGetMaxIndexQuorum(r) != 0;
 }
 
 #undef tracef
