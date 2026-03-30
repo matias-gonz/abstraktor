@@ -127,21 +127,24 @@ static void convertClear(struct raft *r)
     }
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1, r->6, r->16
 void convertToFollower(struct raft *r)
 {
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters 
     size_t n_voters = configurationVoterCount(&r->configuration);
     (void)n_voters; /* Supress unused variable warning */
 
+    struct raft *_r;
     raft_index log;
     bool exists;
     raft_index max;
     raft_term logTerm;
 
     if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
+        _r = r;
+        (void)_r;
+
         // ABSTRAKTOR_BLOCK_EVENT: log
-        log = logLastIndex(r->log); 
+        log = logLastIndex(r->log);
         (void)log;
 
         // ABSTRAKTOR_BLOCK_EVENT: exists
@@ -155,6 +158,14 @@ void convertToFollower(struct raft *r)
         // ABSTRAKTOR_BLOCK_EVENT: logTerm END
         logTerm = exists ? logTermOf(r->log, max) : 0;
         (void)logTerm;
+    } else {
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->20->1
+        _r = r;
+        (void)_r;
+
+        // ABSTRAKTOR_BLOCK_EVENT: _nv END
+        size_t _nv = n_voters;
+        (void)_nv;
     }
     convertClear(r);
     convertSetState(r, RAFT_FOLLOWER);

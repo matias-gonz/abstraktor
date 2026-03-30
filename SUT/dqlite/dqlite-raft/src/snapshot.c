@@ -37,21 +37,6 @@ int snapshotRestore(struct raft *r, struct raft_snapshot *snapshot)
 
     assert(snapshot->n_bufs == 1);
 
-    // if(r->state == RAFT_LEADER) {
-    //     // 
-    //     raft_index log = logLastIndex(r->log); 
-    //     (void)log;
-
-    //     bool exists = progressTestExistsOneIndexQuorum(r);
-    //     (void)exists;
-
-    //     raft_index max = progressTestGetMaxIndexQuorum(r);
-    //     (void)max;
-
-    //     raft_term logTerm = logterm = exists ? logTermOf(r->log, max) : 0;;        
-    //     (void)logTerm;
-    // }
-
     rv = r->fsm->restore(r->fsm, &snapshot->bufs[0]);
     if (rv != 0) {
         tracef("restore snapshot %llu: %s", snapshot->index,

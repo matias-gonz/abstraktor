@@ -60,7 +60,7 @@ pub fn run(_args: RunMalloryArgs, logger: &Logger, sh: &Shell) -> Result<()> {
 	logger.success("Mallory environment is running");
 	
 	let jepsen_cmd = format!(
-		"cd /jepsen/mediator && ./target/x86_64-unknown-linux-musl/release/mediator qlearning event_history 0.7 & sleep 5 && cd /jepsen/tests/mallory/dqlite && lein run test --workload append --nemesis all --time-limit {} --test-count 1 && cp /jepsen/tests/mallory/dqlite/store/latest/mediator.log /host",
+		"cd /jepsen/mediator && ./target/x86_64-unknown-linux-musl/release/mediator qlearning event_history 0.7 & sleep 5 && cd /jepsen/tests/mallory/dqlite && lein run test --workload append --nemesis all --time-limit {} --test-count 1 ; cp /jepsen/tests/mallory/dqlite/store/latest/mediator.log /host",
 		_args.time_limit
 	);
 	let result = sh.cmd("sudo")

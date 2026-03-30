@@ -18,12 +18,8 @@ struct followerOrCandidateState
 };
 
 /* Return a pointer to either the follower or candidate state. */
-// ABSTRAKTOR_FUNC: r->19, r->20->1
 struct followerOrCandidateState *getFollowerOrCandidateState(struct raft *r)
 {
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
-    size_t n_voters = configurationVoterCount(&r->configuration);
-    (void)n_voters; /* Supress unused variable warning */
     struct followerOrCandidateState *state;
     assert(r->state == RAFT_FOLLOWER || r->state == RAFT_CANDIDATE);
     if (r->state == RAFT_FOLLOWER) {

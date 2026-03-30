@@ -42,18 +42,11 @@ struct sendAppendEntries
 };
 
 /* Callback invoked after request to send an AppendEntries RPC has completed. */
-// ABSTRAKTOR_CONST: constante
 static void sendAppendEntriesCb(struct raft_io_send *send, const int status)
 {
     struct sendAppendEntries *req = send->data;
-    // ABSTRAKTOR_BLOCK_EVENT: r->19
+    // ABSTRAKTOR_BLOCK_EVENT: r->19, r->6, r->16
     struct raft *r = req->raft;
-
-    // ABSTRAKTOR_BLOCK_EVENT: r->6
-    r = req->raft;
-
-    // ABSTRAKTOR_BLOCK_EVENT: r->16
-    r = req->raft;
     unsigned i = configurationIndexOf(&r->configuration, req->server_id);
     raft_index log;
     bool exists;
@@ -250,7 +243,6 @@ static void sendInstallSnapshotCb(struct raft_io_send *send, int status)
     raft_free(req);
 }
 
-// ABSTRAKTOR_CONST: constante
 static void sendSnapshotGetCb(struct raft_io_snapshot_get *get,
                               struct raft_snapshot *snapshot,
                               int status)

@@ -9,13 +9,11 @@
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1, r->6, r->16
 int recvAppendEntriesResult(struct raft *r,
                             const raft_id id,
                             const char *address,
                             const struct raft_append_entries_result *result)
 {
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters
     size_t n_voters = configurationVoterCount(&r->configuration);
     (void)n_voters; /* Supress unused variable warning */
     int match;
@@ -35,14 +33,19 @@ int recvAppendEntriesResult(struct raft *r,
         return 0;
     }
 
+    struct raft *_r;
     raft_index log;
     bool exists;
     raft_index max;
     raft_term logTerm;
 
     if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
+        _r = r;
+        (void)_r;
+
         // ABSTRAKTOR_BLOCK_EVENT: log
-        log = logLastIndex(r->log); 
+        log = logLastIndex(r->log);
         (void)log;
 
         // ABSTRAKTOR_BLOCK_EVENT: exists
@@ -56,6 +59,14 @@ int recvAppendEntriesResult(struct raft *r,
         // ABSTRAKTOR_BLOCK_EVENT: logTerm END
         logTerm = exists ? logTermOf(r->log, max) : 0;
         (void)logTerm;
+    } else {
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->20->1
+        _r = r;
+        (void)_r;
+
+        // ABSTRAKTOR_BLOCK_EVENT: _nv END
+        size_t _nv = n_voters;
+        (void)_nv;
     }
 
     rv = recvEnsureMatchingTerms(r, result->term, &match);

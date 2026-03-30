@@ -17,14 +17,11 @@ static void requestVoteSendCb(struct raft_io_send *req, int status)
     raft_free(req);
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1, r->6, r->16
 int recvRequestVote(struct raft *r,
                     const raft_id id,
                     const char *address,
                     const struct raft_request_vote *args)
 {
-    
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters
     size_t n_voters = configurationVoterCount(&r->configuration);
     (void)n_voters; /* Supress unused variable warning */
     struct raft_io_send *req;
@@ -46,15 +43,19 @@ int recvRequestVote(struct raft *r,
     result->pre_vote = args->pre_vote;
     result->version = RAFT_REQUEST_VOTE_RESULT_VERSION;
 
-
+    struct raft *_r;
     raft_index log;
     bool exists;
     raft_index max;
     raft_term logTerm;
 
     if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
+        _r = r;
+        (void)_r;
+
         // ABSTRAKTOR_BLOCK_EVENT: log
-        log = logLastIndex(r->log); 
+        log = logLastIndex(r->log);
         (void)log;
 
         // ABSTRAKTOR_BLOCK_EVENT: exists
@@ -68,6 +69,14 @@ int recvRequestVote(struct raft *r,
         // ABSTRAKTOR_BLOCK_EVENT: logTerm END
         logTerm = exists ? logTermOf(r->log, max) : 0;
         (void)logTerm;
+    } else {
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->20->1
+        _r = r;
+        (void)_r;
+
+        // ABSTRAKTOR_BLOCK_EVENT: _nv END
+        size_t _nv = n_voters;
+        (void)_nv;
     }
 
     /* Reject the request if we have a leader.
