@@ -328,4 +328,5 @@ bool electionTally(struct raft *r, size_t voter_index)
     return votes >= half + 1;
 }
 
+
 #undef tracef

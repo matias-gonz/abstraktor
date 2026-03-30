@@ -6,17 +6,19 @@
 #include "election.h"
 #include "recv.h"
 #include "replication.h"
+#include "progress.h"
+#include "log.h"
 #include "tracing.h"
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19, r->20->1, r->7, r->17
 int recvRequestVoteResult(struct raft *r,
                           raft_id id,
                           const char *address,
                           const struct raft_request_vote_result *result)
 {
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters
     size_t n_voters = configurationVoterCount(&r->configuration);
     (void)n_voters; /* Supress unused variable warning */    
     size_t votes_index;
@@ -24,6 +26,29 @@ int recvRequestVoteResult(struct raft *r,
     int rv;
 
     (void)address;
+
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
+
+    if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log); 
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
+    }
 
     assert(r != NULL);
     assert(id > 0);

@@ -10,10 +10,33 @@
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->7, r->17
 int membershipCanChangeConfiguration(struct raft *r)
 {
     int rv;
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
+
+     if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: log
+         
+        log = logLastIndex(r->log); 
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;;
+        (void)logTerm;
+    }
 
     if (r->state != RAFT_LEADER || r->transfer != NULL) {
         tracef("NOT LEADER");
@@ -54,12 +77,16 @@ err:
     return rv;
 }
 
-// ABSTRAKTOR_FUNC: r->19 END
+// ABSTRAKTOR_FUNC: r->19, r->7, r->17
 bool membershipUpdateCatchUpRound(struct raft *r)
 {
     unsigned server_index;
     raft_index match_index;
     raft_index last_index;
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
     raft_time now = r->io->time(r->io);
     raft_time round_duration;
     bool is_up_to_date;
@@ -67,6 +94,24 @@ bool membershipUpdateCatchUpRound(struct raft *r)
 
     assert(r->state == RAFT_LEADER);
     assert(r->leader_state.promotee_id != 0);
+
+     if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log); 
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;;
+        (void)logTerm;
+    }
 
     server_index =
         configurationIndexOf(&r->configuration, r->leader_state.promotee_id);

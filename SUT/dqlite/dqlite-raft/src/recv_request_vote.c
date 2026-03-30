@@ -6,6 +6,8 @@
 #include "replication.h"
 #include "tracing.h"
 #include "configuration.h"
+#include "log.h"
+#include "progress.h"
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
@@ -15,14 +17,14 @@ static void requestVoteSendCb(struct raft_io_send *req, int status)
     raft_free(req);
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19, r->20->1, r->7, r->17
 int recvRequestVote(struct raft *r,
                     const raft_id id,
                     const char *address,
                     const struct raft_request_vote *args)
 {
     
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters
     size_t n_voters = configurationVoterCount(&r->configuration);
     (void)n_voters; /* Supress unused variable warning */
     struct raft_io_send *req;
@@ -43,6 +45,30 @@ int recvRequestVote(struct raft *r,
     result->vote_granted = false;
     result->pre_vote = args->pre_vote;
     result->version = RAFT_REQUEST_VOTE_RESULT_VERSION;
+
+
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
+
+    if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log); 
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
+    }
 
     /* Reject the request if we have a leader.
      *

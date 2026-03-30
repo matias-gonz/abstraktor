@@ -9,6 +9,7 @@
 #include "replication.h"
 #include "tracing.h"
 #include "configuration.h"
+#include "progress.h"
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
@@ -18,13 +19,13 @@ static void recvSendAppendEntriesResultCb(struct raft_io_send *req, int status)
     RaftHeapFree(req);
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19, r->20->1, r->7, r->17
 int recvAppendEntries(struct raft *r,
                       raft_id id,
                       const char *address,
                       const struct raft_append_entries *args)
 {
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters
     size_t n_voters = configurationVoterCount(&r->configuration);
     (void)n_voters; /* Supress unused variable warning */    
     struct raft_io_send *req;
@@ -33,6 +34,28 @@ int recvAppendEntries(struct raft *r,
     int match;
     bool async;
     int rv;
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
+
+    if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log); 
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;;
+        (void)logTerm;
+    }
 
     assert(r != NULL);
     assert(id > 0);

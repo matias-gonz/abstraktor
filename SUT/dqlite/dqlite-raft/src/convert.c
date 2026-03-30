@@ -127,12 +127,35 @@ static void convertClear(struct raft *r)
     }
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19, r->20->1, r->7, r->17
 void convertToFollower(struct raft *r)
 {
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    // ABSTRAKTOR_BLOCK_EVENT: n_voters 
     size_t n_voters = configurationVoterCount(&r->configuration);
     (void)n_voters; /* Supress unused variable warning */
+
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
+
+    if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log); 
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
+    }
     convertClear(r);
     convertSetState(r, RAFT_FOLLOWER);
 
