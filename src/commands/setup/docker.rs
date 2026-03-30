@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use clap::Parser;
+use std::fs;
 use crate::logger::Logger;
 use xshell::Shell;
 
@@ -13,7 +14,7 @@ pub struct DockerArgs {
 //FIX
 pub fn escribir_config_edn(n: usize) -> Result<()> {
     // Definimos la ruta exacta
-    let ruta = "mallory/tests/dqlite/config.edn";
+    let ruta = "mallory/tests/mallory/dqlite/config.edn";
 
     // Generamos la lista de nodos ["n1" "n2" ... "nN"]
     let nodos: Vec<String> = (1..=n)
@@ -31,6 +32,8 @@ pub fn escribir_config_edn(n: usize) -> Result<()> {
 
 pub fn run(_args: DockerArgs, logger: &Logger, sh: &Shell) -> Result<()> {
 	logger.log("Building Docker images for Mallory");
+	logger.debug(&format!("Writing config.edn with {} nodes", _args.node_count));
+	escribir_config_edn(_args.node_count)?;
 	logger.debug("Changing directory to mallory/docker");
 	
 	let _dir = sh.push_dir("mallory/docker");
