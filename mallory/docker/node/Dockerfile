@@ -138,16 +138,14 @@ RUN mkdir -p /opt/SUT
 # This step will copy any SUT directories that were added via 'setup sut' commands
 COPY SUT /opt/SUT
 
-#Maybe we can improve not search only src files
+# Find SUT directories by locating install.sh files recursively
 RUN set -e; \
     if [ -d "/opt/SUT" ] && [ "$(ls -A /opt/SUT 2>/dev/null)" ]; then \
-        for sut_dir in /opt/SUT/*/src; do \ 
-            if [ -d "$sut_dir" ]; then \
-                sut_name=$(basename "$sut_dir"); \
-                echo "Instrumenting SUT with LLVM: $sut_name"; \
-                cd "$sut_dir"; \
-                abstraktor instrument --path . --llvm-path /opt/llvm/afl-clang-fast; \
-            fi; \
+        for install_script in $(find /opt/SUT -name "install.sh" -type f); do \
+            sut_dir=$(dirname "$install_script"); \
+            echo "Instrumenting SUT: $sut_dir"; \
+            cd "$sut_dir"; \
+            abstraktor instrument --path . --llvm-path /opt/llvm/afl-clang-fast; \
         done; \
     else \
         echo "No SUT directories found - skipping instrumentation"; \

@@ -30,12 +30,12 @@ struct followerOrCandidateState *getFollowerOrCandidateState(struct raft *r)
     return state;
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19
 void electionResetTimer(struct raft *r)
 {
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
-    size_t n_voters = configurationVoterCount(&r->configuration);
-    (void)n_voters; /* Supress unused variable warning */
+    // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+    bool in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
+    (void)in_quorum;
     struct followerOrCandidateState *state = getFollowerOrCandidateState(r);
     unsigned timeout = (unsigned)r->io->random(r->io, (int)r->election_timeout,
                                                2 * (int)r->election_timeout);
@@ -45,12 +45,12 @@ void electionResetTimer(struct raft *r)
     r->election_timer_start = r->io->time(r->io);
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19
 bool electionTimerExpired(struct raft *r)
 {
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
-    size_t n_voters = configurationVoterCount(&r->configuration);
-    (void)n_voters; /* Supress unused variable warning */
+    // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+    bool in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
+    (void)in_quorum;
     struct followerOrCandidateState *state = getFollowerOrCandidateState(r);
     raft_time now = r->io->time(r->io);
     return now - r->election_timer_start >= state->randomized_election_timeout;
@@ -63,13 +63,12 @@ static void sendRequestVoteCb(struct raft_io_send *send, int status)
 }
 
 /* Send a RequestVote RPC to the given server. */
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19
 static int electionSend(struct raft *r, const struct raft_server *server)
 {
-    
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
-    size_t n_voters = configurationVoterCount(&r->configuration);
-    (void)n_voters; /* Supress unused variable warning */
+    // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+    bool in_quorum = electionInQuorum(r);
+    (void)in_quorum;
     struct raft_message message;
     struct raft_io_send *send;
     raft_term term;
@@ -190,14 +189,14 @@ err:
     return rv;
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19
 int electionVote(struct raft *r,
                  const struct raft_request_vote *args,
                  bool *granted)
 {
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
-    size_t n_voters = configurationVoterCount(&r->configuration);
-    (void)n_voters; /* Supress unused variable warning */
+    // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+    bool in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
+    (void)in_quorum;
     const struct raft_server *local_server;
     raft_index local_last_index;
     raft_term local_last_term;
@@ -300,7 +299,35 @@ grant_vote:
     return 0;
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+size_t electionCountVotes(struct raft *r)
+{
+    assert(r->state == RAFT_CANDIDATE);
+    assert(r->candidate_state.votes != NULL);
+
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    size_t i;
+    size_t count = 0;
+
+    for (i = 0; i < n_voters; i++) {
+        if (r->candidate_state.votes[i]) {
+            count++;
+        }
+    }
+
+    return count;
+}
+
+bool electionInQuorum(struct raft *r)
+{
+    assert(r->state == RAFT_CANDIDATE);
+
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    size_t half = n_voters / 2;
+
+    return electionCountVotes(r) >= half + 1;
+}
+
+// ABSTRAKTOR_FUNC: r->19
 bool electionTally(struct raft *r, size_t voter_index)
 {
 
@@ -309,19 +336,10 @@ bool electionTally(struct raft *r, size_t voter_index)
 
     r->candidate_state.votes[voter_index] = true;
 
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
-    size_t n_voters = configurationVoterCount(&r->configuration);
-    size_t votes = 0;
-    size_t i;
-    size_t half = n_voters / 2;
+    // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+    bool in_quorum = electionInQuorum(r);
 
-    for (i = 0; i < n_voters; i++) {
-        if (r->candidate_state.votes[i]) {
-            votes++;
-        }
-    };
-
-    return votes >= half + 1;
+    return in_quorum;
 }
 
 

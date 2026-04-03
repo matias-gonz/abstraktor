@@ -7,6 +7,7 @@
 #include "log.h"
 #include "recv.h"
 #include "replication.h"
+#include "election.h"
 #include "tracing.h"
 #include "configuration.h"
 #include "progress.h"
@@ -24,8 +25,7 @@ int recvAppendEntries(struct raft *r,
                       const char *address,
                       const struct raft_append_entries *args)
 {
-    size_t n_voters = configurationVoterCount(&r->configuration);
-    (void)n_voters; /* Supress unused variable warning */
+    
     struct raft_io_send *req;
     struct raft_message message;
     struct raft_append_entries_result *result = &message.append_entries_result;
@@ -37,6 +37,9 @@ int recvAppendEntries(struct raft *r,
     bool exists;
     raft_index max;
     raft_term logTerm;
+
+    size_t in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
+    (void)in_quorum;
 
     if (r->state == RAFT_LEADER) {
         // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
@@ -59,13 +62,13 @@ int recvAppendEntries(struct raft *r,
         logTerm = exists ? logTermOf(r->log, max) : 0;
         (void)logTerm;
     } else {
-        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->20->1
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19
         _r = r;
         (void)_r;
 
-        // ABSTRAKTOR_BLOCK_EVENT: _nv END
-        size_t _nv = n_voters;
-        (void)_nv;
+        // ABSTRAKTOR_BLOCK_EVENT: _in_quorum END
+        size_t _in_quorum = in_quorum;
+        (void)_in_quorum;
     }
 
     assert(r != NULL);

@@ -73,6 +73,13 @@ int electionVote(struct raft *r,
                  const struct raft_request_vote *args,
                  bool *granted);
 
+/* Count the number of votes currently granted in the candidate state. */
+size_t electionCountVotes(struct raft *r);
+
+/* Return true if the candidate has received enough votes to reach quorum. */
+bool electionInQuorum(struct raft *r);
+
+
 /* Update the votes array by adding the vote from the server at the given
  * index. Return true if with this vote the server has reached the majority of
  * votes and won elections. */

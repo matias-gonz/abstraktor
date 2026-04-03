@@ -825,7 +825,7 @@ int replicationUpdate(struct raft *r,
         (void)max;
 
         // ABSTRAKTOR_BLOCK_EVENT: logTerm END
-        logTerm = exists ? logTermOf(r->log, max) : 0;;
+        logTerm = exists ? logTermOf(r->log, max) : 0;
         (void)logTerm;
     }
 
@@ -1609,7 +1609,7 @@ static bool shouldTakeSnapshot(struct raft *r)
      * don't want to start another one. */
     if (r->snapshot.pending.term != 0 || r->snapshot.put.data != NULL) {
         return false;
-    };
+    }
 
     /* If we didn't reach the threshold yet, do nothing. */
     if (r->last_applied - r->log->snapshot.last_index < r->snapshot.threshold) {
@@ -1652,7 +1652,7 @@ static void takeSnapshotClose(struct raft *r, struct raft_snapshot *s)
         (void)max;
 
         // ABSTRAKTOR_BLOCK_EVENT: logTerm END
-        logTerm = exists ? logTermOf(r->log, max) : 0;;
+        logTerm = exists ? logTermOf(r->log, max) : 0;
         (void)logTerm;
     }
     
@@ -1846,7 +1846,7 @@ int replicationApply(struct raft *r)
         (void)max;
 
         // ABSTRAKTOR_BLOCK_EVENT: logTerm END
-        logTerm = exists ? logTermOf(r->log, max) : 0;;
+        logTerm = exists ? logTermOf(r->log, max) : 0;
         (void)logTerm;
     }
 
@@ -1926,7 +1926,7 @@ void replicationQuorum(struct raft *r, const raft_index index)
         (void)max;
 
         // ABSTRAKTOR_BLOCK_EVENT: logTerm END
-        logTerm = exists ? logTermOf(r->log, max) : 0;;
+        logTerm = exists ? logTermOf(r->log, max) : 0;
         (void)logTerm;
     }
 

@@ -1,6 +1,7 @@
 #include "recv_append_entries_result.h"
 #include "assert.h"
 #include "configuration.h"
+#include "election.h"
 #include "tracing.h"
 #include "recv.h"
 #include "replication.h"
@@ -60,13 +61,13 @@ int recvAppendEntriesResult(struct raft *r,
         logTerm = exists ? logTermOf(r->log, max) : 0;
         (void)logTerm;
     } else {
-        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->20->1
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19
         _r = r;
         (void)_r;
 
-        // ABSTRAKTOR_BLOCK_EVENT: _nv END
-        size_t _nv = n_voters;
-        (void)_nv;
+        // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+        bool in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
+        (void)in_quorum;
     }
 
     rv = recvEnsureMatchingTerms(r, result->term, &match);

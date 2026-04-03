@@ -103,24 +103,11 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters, long
   } else if (state == 2){
     final_state = "Candidate";
 
-    if (size == 3){
-      void* second_slot = parameters[1]; 
+    if (size == 2){
+      bool* in_quorum_ptr = (bool*)parameters[1];
+      bool in_quorum = *in_quorum_ptr;
 
-      bool** votes_ptr = (bool**)second_slot;
-
-      bool* votes = *votes_ptr;
-
-      void* third_slot = parameters[2];
-      u64* n_voters_ptr = (u64*)third_slot;
-      long long n_voters = *n_voters_ptr;
-      size_t half = n_voters / 2;
-
-      for(int i = 0; i < n_voters; i++){
-        if(votes[i]){
-          v++;
-        }
-      }
-      if (v > half) {
+      if (in_quorum) {
         final_state = "CandidateVotesInQuorum";
       } else {
         final_state = "CandidateNotVotesInQuorum";
@@ -215,10 +202,19 @@ void trigger_func_event(u16 evtID, char* function_name, void** parameters, long 
   } else if (state == 2){
     final_state = "Candidate";
 
-    if (size == 3){
+    if (size == 2){
+      bool* in_quorum_ptr = (bool*)parameters[1];
+      bool in_quorum = *in_quorum_ptr;
+
+      if (in_quorum) {
+        final_state = "CandidateVotesInQuorum";
+      } else {
+        final_state = "CandidateNotVotesInQuorum";
+      }
+    } else if (size == 8){
       bool** votes_ptr = (bool**)parameters[1];
       bool* votes = *votes_ptr;
-      u64* n_voters_ptr = (u64*)parameters[2];
+      u64* n_voters_ptr = (u64*)parameters[4];
       long long n_voters = *n_voters_ptr;
       size_t half = n_voters / 2;
 
@@ -230,17 +226,11 @@ void trigger_func_event(u16 evtID, char* function_name, void** parameters, long 
       } else {
         final_state = "CandidateNotVotesInQuorum";
       }
-    } else if (size == 9){
-      bool** votes_ptr = (bool**)parameters[1];
-      bool* votes = *votes_ptr;
-      u64* n_voters_ptr = (u64*)parameters[4];
-      long long n_voters = *n_voters_ptr;
-      size_t half = n_voters / 2;
+    } else if (size == 3){
+      bool* in_quorum_ptr = (bool*)parameters[2];
+      bool in_quorum = *in_quorum_ptr;
 
-      for(int i = 0; i < n_voters; i++){
-        if(votes[i]){ v++; }
-      }
-      if (v > half) {
+      if (in_quorum) {
         final_state = "CandidateVotesInQuorum";
       } else {
         final_state = "CandidateNotVotesInQuorum";

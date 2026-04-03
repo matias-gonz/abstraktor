@@ -2,6 +2,7 @@
 
 #include "assert.h"
 #include "convert.h"
+#include "election.h"
 #include "log.h"
 #include "recv.h"
 #include "replication.h"
@@ -16,15 +17,15 @@ static void installSnapshotSendCb(struct raft_io_send *req, int status)
     raft_free(req);
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19
 int recvInstallSnapshot(struct raft *r,
                         const raft_id id,
                         const char *address,
                         struct raft_install_snapshot *args)
 {
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
-    size_t n_voters = configurationVoterCount(&r->configuration);
-    (void)n_voters; /* Supress unused variable warning */    
+    // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+    bool in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
+    (void)in_quorum;
     struct raft_io_send *req;
     struct raft_message message;
     struct raft_append_entries_result *result = &message.append_entries_result;

@@ -22,8 +22,6 @@ int recvRequestVote(struct raft *r,
                     const char *address,
                     const struct raft_request_vote *args)
 {
-    size_t n_voters = configurationVoterCount(&r->configuration);
-    (void)n_voters; /* Supress unused variable warning */
     struct raft_io_send *req;
     struct raft_message message;
     struct raft_request_vote_result *result = &message.request_vote_result;
@@ -70,13 +68,13 @@ int recvRequestVote(struct raft *r,
         logTerm = exists ? logTermOf(r->log, max) : 0;
         (void)logTerm;
     } else {
-        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->20->1
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19
         _r = r;
         (void)_r;
 
-        // ABSTRAKTOR_BLOCK_EVENT: _nv END
-        size_t _nv = n_voters;
-        (void)_nv;
+        // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+        bool in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
+        (void)in_quorum;
     }
 
     /* Reject the request if we have a leader.

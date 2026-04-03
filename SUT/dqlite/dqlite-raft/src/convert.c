@@ -159,13 +159,13 @@ void convertToFollower(struct raft *r)
         logTerm = exists ? logTermOf(r->log, max) : 0;
         (void)logTerm;
     } else {
-        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->20->1
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19
         _r = r;
         (void)_r;
 
-        // ABSTRAKTOR_BLOCK_EVENT: _nv END
-        size_t _nv = n_voters;
-        (void)_nv;
+        // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+        bool in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
+        (void)in_quorum;
     }
     convertClear(r);
     convertSetState(r, RAFT_FOLLOWER);
@@ -226,11 +226,15 @@ void convertInitialBarrierCb(struct raft_barrier *req, int status)
     raft_free(req);
 }
 
-// ABSTRAKTOR_FUNC: r->19, r->20->1
+// ABSTRAKTOR_FUNC: r->19
 int convertToLeader(struct raft *r)
 {
 
     int rv;
+
+    // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+    bool in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
+    (void)in_quorum;
 
     convertClear(r);
     convertSetState(r, RAFT_LEADER);
@@ -258,7 +262,7 @@ int convertToLeader(struct raft *r)
     /* By definition, all entries until the last_stored entry will be committed if
      * we are the only voter around. */
 
-    // ABSTRAKTOR_BLOCK_EVENT: n_voters END
+    
     size_t n_voters = configurationVoterCount(&r->configuration);
     if (n_voters == 1 && (r->last_stored > r->commit_index)) {
         tracef("apply log entries after self election %llu %llu", r->last_stored, r->commit_index);

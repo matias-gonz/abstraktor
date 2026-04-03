@@ -34,7 +34,7 @@ int membershipCanChangeConfiguration(struct raft *r)
         (void)max;
 
         // ABSTRAKTOR_BLOCK_EVENT: logTerm END
-        logTerm = exists ? logTermOf(r->log, max) : 0;;
+        logTerm = exists ? logTermOf(r->log, max) : 0;
         (void)logTerm;
     }
 
@@ -109,7 +109,7 @@ bool membershipUpdateCatchUpRound(struct raft *r)
         (void)max;
 
         // ABSTRAKTOR_BLOCK_EVENT: logTerm END
-        logTerm = exists ? logTermOf(r->log, max) : 0;;
+        logTerm = exists ? logTermOf(r->log, max) : 0;
         (void)logTerm;
     }
 
