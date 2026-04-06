@@ -27,6 +27,7 @@ pub struct InstrumentationTargets {
     pub targets_const: BTreeMap<usize, String>,
     pub targets_block: BTreeMap<usize, TargetInfo>,
     pub targets_function: BTreeMap<usize, TargetInfo>,
+    pub group_transition_names: BTreeMap<u32, String>,
 }
 
 pub struct Instrumentor {
@@ -34,14 +35,27 @@ pub struct Instrumentor {
     target_block_regex: Regex,
     block_start_regex: Regex,
     target_function_regex: Regex,
+    target_override_transition_name_regex: Regex,
+    target_override_func_regex: Regex,
+    target_override_block_regex: Regex,
 }
 
 impl Instrumentor {
     pub fn new() -> Self {
         Self {
             target_const_regex: Regex::new(r"ABSTRAKTOR_CONST: (\w+)").unwrap(),
-            target_block_regex: Regex::new(r"ABSTRAKTOR_BLOCK_EVENT(?:\s*:\s*(\w+(?:->\d+)*(?:\s*,\s*\w+(?:->\d+)*)*))?(?:\s+END)?\s*$").unwrap(),            block_start_regex: Regex::new(r"^(([a-zA-z]{1}.*)|\})").unwrap(),
+            target_block_regex: Regex::new(r"ABSTRAKTOR_BLOCK_EVENT(?:\s*:\s*(\w+(?:->\d+)*(?:\s*,\s*\w+(?:->\d+)*)*))?(?:\s+END)?\s*$").unwrap(),
+            block_start_regex: Regex::new(r"^(([a-zA-z]{1}.*)|\})").unwrap(),
             target_function_regex: Regex::new(r"ABSTRAKTOR_FUNC:\s*(\w+(?:->\d+)*(?:\s*,\s*\w+(?:->\d+)*)*)(?:\s+END)?\s*$").unwrap(),
+            target_override_transition_name_regex: Regex::new(
+                r"ABSTRAKTOR_OVERRADE_TRANSITION_NAME:\s*(\w+)\s*,\s*(ABSTRAKTOR_FUNC|ABSTRAKTOR_BLOCK_EVENT)"
+            ).unwrap(),
+            target_override_func_regex: Regex::new(
+                r"ABSTRAKTOR_OVERRADE_TRANSITION_NAME:\s*\w+\s*,\s*ABSTRAKTOR_FUNC:\s*(\w+(?:->\d+)*(?:\s*,\s*\w+(?:->\d+)*)*)(?:\s+END)?\s*$"
+            ).unwrap(),
+            target_override_block_regex: Regex::new(
+                r"ABSTRAKTOR_OVERRADE_TRANSITION_NAME:\s*\w+\s*,\s*ABSTRAKTOR_BLOCK_EVENT(?:\s*:\s*(\w+(?:->\d+)*(?:\s*,\s*\w+(?:->\d+)*)*))?(?:\s+END)?\s*$"
+            ).unwrap(),
         }
     }
 
@@ -129,7 +143,7 @@ impl Instrumentor {
     }
 
 
-    fn get_targets_single(&self, content: &str, path: &str) -> InstrumentationTargets {
+    fn get_targets_single(&self, content: &str, path: &str, id: &mut u32) -> InstrumentationTargets {
         let mut targets = InstrumentationTargets {
             path: path.to_string(),
             ..Default::default()
@@ -137,15 +151,42 @@ impl Instrumentor {
 
         let lines: Vec<&str> = content.lines().collect();
         let mut i = 0;
-        let mut id = 0;
         while i < lines.len() {
             let line = lines[i];
             let line_num = i + 1;
 
-            if self.target_function_regex.is_match(line) {
-                if let Some(target_info) = self.parse_target_line(line, &self.target_function_regex, &mut id) {
+            if self.target_override_transition_name_regex.is_match(line) {
+                let captures = self.target_override_transition_name_regex.captures(line).unwrap();
+                let transition_name = captures[1].to_string();
+                let event_type = captures[2].to_string();
+
+                let parse_regex = match event_type.as_str() {
+                    "ABSTRAKTOR_FUNC" => &self.target_override_func_regex,
+                    _ => &self.target_override_block_regex,
+                };
+
+                if let Some(target_info) = self.parse_target_line(line, parse_regex, id) {
+                    targets.group_transition_names.insert(target_info.group.id, transition_name);
                     if let Some(block_line) = self.find_next_block_start(&lines, line_num) {
-                        targets.targets_function.insert(block_line, target_info);
+                        match event_type.as_str() {
+                            "ABSTRAKTOR_FUNC" => { targets.targets_function.insert(block_line, target_info); }
+                            _ => { targets.targets_block.insert(block_line, target_info); }
+                        }
+                    }
+                }
+            } else {
+                if self.target_function_regex.is_match(line) {
+                    if let Some(target_info) = self.parse_target_line(line, &self.target_function_regex, id) {
+                        if let Some(block_line) = self.find_next_block_start(&lines, line_num) {
+                            targets.targets_function.insert(block_line, target_info);
+                        }
+                    }
+                }
+                if self.target_block_regex.is_match(line) {
+                    if let Some(target_info) = self.parse_target_line(line, &self.target_block_regex, id) {
+                        if let Some(block_line) = self.find_next_block_start(&lines, line_num) {
+                            targets.targets_block.insert(block_line, target_info);
+                        }
                     }
                 }
             }
@@ -157,13 +198,6 @@ impl Instrumentor {
                     targets.targets_const.insert(block_line, const_name);
                 }
             }
-            if self.target_block_regex.is_match(line) {
-                if let Some(target_info) = self.parse_target_line(line, &self.target_block_regex, &mut id) {
-                    if let Some(block_line) = self.find_next_block_start(&lines, line_num) {
-                        targets.targets_block.insert(block_line, target_info);
-                    }
-                }
-            }
             i += 1;
         }
 
@@ -171,9 +205,10 @@ impl Instrumentor {
     }
 
     pub fn get_targets(&self, files: Vec<(String, String)>) -> Vec<InstrumentationTargets> {
+        let mut id = 0;
         files
             .into_iter()
-            .map(|(content, path)| self.get_targets_single(&content, &path))
+            .map(|(content, path)| self.get_targets_single(&content, &path, &mut id))
             .collect()
     }
 }
@@ -249,7 +284,7 @@ mod tests {
         let x = 1;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
         assert!(targets.targets_block.is_empty());
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -267,7 +302,7 @@ mod tests {
         let z = 3;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
 
         let expected = BTreeMap::from([
             (3, "x".to_string()),
@@ -291,7 +326,7 @@ mod tests {
         let z = 3;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
 
         let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
@@ -334,7 +369,7 @@ mod tests {
         let x = 1;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
 
         let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
@@ -368,7 +403,7 @@ mod tests {
         let x = 1;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
 
         let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
@@ -405,7 +440,7 @@ mod tests {
         let z = 3;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
 
         let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
@@ -459,7 +494,7 @@ mod tests {
         let y = 2;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
 
         let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
@@ -503,7 +538,7 @@ mod tests {
         let y = 2;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
 
         let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
@@ -544,7 +579,7 @@ mod tests {
         // ABSTRAKTOR_BLOCK_EVENT
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
 
         let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
@@ -574,7 +609,7 @@ mod tests {
         // No actual code
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
 
         assert!(targets.targets_block.is_empty());
         assert!(targets.targets_const.is_empty());
@@ -590,7 +625,7 @@ mod tests {
         // No actual code
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
 
         assert!(targets.targets_block.is_empty());
         assert!(targets.targets_const.is_empty());
@@ -607,7 +642,7 @@ mod tests {
         { // start of new block
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
 
         let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
             (
@@ -1003,5 +1038,163 @@ mod tests {
             targets[1].targets_const,
             BTreeMap::from([(5, "w".to_string())])
         );
+    }
+
+    #[test]
+    fn test_override_transition_name_with_func_with_vars() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: sending, ABSTRAKTOR_FUNC: r->19->4
+        do_something();
+        ";
+        let targets = instrumentor.get_targets_single(content, "test.c", &mut 0);
+
+        let expected_function: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                3_usize,
+                TargetInfo {
+                    var_info: vec![
+                        VarInfo { var_name: "r".to_string(), struct_index_groups: vec![vec![19, 4]] },
+                    ],
+                    group: GroupInfo { end_mark: false, id: 0 },
+                },
+            )
+        ]);
+        assert_eq!(targets.targets_function, expected_function);
+        assert!(targets.targets_block.is_empty());
+        assert_eq!(
+            targets.group_transition_names,
+            BTreeMap::from([(0_u32, "sending".to_string())])
+        );
+    }
+
+    #[test]
+    fn test_override_transition_name_with_block_event_with_vars() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: receiving, ABSTRAKTOR_BLOCK_EVENT: x->4->5
+        some_var = 5;
+        ";
+        let targets = instrumentor.get_targets_single(content, "test.c", &mut 0);
+
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                3_usize,
+                TargetInfo {
+                    var_info: vec![
+                        VarInfo { var_name: "x".to_string(), struct_index_groups: vec![vec![4, 5]] },
+                    ],
+                    group: GroupInfo { end_mark: false, id: 0 },
+                },
+            )
+        ]);
+        assert_eq!(targets.targets_block, expected_block);
+        assert!(targets.targets_function.is_empty());
+        assert_eq!(
+            targets.group_transition_names,
+            BTreeMap::from([(0_u32, "receiving".to_string())])
+        );
+    }
+
+    #[test]
+    fn test_override_transition_name_with_end_increments_id() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: alpha, ABSTRAKTOR_FUNC: r END
+        do_something();
+        // ABSTRAKTOR_FUNC: s END
+        do_other();
+        ";
+        let targets = instrumentor.get_targets_single(content, "test.c", &mut 0);
+
+        assert_eq!(
+            targets.targets_function[&3].group,
+            GroupInfo { end_mark: true, id: 0 }
+        );
+        assert_eq!(
+            targets.targets_function[&5].group,
+            GroupInfo { end_mark: true, id: 1 }
+        );
+        assert_eq!(
+            targets.group_transition_names,
+            BTreeMap::from([(0_u32, "alpha".to_string())])
+        );
+    }
+
+    #[test]
+    fn test_override_transition_name_group_spans_multiple_events() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: sending, ABSTRAKTOR_FUNC: r
+        do_something();
+        // ABSTRAKTOR_BLOCK_EVENT: x->4 END
+        some_var = 5;
+        ";
+        let targets = instrumentor.get_targets_single(content, "test.c", &mut 0);
+
+        // Ambos eventos pertenecen al grupo 0
+        assert_eq!(targets.targets_function[&3].group.id, 0);
+        assert_eq!(targets.targets_block[&5].group.id, 0);
+        assert_eq!(
+            targets.group_transition_names,
+            BTreeMap::from([(0_u32, "sending".to_string())])
+        );
+    }
+
+    #[test]
+    fn test_override_transition_name_multiple_groups() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: alpha, ABSTRAKTOR_FUNC: r END
+        do_something();
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: beta, ABSTRAKTOR_BLOCK_EVENT: x->4 END
+        some_var = 5;
+        ";
+        let targets = instrumentor.get_targets_single(content, "test.c", &mut 0);
+
+        assert_eq!(
+            targets.group_transition_names,
+            BTreeMap::from([
+                (0_u32, "alpha".to_string()),
+                (1_u32, "beta".to_string()),
+            ])
+        );
+        assert_eq!(targets.targets_function[&3].group.id, 0);
+        assert_eq!(targets.targets_block[&5].group.id, 1);
+    }
+
+    #[test]
+    fn test_override_transition_name_with_multiple_vars() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: sending, ABSTRAKTOR_FUNC: r->19, s->3
+        do_something();
+        ";
+        let targets = instrumentor.get_targets_single(content, "test.c", &mut 0);
+
+        let target = &targets.targets_function[&3];
+        assert_eq!(target.var_info.len(), 2);
+        assert_eq!(target.var_info[0].var_name, "r");
+        assert_eq!(target.var_info[0].struct_index_groups, vec![vec![19]]);
+        assert_eq!(target.var_info[1].var_name, "s");
+        assert_eq!(target.var_info[1].struct_index_groups, vec![vec![3]]);
+        assert_eq!(
+            targets.group_transition_names,
+            BTreeMap::from([(0_u32, "sending".to_string())])
+        );
+    }
+
+    #[test]
+    fn test_regular_events_do_not_populate_group_transition_names() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_FUNC: r
+        do_something();
+        // ABSTRAKTOR_BLOCK_EVENT: x->4
+        some_var = 5;
+        ";
+        let targets = instrumentor.get_targets_single(content, "test.c", &mut 0);
+
+        assert!(targets.group_transition_names.is_empty());
     }
 }

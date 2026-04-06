@@ -64,6 +64,7 @@ using namespace llvm;
 
 #define TARGETS_TYPE std::unordered_map<std::string, std::set<int>>
 #define CONST_TARGETS_TYPE std::unordered_map<std::string, std::unordered_map<int, std::string>>
+#define GROUP_NAMES_TYPE std::map<TargetsTypes::GroupID, std::string>
 //#define FUNC_TARGETS_TYPE std::unordered_map<std::string, std::unordered_map<int, std::unordered_map<std::string, std::vector<std::vector<unsigned int>>>>>
 //#define BLOCK_TARGETS_TYPE std::unordered_map<std::string, std::unordered_map<int, std::unordered_map<std::string, std::vector<unsigned int>>>>
 
@@ -107,7 +108,7 @@ namespace
 
     u16 *get_ID_ptr();
     static void get_debug_loc(const Instruction *I, std::string &Filename, unsigned &Line);
-    static void load_instr_targets(TARGETS_TYPE &bb_targets, TargetsTypes &func_targets, TargetsTypes &block_targets, CONST_TARGETS_TYPE &const_targets);
+    static void load_instr_targets(TARGETS_TYPE &bb_targets, TargetsTypes &func_targets, TargetsTypes &block_targets, CONST_TARGETS_TYPE &const_targets, GROUP_NAMES_TYPE &group_transition_names);
 
     // -1: not checking, 0: not targets, 1: target BBs, 2: target functions, 3: target blocks, 4: target consts
     static u8 is_target_loc(std::string codefile, unsigned line, TARGETS_TYPE &bb_targets, TargetsTypes &func_targets, TargetsTypes &block_targets, CONST_TARGETS_TYPE &const_targets);
@@ -348,7 +349,7 @@ std::vector<llvm::Value*> AFLCoverage::getValues(
 /***
  * Load identified interesting basicblocks(targets) to instrument
  ***/
-void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TargetsTypes &func_targets, TargetsTypes &block_targets, CONST_TARGETS_TYPE &const_targets)
+void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TargetsTypes &func_targets, TargetsTypes &block_targets, CONST_TARGETS_TYPE &const_targets, GROUP_NAMES_TYPE &group_transition_names)
 {
   char *target_file = getenv("TARGETS_FILE");
   //file2 << "Target File: " << target_file  << "\n";
@@ -395,6 +396,15 @@ void AFLCoverage::load_instr_targets(TARGETS_TYPE &bb_targets, TargetsTypes &fun
         std::string const_name = it.value().get<std::string>();
 
         const_targets[codefile][line_num] = const_name;
+      }
+    }
+
+    auto group_names_json = target.find("group_transition_names");
+    if (group_names_json != target.end() && group_names_json->is_object()) {
+      for (auto it = group_names_json->begin(); it != group_names_json->end(); ++it) {
+        TargetsTypes::GroupID group_id = std::stoul(it.key());
+        std::string transition_name = it.value().get<std::string>();
+        group_transition_names[group_id] = transition_name;
       }
     }
   }
@@ -678,9 +688,10 @@ bool AFLCoverage::runOnModule(Module &M)
   CONST_TARGETS_TYPE const_targets;
   TargetsTypes func_targets;
   TargetsTypes block_targets;
+  GROUP_NAMES_TYPE group_transition_names;
   std::map<TargetsTypes::GroupID, std::vector<Value*>> groupsPointerValues;
   std::set<std::pair<std::string, int>> instrumented_const_targets;
-  load_instr_targets(bb_targets, func_targets, block_targets, const_targets);
+  load_instr_targets(bb_targets, func_targets, block_targets, const_targets, group_transition_names);
   u8 codeLang = 0;
 
   static const std::string Xlibs("/usr/");
@@ -814,12 +825,16 @@ bool AFLCoverage::runOnModule(Module &M)
             auto *helperTy_const = FunctionType::get(VoidTy, {Int16Ty, Int8PtrTy, VoidPtrPtrTy, Int64Ty}, false);
             auto helper_const = M.getOrInsertFunction("trigger_func_event", helperTy_const);
 
-            std::string function_name = F.getName().str();
-              
+            std::string transition_name = F.getName().str();
+            auto name_it = group_transition_names.find(groupID);
+            if (name_it != group_transition_names.end()) {
+              transition_name = name_it->second;
+            }
 
-            Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
-            IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr, ConstantInt::get(Int64Ty, v.size())});
+            Value* transition_name_value = IRB.CreateGlobalString(StringRef(transition_name), "transitionName");
+            IRB.CreateCall(helper_const, {evtValue, transition_name_value, arrPtr, ConstantInt::get(Int64Ty, v.size())});
             
+            group_transition_names.erase(groupID);
             /* increase counter */
             *evtIDPtr = ++evtID;
             get_debug_loc(&(*InsertPoint), filename, targetLine);
@@ -921,10 +936,16 @@ bool AFLCoverage::runOnModule(Module &M)
 
                 auto helper_const = M.getOrInsertFunction("trigger_block_event", helperTy_const);
 
-                std::string function_name = F.getName().str();
-                  
-                Value* function_name_value = IRB.CreateGlobalString(StringRef(function_name),"varName");
-                IRB.CreateCall(helper_const, {evtValue, function_name_value, arrPtr, ConstantInt::get(Int64Ty, v.size())});
+                std::string transition_name = F.getName().str();
+                auto name_it = group_transition_names.find(groupID);
+                if (name_it != group_transition_names.end()) {
+                  transition_name = name_it->second;
+                }
+
+                Value* transition_name_value = IRB.CreateGlobalString(StringRef(transition_name), "transitionName");
+                IRB.CreateCall(helper_const, {evtValue, transition_name_value, arrPtr, ConstantInt::get(Int64Ty, v.size())});
+
+                group_transition_names.erase(groupID);
 
                 /* store BB ID info */
                 printBlockLog(filename, block_line, evtID);
