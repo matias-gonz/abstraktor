@@ -259,10 +259,42 @@ int convertToLeader(struct raft *r)
     r->leader_state.round_index = 0;
     r->leader_state.round_start = 0;
 
+    /* Capture leader state before barrier entry is appended.
+     * At this point matchIndex is reset to 0 for all followers, so
+     * existIndex will be false, allowing leaderNotMatchingQuorumLogUpdated
+     * to be observable when commitIndex == lastLogIndex. */
+    {
+        struct raft *_r;
+        raft_index log;
+        bool exists;
+        raft_index max;
+        raft_term logTerm;
+
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
+        _r = r;
+        (void)_r;
+
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log);
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
+    }
+
     /* By definition, all entries until the last_stored entry will be committed if
      * we are the only voter around. */
 
-    
+
     size_t n_voters = configurationVoterCount(&r->configuration);
     if (n_voters == 1 && (r->last_stored > r->commit_index)) {
         tracef("apply log entries after self election %llu %llu", r->last_stored, r->commit_index);
