@@ -9,13 +9,22 @@ FROM docker.io/jgoerzen/debian-base-standard:buster
 
 # Basic system stuff
 RUN sed -i s/deb.debian.org/archive.debian.org/g /etc/apt/sources.list && sed -i s/security.debian.org/archive.debian.org/g /etc/apt/sources.list
-RUN apt-get update
-RUN apt-get install -qy apt-transport-https
 
-# Install packages
-RUN apt-get -qy update && \
-    apt-get -qy install dos2unix openssh-server pwgen iptables traceroute netcat \ 
-    nmap tshark tcpdump libpcap-dev silversearcher-ag
+# Pre-answer wireshark/tshark debconf prompt
+RUN echo "wireshark-common wireshark-common/install-setuid boolean false" | debconf-set-selections
+
+# Install all system packages in one shot
+RUN DEBIAN_FRONTEND=noninteractive apt-get update -qy && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -qy apt-transport-https \
+    dos2unix openssh-server pwgen iptables traceroute netcat \
+    nmap tshark tcpdump libpcap-dev silversearcher-ag curl \
+    build-essential bzip2 dnsutils faketime iproute2 iputils-ping \
+    libzip4 logrotate man man-db net-tools ntpdate psmisc rsyslog sudo tar unzip vim \
+    wget ca-certificates python3 python3-pip gcc g++ pkg-config \
+    libuv1-dev liblz4-dev autoconf libtool make git automake valgrind tmux \
+    libssl-dev libgflags-dev libprotobuf-dev libprotoc-dev protobuf-compiler \
+    libleveldb-dev libsnappy-dev cmake libgtest-dev libgoogle-glog-dev \
+    libsqlite3-dev
 
 # When run, boot-debian-base will call this script, which does final
 # per-db-node setup stuff.
@@ -30,12 +39,6 @@ RUN sed -i "s/#PermitRootLogin prohibit-password/PermitRootLogin yes/g" /etc/ssh
 # Enable SSH server
 ENV DEBBASE_SSH enabled
 
-# Install Jepsen deps
-RUN apt-get update -qy
-RUN apt-get install -qy build-essential bzip2 dnsutils faketime iproute2 iptables iputils-ping \ 
-    libzip4 logrotate man man-db net-tools ntpdate psmisc rsyslog sudo tar unzip vim \ 
-    wget ca-certificates python3 python3-pip gcc g++ pkg-config
-
 # Set up firewall rules for custom routing
 ADD setup-networking.sh /etc/rc.local
 RUN chmod +x /etc/rc.local
@@ -49,7 +52,6 @@ EXPOSE 22
 #########################
 
 WORKDIR /opt
-RUN apt-get install -qy libuv1-dev liblz4-dev autoconf libtool make pkg-config git automake valgrind tmux
 RUN echo "deb http://apt.llvm.org/buster/ llvm-toolchain-buster-12 main" >> /etc/apt/sources.list
 RUN echo "deb-src http://apt.llvm.org/buster/ llvm-toolchain-buster-12 main" >> /etc/apt/sources.list
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
@@ -62,20 +64,15 @@ RUN ln -s /usr/bin/clang-11 /usr/bin/clang && ln -s /usr/bin/clang++-11 /usr/bin
 ENV CXX=clang++
 ENV CC=clang
 WORKDIR /opt/fs
-RUN apt-get install -y git g++ make libssl-dev libgflags-dev libprotobuf-dev libprotoc-dev protobuf-compiler libleveldb-dev libsnappy-dev cmake libgtest-dev
-RUN git clone https://github.com/apache/incubator-brpc.git brpc
+RUN git clone --depth=1 https://github.com/apache/incubator-brpc.git brpc
 WORKDIR /opt/fs/brpc
-RUN apt-get install -y libgoogle-glog-dev
 RUN bash config_brpc.sh --headers=/usr/include --libs=/usr/lib --with-glog && make -j$(getconf _NPROCESSORS_ONLN)
 RUN cp -r /opt/fs/brpc/output/* /usr
 
 # Instrumentor
 
 WORKDIR /opt
-ENV CXX=clang++
-ENV CC=clang
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
-RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN rustup default stable
 # Hack: update crates.io now so it's not updated on every build
@@ -83,12 +80,8 @@ RUN cargo install empty-library || true
 
 # coverage server
 WORKDIR /opt
-ENV CXX=clang++
-ENV CC=clang
 RUN mkdir shm
 
-# Hack: update crates.io now so it's not updated on every build
-RUN cargo install empty-library || true
 # Cache dependencies: compile with a dummy main, then replace it with the real one
 COPY jepsen/cov-server/Cargo.toml cov-server/Cargo.toml
 RUN cd / && \
@@ -111,13 +104,10 @@ EXPOSE 8080
 RUN update-alternatives --set iptables /usr/sbin/iptables-legacy
 RUN update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
 
-# end coverage
-RUN apt-get install -y libsqlite3-dev 
-
 # This is ugly: we need to copy raw_packet.rs because Docker doesn't follow symlinks outside build context
 WORKDIR /opt
 COPY jepsen/abstraktor/llvm llvm
-RUN cd llvm && make clean && ./deps.sh && make
+RUN cd llvm && ./deps.sh && make
 # end build tools
 
 # Copy and build abstraktor tool (source files only)
@@ -228,18 +218,15 @@ RUN apt-get update -y
 RUN apt-get upgrade -y
 # We install a recent version of Go
 WORKDIR /root
-RUN curl -L -O https://go.dev/dl/go1.18.4.linux-amd64.tar.gz \
-    && tar xvf go1.18.4.linux-amd64.tar.gz \
+RUN curl -fsSL -O https://go.dev/dl/go1.18.4.linux-amd64.tar.gz \
+    && tar xf go1.18.4.linux-amd64.tar.gz \
     && chown -R root:root ./go \
-    && mv go /usr/local
-RUN echo "export PATH=$PATH:/usr/local/go/bin" >> /root/.bashrc
-ENV PATH="$PATH:/usr/local/go/bin" 
+    && mv go /usr/local \
+    && rm go1.18.4.linux-amd64.tar.gz
+ENV PATH="$PATH:/usr/local/go/bin"
 
 COPY jepsen/tests/mallory/dqlite/resources/app.go /opt/fs/dqlite/app.go
 WORKDIR /opt/fs/dqlite
-
-ENV CXX=clang++
-ENV CC=clang
 RUN go mod init app
 RUN go get -tags libsqlite3 github.com/canonical/go-dqlite/app@${DQLITE_VER}
 ENV CGO_LDFLAGS="-L/usr/local/lib -ldqlite"
