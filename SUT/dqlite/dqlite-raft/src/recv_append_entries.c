@@ -41,36 +41,6 @@ int recvAppendEntries(struct raft *r,
     size_t in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
     (void)in_quorum;
 
-    if (r->state == RAFT_LEADER) {
-        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
-        _r = r;
-        (void)_r;
-
-        // ABSTRAKTOR_BLOCK_EVENT: log
-        log = logLastIndex(r->log);
-        (void)log;
-
-        // ABSTRAKTOR_BLOCK_EVENT: exists
-        exists = progressTestExistsOneIndexQuorum(r);
-        (void)exists;
-
-        // ABSTRAKTOR_BLOCK_EVENT: max
-        max = progressTestGetMaxIndexQuorum(r);
-        (void)max;
-
-        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
-        logTerm = exists ? logTermOf(r->log, max) : 0;
-        (void)logTerm;
-    } else {
-        // ABSTRAKTOR_BLOCK_EVENT: _r->19
-        _r = r;
-        (void)_r;
-
-        // ABSTRAKTOR_BLOCK_EVENT: _in_quorum END
-        size_t _in_quorum = in_quorum;
-        (void)_in_quorum;
-    }
-
     assert(r != NULL);
     assert(id > 0);
     assert(args != NULL);
@@ -93,6 +63,36 @@ int recvAppendEntries(struct raft *r,
      *   currentTerm.
      */
     if (match < 0) {
+
+        if (r->state == RAFT_LEADER) {
+            // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: RejectAppEnRq, ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
+            _r = r;
+            (void)_r;
+
+            // ABSTRAKTOR_BLOCK_EVENT: log
+            log = logLastIndex(r->log);
+            (void)log;
+
+            // ABSTRAKTOR_BLOCK_EVENT: exists
+            exists = progressTestExistsOneIndexQuorum(r);
+            (void)exists;
+
+            // ABSTRAKTOR_BLOCK_EVENT: max
+            max = progressTestGetMaxIndexQuorum(r);
+            (void)max;
+
+            // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+            logTerm = exists ? logTermOf(r->log, max) : 0;
+            (void)logTerm;
+        } else {
+            // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: RejectAppEnRq, ABSTRAKTOR_BLOCK_EVENT: _r->19
+            _r = r;
+            (void)_r;
+
+            // ABSTRAKTOR_BLOCK_EVENT: _in_quorum END
+            size_t _in_quorum = in_quorum;
+            (void)_in_quorum;
+        }
         tracef("local term is higher -> reject ");
         goto reply;
     }
@@ -130,6 +130,15 @@ int recvAppendEntries(struct raft *r,
     assert(r->current_term == args->term);
 
     if (r->state == RAFT_CANDIDATE) {
+        
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: AcceptAppEnRq, ABSTRAKTOR_BLOCK_EVENT: _r->19
+        _r = r;
+        (void)_r;
+
+        // ABSTRAKTOR_BLOCK_EVENT: _in_quorum END
+        size_t _in_quorum = in_quorum;
+        (void)_in_quorum;
+        
         /* The current term and the peer one must match, otherwise we would have
          * either rejected the request or stepped down to followers. */
         assert(match == 0);
@@ -153,10 +162,29 @@ int recvAppendEntries(struct raft *r,
      * something smarter, e.g. buffering the entries in the I/O backend, which
      * should be in charge of serializing everything. */
     if (replicationInstallSnapshotBusy(r) && args->n_entries > 0) {
+    
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: RejectAppEnRq, ABSTRAKTOR_BLOCK_EVENT: _r->19
+        _r = r;
+        (void)_r;
+
+        // ABSTRAKTOR_BLOCK_EVENT: _in_quorum END
+        size_t _in_quorum = in_quorum;
+        (void)_in_quorum;
+        
         tracef("ignoring AppendEntries RPC during snapshot install");
         entryBatchesDestroy(args->entries, args->n_entries);
         return 0;
     }
+
+ 
+    // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: AcceptAppEnRq, ABSTRAKTOR_BLOCK_EVENT: _r->19
+    _r = r;
+    (void)_r;
+
+    // ABSTRAKTOR_BLOCK_EVENT: _in_quorum END
+    size_t _in_quorum = in_quorum;
+    (void)_in_quorum;
+    
 
     rv = replicationAppend(r, args, &result->rejected, &async);
     if (rv != 0) {

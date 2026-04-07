@@ -29,34 +29,66 @@ int recvRequestVoteResult(struct raft *r,
     raft_index max;
     raft_term logTerm;
 
-    if (r->state == RAFT_LEADER) {
-        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
-        _r = r;
-        (void)_r;
+    if (result->vote_granted) {
+        if (r->state == RAFT_LEADER) {
+            // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: HRqVRpGrantedEQCurrentTerm, ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
+            _r = r;
+            (void)_r;
 
-        // ABSTRAKTOR_BLOCK_EVENT: log
-        log = logLastIndex(r->log);
-        (void)log;
+            // ABSTRAKTOR_BLOCK_EVENT: log
+            log = logLastIndex(r->log);
+            (void)log;
 
-        // ABSTRAKTOR_BLOCK_EVENT: exists
-        exists = progressTestExistsOneIndexQuorum(r);
-        (void)exists;
+            // ABSTRAKTOR_BLOCK_EVENT: exists
+            exists = progressTestExistsOneIndexQuorum(r);
+            (void)exists;
 
-        // ABSTRAKTOR_BLOCK_EVENT: max
-        max = progressTestGetMaxIndexQuorum(r);
-        (void)max;
+            // ABSTRAKTOR_BLOCK_EVENT: max
+            max = progressTestGetMaxIndexQuorum(r);
+            (void)max;
 
-        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
-        logTerm = exists ? logTermOf(r->log, max) : 0;
-        (void)logTerm;
+            // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+            logTerm = exists ? logTermOf(r->log, max) : 0;
+            (void)logTerm;
+        } else {
+            // ABSTRAKTOR_BLOCK_EVENT: _r->19
+            _r = r;
+            (void)_r;
+
+            // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: HRqVRpGrantedEQCurrentTerm, ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+            bool in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
+            (void)in_quorum;
+        }
     } else {
-        // ABSTRAKTOR_BLOCK_EVENT: _r->19
-        _r = r;
-        (void)_r;
+        if (r->state == RAFT_LEADER) {
+            // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: HRqVRpNotGrantedEQCurrentTerm, ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
+            _r = r;
+            (void)_r;
 
-        // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
-        bool in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
-        (void)in_quorum;
+            // ABSTRAKTOR_BLOCK_EVENT: log
+            log = logLastIndex(r->log);
+            (void)log;
+
+            // ABSTRAKTOR_BLOCK_EVENT: exists
+            exists = progressTestExistsOneIndexQuorum(r);
+            (void)exists;
+
+            // ABSTRAKTOR_BLOCK_EVENT: max
+            max = progressTestGetMaxIndexQuorum(r);
+            (void)max;
+
+            // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+            logTerm = exists ? logTermOf(r->log, max) : 0;
+            (void)logTerm;
+        } else {
+            // ABSTRAKTOR_BLOCK_EVENT: _r->19
+            _r = r;
+            (void)_r;
+
+            // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: HRqVRpNotGrantedEQCurrentTerm, ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+            bool in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
+            (void)in_quorum;
+        }
     }
 
     assert(r != NULL);
