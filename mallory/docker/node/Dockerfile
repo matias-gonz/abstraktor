@@ -120,6 +120,24 @@ RUN cargo build --release
 # Make abstraktor available in PATH
 ENV PATH="/opt/abstraktor/target/release:${PATH}"
 
+# Install Go (before SUT to avoid cache invalidation on SUT changes)
+WORKDIR /root
+RUN curl -fsSL -O https://go.dev/dl/go1.18.4.linux-amd64.tar.gz \
+    && tar xf go1.18.4.linux-amd64.tar.gz \
+    && chown -R root:root ./go \
+    && mv go /usr/local \
+    && rm go1.18.4.linux-amd64.tar.gz
+ENV PATH="$PATH:/usr/local/go/bin"
+
+# Pre-download dqlite Go dependencies (before SUT to avoid re-downloading on SUT changes)
+ENV DQLITE_VER=v1.11.7
+COPY jepsen/tests/mallory/dqlite/resources/app.go /opt/fs/dqlite/app.go
+WORKDIR /opt/fs/dqlite
+RUN go mod init app
+RUN go get -tags libsqlite3 github.com/canonical/go-dqlite/app@${DQLITE_VER}
+
+RUN mkdir -p /tmp/mediator-logs
+
 # Create empty SUT directory (will be populated by setup sut command)
 WORKDIR /opt
 RUN mkdir -p /opt/SUT
@@ -183,8 +201,6 @@ RUN set -e; \
 #RUN git clone -b newer-jepsen-testing https://github.com/mengrj/raft-c.git dqlite-raft
 #RUN git clone -b newer-jepsen-testing https://github.com/mengrj/dqlite.git dqlite
 
-ENV DQLITE_VER=v1.11.7
-
 #WORKDIR /opt/fs
 #RUN cd dqlite-raft \
 #    && python3 /opt/instrumentor/tell_instr_targets.py --input ./src --output .
@@ -216,19 +232,9 @@ ENV DQLITE_VER=v1.11.7
 # This fixes some certificate-related issues (by installing a new version of GnuTLS?)
 RUN apt-get update -y
 RUN apt-get upgrade -y
-# We install a recent version of Go
-WORKDIR /root
-RUN curl -fsSL -O https://go.dev/dl/go1.18.4.linux-amd64.tar.gz \
-    && tar xf go1.18.4.linux-amd64.tar.gz \
-    && chown -R root:root ./go \
-    && mv go /usr/local \
-    && rm go1.18.4.linux-amd64.tar.gz
-ENV PATH="$PATH:/usr/local/go/bin"
 
-COPY jepsen/tests/mallory/dqlite/resources/app.go /opt/fs/dqlite/app.go
+# Build dqlite Go app (deps already downloaded above, only needs SUT libs)
 WORKDIR /opt/fs/dqlite
-RUN go mod init app
-RUN go get -tags libsqlite3 github.com/canonical/go-dqlite/app@${DQLITE_VER}
 ENV CGO_LDFLAGS="-L/usr/local/lib -ldqlite"
 RUN export CGO_LDFLAGS_ALLOW="-Wl,-z,now" \
     && go build -o app -asan app.go
@@ -321,7 +327,5 @@ RUN export CGO_LDFLAGS_ALLOW="-Wl,-z,now" \
 # RUN cp /opt/fs/tidb/tikv-*.txt /opt/instrumentor/
 
 # end systems
-
-RUN mkdir -p /tmp/mediator-logs
 
 CMD ["/usr/local/bin/boot-debian-base"]
