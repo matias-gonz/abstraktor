@@ -1,14 +1,21 @@
 use std::error::Error;
 use std::path::Path;
+#[cfg(feature = "logsaving")]
 use std::time::Instant;
 
+#[cfg(feature = "logsaving")]
 use antidote::RwLock;
 use dashmap::DashMap;
+#[cfg(feature = "selfcheck")]
 use dashmap::DashSet;
+#[cfg(feature = "logsaving")]
 use pcap_file::pcap::Packet as PcapPacket;
+#[cfg(feature = "logsaving")]
 use pcap_file::pcap::PcapHeader;
+#[cfg(feature = "logsaving")]
 use pcap_file::PcapWriter;
 
+#[cfg(feature = "logsaving")]
 use crate::net::firewall::FirewallVerdict;
 use crate::net::packet::NetworkId;
 use crate::net::packet::Packet;
@@ -22,6 +29,7 @@ type AbstractData = u32;
 type DropStatus = bool;
 
 // Magic header for writing PCAP files.
+#[cfg(feature = "logsaving")]
 const PCAP_HEADER: PcapHeader = PcapHeader {
     magic_number: 0xa1b2c3d4,
     version_major: 2,
@@ -37,7 +45,9 @@ const PCAP_HEADER: PcapHeader = PcapHeader {
 /// file and interrogation of the history (e.g. to add events to a timeline).
 pub struct Packets {
     /// Used to generate PCAP files. Packets are pushed once they are emitted
-    /// by the mediator.
+    /// by the mediator. Only kept when `logsaving` is enabled, since the
+    /// vector is only ever read by `dump`.
+    #[cfg(feature = "logsaving")]
     packets: RwLock<Vec<Packet>>,
 
     /// Used by the feedback mechanism to convert network IDs to mediator IDs.
@@ -64,6 +74,7 @@ pub struct Packets {
 impl Packets {
     pub fn new() -> Self {
         Self {
+            #[cfg(feature = "logsaving")]
             packets: RwLock::new(Vec::new()),
             packets_by_network_id: DashMap::new(),
             #[cfg(feature = "selfcheck")]
@@ -102,21 +113,40 @@ impl Packets {
     }
 
     pub fn emitted_packet(&self, packet: Packet) {
-        let mut packets = self.packets.write();
-        let pkt_idx: PacketIndex = packets.len();
-        let (src_ip, dst_ip) = packet.get_sender_receiver_ips();
-        self.packets_by_network_id.insert(
-            packet.network_id,
-            (
-                packet.mediator_id,
-                src_ip.expect("Packet has no sender IP"),
-                dst_ip.expect("Packet has no recipient IP"),
-                packet.abstract_value(),
-                packet.was_certainly_dropped(),
-                Some(pkt_idx),
-            ),
-        );
-        packets.push(packet);
+        #[cfg(feature = "logsaving")]
+        {
+            let mut packets = self.packets.write();
+            let pkt_idx: PacketIndex = packets.len();
+            let (src_ip, dst_ip) = packet.get_sender_receiver_ips();
+            self.packets_by_network_id.insert(
+                packet.network_id,
+                (
+                    packet.mediator_id,
+                    src_ip.expect("Packet has no sender IP"),
+                    dst_ip.expect("Packet has no recipient IP"),
+                    packet.abstract_value(),
+                    packet.was_certainly_dropped(),
+                    Some(pkt_idx),
+                ),
+            );
+            packets.push(packet);
+        }
+
+        #[cfg(not(feature = "logsaving"))]
+        {
+            let (src_ip, dst_ip) = packet.get_sender_receiver_ips();
+            self.packets_by_network_id.insert(
+                packet.network_id,
+                (
+                    packet.mediator_id,
+                    src_ip.expect("Packet has no sender IP"),
+                    dst_ip.expect("Packet has no recipient IP"),
+                    packet.abstract_value(),
+                    packet.was_certainly_dropped(),
+                    None,
+                ),
+            );
+        }
     }
 
     pub fn get_mediator_id(&self, network_id: NetworkId) -> Option<PacketUid> {
@@ -158,7 +188,18 @@ impl Packets {
         }
     }
 
+    /// Returns (vec_len, dashmap_len). The Vec only exists with the `logsaving`
+    /// feature; otherwise it's reported as 0.
+    pub fn stats(&self) -> (usize, usize) {
+        #[cfg(feature = "logsaving")]
+        let vec_len = self.packets.read().len();
+        #[cfg(not(feature = "logsaving"))]
+        let vec_len = 0;
+        (vec_len, self.packets_by_network_id.len())
+    }
+
     /// This function is unusable for now because it is too slow.
+    #[cfg_attr(not(feature = "logsaving"), allow(unused_variables))]
     pub fn dump(&self, base_path: &Path) -> Result<(), Box<dyn Error>> {
         #[cfg(feature = "logsaving")]
         {

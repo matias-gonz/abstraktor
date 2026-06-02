@@ -30,6 +30,22 @@ int recvAppendEntriesResult(struct raft *r,
             r->id, id, address, result->last_log_index, result->rejected, result->term);
 
     if (r->state != RAFT_LEADER) {
+        if (r->state == RAFT_CANDIDATE) {
+            struct raft *_r;
+            // ABSTRAKTOR_BLOCK_EVENT: _r->19
+            _r = r;
+            (void)_r;
+
+            // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+            bool in_quorum = electionInQuorum(r);
+            (void)in_quorum;
+        } else {
+            struct raft *_r;
+            // ABSTRAKTOR_BLOCK_EVENT: _r->19 END
+            _r = r;
+            (void)_r;
+        }
+
         tracef("local server is not leader -> ignore");
         return 0;
     }
@@ -40,35 +56,25 @@ int recvAppendEntriesResult(struct raft *r,
     raft_index max;
     raft_term logTerm;
 
-    if (r->state == RAFT_LEADER) {
-        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
-        _r = r;
-        (void)_r;
+    // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
+    _r = r;
+    (void)_r;
 
-        // ABSTRAKTOR_BLOCK_EVENT: log
-        log = logLastIndex(r->log);
-        (void)log;
+    // ABSTRAKTOR_BLOCK_EVENT: log
+    log = logLastIndex(r->log);
+    (void)log;
 
-        // ABSTRAKTOR_BLOCK_EVENT: exists
-        exists = progressTestExistsOneIndexQuorum(r);
-        (void)exists;
+    // ABSTRAKTOR_BLOCK_EVENT: exists
+    exists = progressTestExistsOneIndexQuorum(r);
+    (void)exists;
 
-        // ABSTRAKTOR_BLOCK_EVENT: max
-        max = progressTestGetMaxIndexQuorum(r);
-        (void)max;
+    // ABSTRAKTOR_BLOCK_EVENT: max
+    max = progressTestGetMaxIndexQuorum(r);
+    (void)max;
 
-        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
-        logTerm = exists ? logTermOf(r->log, max) : 0;
-        (void)logTerm;
-    } else {
-        // ABSTRAKTOR_BLOCK_EVENT: _r->19
-        _r = r;
-        (void)_r;
-
-        // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
-        bool in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
-        (void)in_quorum;
-    }
+    // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+    logTerm = exists ? logTermOf(r->log, max) : 0;
+    (void)logTerm;
 
     rv = recvEnsureMatchingTerms(r, result->term, &match);
     if (rv != 0) {

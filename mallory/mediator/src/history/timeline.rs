@@ -739,6 +739,9 @@ impl DynamicTimeline {
         let start = Instant::now();
         let mut num_events_removed: usize = 0;
         let mut num_links_removed: usize = 0;
+        // Collect cleaned-up events so we can drop their dangling nodes from
+        // the SummaryManager graph after releasing the timeline locks.
+        let mut cleaned_events: Vec<LamportEvent> = Vec::new();
 
         // VERY IMPORTANT: never clean-up uncomitted events!
         let committed_upto = self.commit_manager.can_cleanup_upto();
@@ -765,6 +768,7 @@ impl DynamicTimeline {
                     // FIXME: are we remove causal links when we shouldn't be?
                     num_links_removed +=
                         self.remove_causal_links_dependent_on(&mut causal_links, &ev);
+                    cleaned_events.push(ev);
                 }
             }
         }
@@ -774,11 +778,25 @@ impl DynamicTimeline {
         self.num_cleaned_causal_links
             .fetch_add(num_links_removed, Ordering::Relaxed);
 
+        // Drop dangling nodes (e.g. PacketSends whose matching PacketReceive
+        // never arrived) from the SummaryManager graph. We take the summaries
+        // lock here, AFTER releasing every per-process timeline lock, so we
+        // never hold both at once. The submit-to-summariser path acquires the
+        // summaries lock before any timeline lock; doing it the other way here
+        // would risk a deadlock.
+        let abandoned_nodes = if cleaned_events.is_empty() {
+            0
+        } else {
+            let mut summaries = self.summaries.lock();
+            summaries.abandon_events(&cleaned_events)
+        };
+
         log::info!(
-            "[PERF][CLEANUP] Cleaning up {} events (including {} causal links) took {}ms. Cleaned up before: {:?}",
+            "[PERF][CLEANUP] Cleaning up {} events (including {} causal links) took {}ms. Abandoned {} dangling summary nodes. Cleaned up before: {:?}",
             num_events_removed,
             num_links_removed,
             start.elapsed().as_millis(),
+            abandoned_nodes,
             cleanup_markers,
         );
     }
@@ -813,13 +831,25 @@ impl DynamicTimeline {
         let stored_events = event_counter - cleaned_events;
         let stored_links = links_counter - cleaned_links;
 
+        // Auxiliary structures that scale with live events/links.
+        let matching_table_len = self.matching_table.len();
+        let causal_link_deps_len = self.causal_link_dependencies.len();
+        let causal_link_deps_total: usize = self
+            .causal_link_dependencies
+            .iter()
+            .map(|kv| kv.value().len())
+            .sum();
+
         log::info!(
-            "[STATS][HISTORY] {} stored events ({} total) / {} stored causal links ({} total) (across {} processes)\n{:?}",
+            "[STATS][HISTORY] {} stored events ({} total) / {} stored causal links ({} total) (across {} processes) | matching_table: {} | causal_link_deps: {} keys / {} link refs\n{:?}",
             stored_events,
             event_counter,
             stored_links,
             links_counter,
             process_counter,
+            matching_table_len,
+            causal_link_deps_len,
+            causal_link_deps_total,
             self.num_events,
         );
         if let Ok(summaries) = self.summaries.try_lock() {

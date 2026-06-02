@@ -663,6 +663,43 @@ impl SummaryProducer for EventHistory {
     fn union(&mut self, other: &Self) {
         self.traverse(None, other, None, |a, b| a + b);
     }
+
+    /// Rough heap-bytes estimate. Counts entries × per-entry size for the
+    /// dominant HashMaps inside the summary. Conservative — ignores
+    /// hashbrown overhead and small fields, but captures order of magnitude.
+    fn approximate_bytes(&self) -> usize {
+        // EventKind is a small enum (≤ 24 B). usize = 8.
+        const EVENT_KIND_ENTRY: usize = 32; // (EventKind, usize) + bucket
+        const STATE_ENTRY: usize = 24;      // (StateId, usize) + bucket
+        const PAIR_ENTRY: usize = 56;       // ((EventKind, EventKind)) + bucket
+        const TRIPLET_ENTRY: usize = 80;
+        const MIN_HASH_ENTRY: usize = 850;  // Vec<u64>×100 (800) + bucket overhead
+
+        let unique_events: usize = self
+            .unique_events
+            .values()
+            .map(|m| m.len() * EVENT_KIND_ENTRY)
+            .sum();
+        let unique_exec_events: usize = self
+            .unique_exec_events
+            .values()
+            .map(|m| m.len() * EVENT_KIND_ENTRY)
+            .sum();
+        let layers: usize = self
+            .layers
+            .values()
+            .map(|l| {
+                l.get_single().len() * EVENT_KIND_ENTRY
+                    + l.get_pairs().len() * PAIR_ENTRY
+                    + l.get_triplets().len() * TRIPLET_ENTRY
+            })
+            .sum();
+        let state_min_hashes = self.state_min_hashes.len() * MIN_HASH_ENTRY;
+        let unique_states = self.unique_states.len() * STATE_ENTRY;
+        let num_events = self.num_events.len() * 16;
+
+        unique_events + unique_exec_events + layers + state_min_hashes + unique_states + num_events
+    }
 }
 
 fn unique_keys<T>(kv: &HashMap<u8, HashMap<T, usize>>) -> HashSet<&T>

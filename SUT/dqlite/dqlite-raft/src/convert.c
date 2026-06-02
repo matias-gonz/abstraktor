@@ -270,7 +270,7 @@ int convertToLeader(struct raft *r)
         raft_index max;
         raft_term logTerm;
 
-        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: ClientRequest, ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
         _r = r;
         (void)_r;
 
