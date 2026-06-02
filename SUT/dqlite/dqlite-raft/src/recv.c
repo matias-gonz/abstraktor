@@ -131,7 +131,12 @@ int recvBumpCurrentTerm(struct raft *r, raft_term term)
     r->current_term = term;
     r->voted_for = 0;
 
-    if (r->state != RAFT_FOLLOWER) {
+    if (r->state == RAFT_FOLLOWER) {
+        struct raft *_r;
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: convertToFollower, ABSTRAKTOR_BLOCK_EVENT: _r->19 END
+        _r = r;
+        (void)_r;
+    } else {
         /* Also convert to follower. */
         convertToFollower(r);
     }
