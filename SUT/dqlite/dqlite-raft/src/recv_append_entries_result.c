@@ -1,18 +1,22 @@
 #include "recv_append_entries_result.h"
 #include "assert.h"
 #include "configuration.h"
+#include "election.h"
 #include "tracing.h"
 #include "recv.h"
 #include "replication.h"
+#include "progress.h"
+#include "log.h"
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
-// ABSTRAKTOR_CONST: constante
 int recvAppendEntriesResult(struct raft *r,
                             const raft_id id,
                             const char *address,
                             const struct raft_append_entries_result *result)
 {
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    (void)n_voters; /* Supress unused variable warning */
     int match;
     const struct raft_server *server;
     int rv;
@@ -26,9 +30,51 @@ int recvAppendEntriesResult(struct raft *r,
             r->id, id, address, result->last_log_index, result->rejected, result->term);
 
     if (r->state != RAFT_LEADER) {
+        if (r->state == RAFT_CANDIDATE) {
+            struct raft *_r;
+            // ABSTRAKTOR_BLOCK_EVENT: _r->19
+            _r = r;
+            (void)_r;
+
+            // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+            bool in_quorum = electionInQuorum(r);
+            (void)in_quorum;
+        } else {
+            struct raft *_r;
+            // ABSTRAKTOR_BLOCK_EVENT: _r->19 END
+            _r = r;
+            (void)_r;
+        }
+
         tracef("local server is not leader -> ignore");
         return 0;
     }
+
+    struct raft *_r;
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
+
+    // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
+    _r = r;
+    (void)_r;
+
+    // ABSTRAKTOR_BLOCK_EVENT: log
+    log = logLastIndex(r->log);
+    (void)log;
+
+    // ABSTRAKTOR_BLOCK_EVENT: exists
+    exists = progressTestExistsOneIndexQuorum(r);
+    (void)exists;
+
+    // ABSTRAKTOR_BLOCK_EVENT: max
+    max = progressTestGetMaxIndexQuorum(r);
+    (void)max;
+
+    // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+    logTerm = exists ? logTermOf(r->log, max) : 0;
+    (void)logTerm;
 
     rv = recvEnsureMatchingTerms(r, result->term, &match);
     if (rv != 0) {
@@ -55,6 +101,8 @@ int recvAppendEntriesResult(struct raft *r,
     assert(result->term == r->current_term);
 
     /* Ignore responses from servers that have been removed */
+    //server->id, r->commit_index, raft_log_len(&r->log), r->current_term);
+
     server = configurationGet(&r->configuration, id);
     if (server == NULL) {
         tracef("unknown server -> ignore");

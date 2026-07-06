@@ -352,7 +352,40 @@ where
     }
 
     fn summary_string(&self) -> String {
-        format!("{} summaries", self.summary_for_event.len(),)
+        let stored_total: usize = self.stored_summaries.values().map(|s| s.len()).sum();
+
+        // Approximate heap bytes per bucket of summaries.
+        let live_bytes: usize = self
+            .summary_for_event
+            .values()
+            .map(|s| s.approximate_bytes())
+            .sum();
+        let stored_bytes: usize = self
+            .stored_summaries
+            .values()
+            .flat_map(|m| m.values().map(|s| s.approximate_bytes()))
+            .sum();
+        let per_sched_bytes: usize = self
+            .per_schedule_cumulative
+            .values()
+            .map(|s| s.approximate_bytes())
+            .sum();
+        let overall_bytes = self.overall_cumulative.1.approximate_bytes();
+        let total_bytes = live_bytes + stored_bytes + per_sched_bytes + overall_bytes;
+
+        format!(
+            "{} live summaries (~{} KB) / stored: {} schedules ({} step summaries, ~{} KB) / per_schedule_cumulative: {} (~{} KB) / overall_cumulative @ schedule {} (~{} KB) | TOTAL ~{} MB",
+            self.summary_for_event.len(),
+            live_bytes / 1024,
+            self.stored_summaries.len(),
+            stored_total,
+            stored_bytes / 1024,
+            self.per_schedule_cumulative.len(),
+            per_sched_bytes / 1024,
+            self.overall_cumulative.0,
+            overall_bytes / 1024,
+            total_bytes / (1024 * 1024),
+        )
     }
 }
 
@@ -489,27 +522,21 @@ impl SummaryManager {
     }
 
     pub fn print_summary(&self) {
-        let edges_to_infinity = self
+        let edges_to_infinity_count = self
             .timeline
-            .edges_directed(self.node_at_infinity, petgraph::Incoming);
-
-        let _undep_edges: Vec<_> = edges_to_infinity
-            .clone()
-            .take(5)
-            .map(|e| {
-                let src = e.source();
-                let src_ev = self.timeline.node_weight(src).unwrap();
-                (src.index(), src_ev)
-            })
-            .collect();
+            .edges_directed(self.node_at_infinity, petgraph::Incoming)
+            .count();
 
         let summ = self.summaries.first().unwrap();
-        log::debug!(
-            "[STATS][SUMMARY] Timeline has {} nodes ({}) and {} edges ({} to infinity).",
+        log::info!(
+            "[STATS][SUMMARY] Graph: {} nodes / {} edges ({} to infinity) | index_for_event: {} | last_event procs: {} | end_nodes: {} | {}",
             self.timeline.node_count(),
-            summ.summary_string(),
             self.timeline.edge_count(),
-            edges_to_infinity.count(),
+            edges_to_infinity_count,
+            self.index_for_event.len(),
+            self.last_event.len(),
+            self.end_node.len(),
+            summ.summary_string(),
         );
     }
 
@@ -633,6 +660,56 @@ impl SummaryManager {
             self.index_for_event.remove(from_event);
             self.timeline.remove_node(from);
         }
+    }
+
+    /// Drop dangling nodes from the timeline graph for the given events.
+    ///
+    /// Called by the `DynamicTimeline` cleanup, since once an event is removed
+    /// from the `DynamicTimeline` it can no longer be matched (e.g. a
+    /// `PacketSend` whose `PacketReceive` never arrived). Any pending edge to
+    /// `node_at_infinity` from such an event is permanently unfillable, so the
+    /// node + its summary can be released.
+    ///
+    /// Conservative: only removes nodes that, after dropping the edge to
+    /// infinity, have no remaining outgoing edges. Nodes still connected to
+    /// real successors (or to `end_node[proc]`) are left alone.
+    ///
+    /// Returns the number of nodes removed.
+    pub fn abandon_events(&mut self, events: &[LamportEvent]) -> usize {
+        let mut removed = 0;
+        for ev in events {
+            let node_id = match self.index_for_event.get(ev) {
+                Some(&id) => id,
+                None => continue, // not in the graph
+            };
+
+            // Skip the special infinity / end-of-process nodes themselves.
+            if self.is_at_infinity(node_id) {
+                continue;
+            }
+
+            // Drop the dangling edge to infinity, if any.
+            self.remove_edges(node_id, self.node_at_infinity);
+
+            // Only release the node if it has no remaining successors.
+            let outgoing_count = self
+                .timeline
+                .neighbors_directed(node_id, petgraph::Outgoing)
+                .count();
+            if outgoing_count != 0 {
+                continue;
+            }
+
+            // Drop the summary across all summary kinds, then the index entry,
+            // then the node itself.
+            for summ in self.summaries.iter_mut() {
+                summ.remove_summary(ev);
+            }
+            self.index_for_event.remove(ev);
+            self.timeline.remove_node(node_id);
+            removed += 1;
+        }
+        removed
     }
 
     pub fn tick(&mut self) {

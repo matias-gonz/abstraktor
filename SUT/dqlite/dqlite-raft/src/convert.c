@@ -127,9 +127,46 @@ static void convertClear(struct raft *r)
     }
 }
 
-// ABSTRAKTOR_CONST: constante
 void convertToFollower(struct raft *r)
 {
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    (void)n_voters; /* Supress unused variable warning */
+
+    struct raft *_r;
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
+
+    if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
+        _r = r;
+        (void)_r;
+
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log);
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
+    } else {
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19
+        _r = r;
+        (void)_r;
+
+        // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+        bool in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
+        (void)in_quorum;
+    }
     convertClear(r);
     convertSetState(r, RAFT_FOLLOWER);
 
@@ -140,11 +177,12 @@ void convertToFollower(struct raft *r)
     r->follower_state.current_leader.address = NULL;
 }
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19 END
 int convertToCandidate(struct raft *r, bool disrupt_leader)
 {
     const struct raft_server *server;
     size_t n_voters = configurationVoterCount(&r->configuration);
+    (void)n_voters; /* Supress unused variable warning */
     int rv;
 
     (void)server; /* Only used for assertions. */
@@ -188,10 +226,15 @@ void convertInitialBarrierCb(struct raft_barrier *req, int status)
     raft_free(req);
 }
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19
 int convertToLeader(struct raft *r)
 {
+
     int rv;
+
+    // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+    bool in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
+    (void)in_quorum;
 
     convertClear(r);
     convertSetState(r, RAFT_LEADER);
@@ -216,8 +259,42 @@ int convertToLeader(struct raft *r)
     r->leader_state.round_index = 0;
     r->leader_state.round_start = 0;
 
+    /* Capture leader state before barrier entry is appended.
+     * At this point matchIndex is reset to 0 for all followers, so
+     * existIndex will be false, allowing leaderNotMatchingQuorumLogUpdated
+     * to be observable when commitIndex == lastLogIndex. */
+    {
+        struct raft *_r;
+        raft_index log;
+        bool exists;
+        raft_index max;
+        raft_term logTerm;
+
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: ClientRequest, ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
+        _r = r;
+        (void)_r;
+
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log);
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
+    }
+
     /* By definition, all entries until the last_stored entry will be committed if
      * we are the only voter around. */
+
+
     size_t n_voters = configurationVoterCount(&r->configuration);
     if (n_voters == 1 && (r->last_stored > r->commit_index)) {
         tracef("apply log entries after self election %llu %llu", r->last_stored, r->commit_index);
@@ -242,7 +319,7 @@ int convertToLeader(struct raft *r)
     return rv;
 }
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19 END
 void convertToUnavailable(struct raft *r)
 {
     /* Abort any pending leadership transfer request. */

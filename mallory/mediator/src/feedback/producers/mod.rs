@@ -51,6 +51,12 @@ pub trait SummaryProducer {
     /// take pairwise-max, but treats the two as disjoint and
     /// adds the components together.
     fn union(&mut self, other: &Self);
+
+    /// Rough estimate of the heap bytes this summary holds.
+    /// Used only for memory diagnostics, not for correctness.
+    fn approximate_bytes(&self) -> usize {
+        0
+    }
 }
 
 /// A wrapper around HashSet that that has a 'hash' field that can

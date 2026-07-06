@@ -598,6 +598,38 @@ struct raft_transfer; /* Forward declaration */
 
 struct raft_log;
 
+struct follower_state
+{
+    unsigned randomized_election_timeout; /* Timer expiration. */
+    struct                                /* Current leader info. */
+    {
+        raft_id id;
+        char *address;
+    } current_leader;
+    uint64_t reserved[8];                 /* Future use */
+};
+
+struct candidate_state
+{
+    unsigned randomized_election_timeout; /* Timer expiration. */
+    bool *votes;                          /* Vote results. */
+    bool disrupt_leader;                  /* For leadership transfer */
+    bool in_pre_vote;                     /* True in pre-vote phase. */
+    uint64_t reserved[8];                 /* Future use */
+};
+
+struct leader_state
+{
+    struct raft_progress *progress; /* Per-server replication state. */
+    struct raft_change *change;     /* Pending membership change. */
+    raft_id promotee_id;            /* ID of server being promoted. */
+    unsigned short round_number;    /* Current sync round. */
+    raft_index round_index;         /* Target of the current round. */
+    raft_time round_start;          /* Start of current round. */
+    void *requests[2];              /* Outstanding client requests. */
+    uint64_t reserved[8];           /* Future use */
+};
+
 /**
  * Hold and drive the state of a single raft server in a cluster.
  * When replacing reserved fields in the middle of this struct, you MUST use a
@@ -711,35 +743,9 @@ struct raft
      */
     unsigned short state;
     union {
-        struct /* Follower */
-        {
-            unsigned randomized_election_timeout; /* Timer expiration. */
-            struct                                /* Current leader info. */
-            {
-                raft_id id;
-                char *address;
-            } current_leader;
-            uint64_t reserved[8];                 /* Future use */
-        } follower_state;
-        struct
-        {
-            unsigned randomized_election_timeout; /* Timer expiration. */
-            bool *votes;                          /* Vote results. */
-            bool disrupt_leader;                  /* For leadership transfer */
-            bool in_pre_vote;                     /* True in pre-vote phase. */
-            uint64_t reserved[8];                 /* Future use */
-        } candidate_state;
-        struct
-        {
-            struct raft_progress *progress; /* Per-server replication state. */
-            struct raft_change *change;     /* Pending membership change. */
-            raft_id promotee_id;            /* ID of server being promoted. */
-            unsigned short round_number;    /* Current sync round. */
-            raft_index round_index;         /* Target of the current round. */
-            raft_time round_start;          /* Start of current round. */
-            void *requests[2];              /* Outstanding client requests. */
-            uint64_t reserved[8];           /* Future use */
-        } leader_state;
+        struct follower_state follower_state;
+        struct candidate_state candidate_state;
+        struct leader_state leader_state;
     };
 
     /* Election timer start.

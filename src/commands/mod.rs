@@ -27,7 +27,7 @@ pub use export_graphs::ExportGraphsArgs;
 )]
 pub struct Abstraktor {
     #[arg(
-        short = 'l',
+        short = 'v',
         long = "log-level",
         global = true,
         default_value = "info",

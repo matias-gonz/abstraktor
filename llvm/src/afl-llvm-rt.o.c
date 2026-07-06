@@ -75,7 +75,7 @@ __thread u32 __afl_prev_loc;
 /***
  * instrument block starting point
  ***/
-void trigger_block_event(u16 evtID, char* function_name, void** parameters)
+void trigger_block_event(u16 evtID, char* transition_name, void** parameters, long long size)
 {
   /* find location to record this event */
   u16 loc = __atomic_add_fetch(&evtVec_ptr[0].evtCounter, 1, __ATOMIC_RELAXED);
@@ -90,8 +90,10 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters)
   evtVec_ptr[loc].blockEventTimestamp = time;
   evtVec_ptr[loc].blockEventID = evtID;
 
-  u16** parameter_state = (u16**)parameters;
-  u16* com = *parameters;
+  u16* com = (u16*)parameters[0];
+
+  int v = 0;
+
   u16 state = *com;
   char* final_state;
   if(state == 0){
@@ -100,16 +102,79 @@ void trigger_block_event(u16 evtID, char* function_name, void** parameters)
     final_state = "Follower";
   } else if (state == 2){
     final_state = "Candidate";
+
+    if (size == 2){
+      bool* in_quorum_ptr = (bool*)parameters[1];
+      bool in_quorum = *in_quorum_ptr;
+
+      if (in_quorum) {
+        final_state = "CandidateVotesInQuorum";
+      } else {
+        final_state = "CandidateNotVotesInQuorum";
+      }
+    }
   } else if (state == 3){
     final_state = "Leader";
+
+    if (size == 7) {
+      void* second_slot = parameters[1]; 
+
+      u64* current_term_ptr = (u64*)second_slot;
+
+      u64 current_term = *current_term_ptr;
+
+      void* third_slot = parameters[2];
+      u64* commit_index_ptr = (u64*)third_slot;
+      u64 commit_index = *commit_index_ptr;
+
+      void* fourth_slot = parameters[3];
+      u64* last_log_index_ptr = (u64*)fourth_slot;
+      u64 last_log_index = *last_log_index_ptr;
+
+      void* fifth_slot = parameters[4];
+      bool* exist_ptr = (bool*)fifth_slot;
+      bool existIndex = *exist_ptr;
+
+      void* sixth_slot = parameters[5];
+      u64* max_index_quorum_ptr = (u64*)sixth_slot;
+      u64 max_index_quorum = *max_index_quorum_ptr;
+
+      void* seventh_slot = parameters[6];
+      u64* log_term_max_index_quorum_ptr = (u64*)seventh_slot;
+      u64 log_term_max_index_quorum = *log_term_max_index_quorum_ptr;
+
+      bool matching_quorum = existIndex && (log_term_max_index_quorum == current_term);
+
+      bool not_matching_quorum = !matching_quorum;
+
+      bool commit_at_end = (commit_index == last_log_index);
+
+      bool commit_not_at_end = !commit_at_end;
+
+      bool leaderNotMatchingQuorumLogUpdated = not_matching_quorum && commit_at_end;
+      bool leaderMatchingQuorumLogUpdated = matching_quorum && commit_at_end;
+      bool leaderNotMatchingQuorumNotLogUpdated = not_matching_quorum && commit_not_at_end;
+      bool leaderMatchingQuorumNotLogUpdated = matching_quorum && commit_not_at_end;
+
+      if (leaderNotMatchingQuorumLogUpdated) {
+        final_state = "LeaderNotMatchingQuorumLogUpdated";
+      } else if (leaderMatchingQuorumLogUpdated) {
+        final_state = "LeaderMatchingQuorumLogUpdated";
+      } else if (leaderNotMatchingQuorumNotLogUpdated) {
+        final_state = "LeaderNotMatchingQuorumNotLogUpdated";
+      } else if (leaderMatchingQuorumNotLogUpdated) {
+        final_state = "LeaderMatchingQuorumNotLogUpdated";
+      }
+    }
   } else {
     final_state = "Unknown";
   }
-  strcpy(evtVec_ptr[loc].stateBlockName, function_name);
+
+  strcpy(evtVec_ptr[loc].blockFuncName, transition_name);
   strcpy(evtVec_ptr[loc].stateBlockName, final_state);
 }
 
-void trigger_func_event(u16 evtID, char* function_name, void** parameters)
+void trigger_func_event(u16 evtID, char* transition_name, void** parameters, long long size)
 {
   /* find location to record this event */
   u16 loc = __atomic_add_fetch(&evtVec_ptr[0].evtCounter, 1, __ATOMIC_RELAXED);
@@ -124,8 +189,10 @@ void trigger_func_event(u16 evtID, char* function_name, void** parameters)
   evtVec_ptr[loc].ftimestamp = time;
   evtVec_ptr[loc].fevtID = evtID;
 
-  u16** parameter_state = (u16**)parameters;
-  u16* com = *parameters;
+  u16* com = (u16*)parameters[0];
+
+  int v = 0;
+
   u16 state = *com;
   char* final_state;
   if(state == 0){
@@ -134,12 +201,48 @@ void trigger_func_event(u16 evtID, char* function_name, void** parameters)
     final_state = "Follower";
   } else if (state == 2){
     final_state = "Candidate";
+
+    if (size == 2){
+      bool* in_quorum_ptr = (bool*)parameters[1];
+      bool in_quorum = *in_quorum_ptr;
+
+      if (in_quorum) {
+        final_state = "CandidateVotesInQuorum";
+      } else {
+        final_state = "CandidateNotVotesInQuorum";
+      }
+    } else if (size == 8){
+      bool** votes_ptr = (bool**)parameters[1];
+      bool* votes = *votes_ptr;
+      u64* n_voters_ptr = (u64*)parameters[4];
+      long long n_voters = *n_voters_ptr;
+      size_t half = n_voters / 2;
+
+      for(int i = 0; i < n_voters; i++){
+        if(votes[i]){ v++; }
+      }
+      if (v > half) {
+        final_state = "CandidateVotesInQuorum";
+      } else {
+        final_state = "CandidateNotVotesInQuorum";
+      }
+    } else if (size == 3){
+      bool* in_quorum_ptr = (bool*)parameters[2];
+      bool in_quorum = *in_quorum_ptr;
+
+      if (in_quorum) {
+        final_state = "CandidateVotesInQuorum";
+      } else {
+        final_state = "CandidateNotVotesInQuorum";
+      }
+    }
+
   } else if (state == 3){
     final_state = "Leader";
   } else {
     final_state = "Unknown";
   }
-  strcpy(evtVec_ptr[loc].funcName, function_name);
+  strcpy(evtVec_ptr[loc].funcName, transition_name);
   strcpy(evtVec_ptr[loc].stateFuncName, final_state);
 }
 

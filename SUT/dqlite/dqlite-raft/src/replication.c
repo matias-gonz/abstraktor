@@ -42,12 +42,34 @@ struct sendAppendEntries
 };
 
 /* Callback invoked after request to send an AppendEntries RPC has completed. */
-// ABSTRAKTOR_CONST: constante
 static void sendAppendEntriesCb(struct raft_io_send *send, const int status)
 {
     struct sendAppendEntries *req = send->data;
+    // ABSTRAKTOR_BLOCK_EVENT: r->19, r->6, r->16
     struct raft *r = req->raft;
     unsigned i = configurationIndexOf(&r->configuration, req->server_id);
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
+
+    if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log); 
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
+    }
 
     if (r->state == RAFT_LEADER && i < r->configuration.n) {
         if (status != 0) {
@@ -65,7 +87,7 @@ static void sendAppendEntriesCb(struct raft_io_send *send, const int status)
 
 /* Send an AppendEntries message to the i'th server, including all log entries
  * from the given point onwards. */
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19, r->6, r->16
 static int sendAppendEntries(struct raft *r,
                              const unsigned i,
                              const raft_index prev_index,
@@ -75,12 +97,35 @@ static int sendAppendEntries(struct raft *r,
     struct raft_message message;
     struct raft_append_entries *args = &message.append_entries;
     struct sendAppendEntries *req;
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
     raft_index next_index = prev_index + 1;
     int rv;
 
     args->term = r->current_term;
     args->prev_log_index = prev_index;
     args->prev_log_term = prev_term;
+
+    if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: log
+         
+        log = logLastIndex(r->log); 
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
+    }
 
     /* TODO: implement a limit to the total size of the entries being sent */
     rv = logAcquire(r->log, next_index, &args->entries, &args->n_entries);
@@ -155,7 +200,31 @@ struct sendInstallSnapshot
 static void sendInstallSnapshotCb(struct raft_io_send *send, int status)
 {
     struct sendInstallSnapshot *req = send->data;
+    // ABSTRAKTOR_BLOCK_EVENT: r->19, r->6, r->16
     struct raft *r = req->raft;
+
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
+
+    if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log); 
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
+    }
     const struct raft_server *server;
 
     server = configurationGet(&r->configuration, req->server_id);
@@ -174,13 +243,36 @@ static void sendInstallSnapshotCb(struct raft_io_send *send, int status)
     raft_free(req);
 }
 
-// ABSTRAKTOR_CONST: constante
 static void sendSnapshotGetCb(struct raft_io_snapshot_get *get,
                               struct raft_snapshot *snapshot,
                               int status)
 {
     struct sendInstallSnapshot *req = get->data;
+    // ABSTRAKTOR_BLOCK_EVENT: r->19, r->6, r->16
     struct raft *r = req->raft;
+
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
+
+    if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log); 
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
+    }
     struct raft_message message;
     struct raft_install_snapshot *args = &message.install_snapshot;
     const struct raft_server *server = NULL;
@@ -251,7 +343,7 @@ out:
 }
 
 /* Send the latest snapshot to the i'th server */
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19, r->6, r->16
 static int sendSnapshot(struct raft *r, const unsigned i)
 {
     struct raft_server *server = &r->configuration.servers[i];
@@ -261,6 +353,30 @@ static int sendSnapshot(struct raft *r, const unsigned i)
     progressToSnapshot(r, i);
 
     request = raft_malloc(sizeof *request);
+
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
+
+    if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log); 
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
+    }
+
     if (request == NULL) {
         rv = RAFT_NOMEM;
         goto err;
@@ -675,13 +791,17 @@ err:
     return rv;
 }
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19, r->6, r->16
 int replicationUpdate(struct raft *r,
                       const struct raft_server *server,
                       const struct raft_append_entries_result *result)
 {
     bool is_being_promoted;
     raft_index last_index;
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
     unsigned i;
     int rv;
 
@@ -689,6 +809,25 @@ int replicationUpdate(struct raft *r,
 
     assert(r->state == RAFT_LEADER);
     assert(i < r->configuration.n);
+
+    
+    if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log); 
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
+    }
 
     progressMarkRecentRecv(r, i);
 
@@ -805,7 +944,7 @@ static void sendAppendEntriesResultCb(struct raft_io_send *req, int status)
     RaftHeapFree(req);
 }
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19 END
 static void sendAppendEntriesResult(
     struct raft *r,
     const struct raft_append_entries_result *result)
@@ -999,7 +1138,7 @@ static int checkLogMatchingProperty(struct raft *r,
  * The i output parameter will be set to the array index of the first new log
  * entry that we don't have yet in our log, among the ones included in the given
  * AppendEntries request. */
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19 END
 static int deleteConflictingEntries(struct raft *r,
                                     const struct raft_append_entries *args,
                                     size_t *i)
@@ -1058,7 +1197,7 @@ static int deleteConflictingEntries(struct raft *r,
     return 0;
 }
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19 END
 int replicationAppend(struct raft *r,
                       const struct raft_append_entries *args,
                       raft_index *rejected,
@@ -1470,7 +1609,7 @@ static bool shouldTakeSnapshot(struct raft *r)
      * don't want to start another one. */
     if (r->snapshot.pending.term != 0 || r->snapshot.put.data != NULL) {
         return false;
-    };
+    }
 
     /* If we didn't reach the threshold yet, do nothing. */
     if (r->last_applied - r->log->snapshot.last_index < r->snapshot.threshold) {
@@ -1484,7 +1623,7 @@ static bool shouldTakeSnapshot(struct raft *r)
  * When taking a snapshot, ownership of the snapshot data is with raft if
  * `snapshot_finalize` is NULL.
  */
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19, r->6, r->16
 static void takeSnapshotClose(struct raft *r, struct raft_snapshot *s)
 {
     if (r->fsm->version == 1 ||
@@ -1493,6 +1632,30 @@ static void takeSnapshotClose(struct raft *r, struct raft_snapshot *s)
         return;
     }
 
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
+
+
+    if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log); 
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
+    }
+    
     configurationClose(&s->configuration);
     r->fsm->snapshot_finalize(r->fsm, &s->bufs, &s->n_bufs);
 }
@@ -1656,14 +1819,36 @@ abort:
     return rv;
 }
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19, r->6, r->16
 int replicationApply(struct raft *r)
 {
     raft_index index;
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
     int rv = 0;
 
     assert(r->state == RAFT_LEADER || r->state == RAFT_FOLLOWER);
     assert(r->last_applied <= r->commit_index);
+
+    if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log); 
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
+    }
 
     if (r->last_applied == r->commit_index) {
         /* Nothing to do. */
@@ -1710,17 +1895,39 @@ int replicationApply(struct raft *r)
     return rv;
 }
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19, r->6, r->16
 void replicationQuorum(struct raft *r, const raft_index index)
 {
     size_t votes = 0;
     size_t i;
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
     raft_term term;
 
     assert(r->state == RAFT_LEADER);
 
     if (index <= r->commit_index) {
         return;
+    }
+
+    if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log); 
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
     }
 
     term = logTermOf(r->log, index);

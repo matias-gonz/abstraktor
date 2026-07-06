@@ -25,6 +25,9 @@ pub struct ExportGraphsArgs {
 
     #[arg(short = 'f', long = "format", value_enum, default_value = "png")]
     pub format: OutputFormat,
+
+    #[arg(long = "keep-dot", default_value = "false")]
+    pub keep_dot: bool,
 }
 
 pub fn run(args: ExportGraphsArgs, logger: &Logger, sh: &Shell) -> Result<()> {
@@ -94,8 +97,9 @@ pub fn run(args: ExportGraphsArgs, logger: &Logger, sh: &Shell) -> Result<()> {
                     .with_context(|| {
                         format!("graphviz 'dot' failed generating {}", out_path.display())
                     })?;
-                logger.debug("Cleaning up temporary DOT file");
-                let _ = fs::remove_file(&tmp_dot);
+                if !args.keep_dot {
+                    let _ = fs::remove_file(&tmp_dot);
+                }
                 logger.success(format!("Wrote {}", out_path.display()));
             }
         }
@@ -128,6 +132,7 @@ mod tests {
             log_path: "tests/export_graphs_test/simple_events.log".to_string(),
             output_dir: output_dir.to_str().unwrap().to_string(),
             format: OutputFormat::Dot,
+            keep_dot: false,
         };
 
         let logger = create_test_logger();
@@ -153,6 +158,7 @@ mod tests {
             log_path: "tests/export_graphs_test/multi_node_events.log".to_string(),
             output_dir: output_dir.to_str().unwrap().to_string(),
             format: OutputFormat::Dot,
+            keep_dot: false,
         };
 
         let logger = create_test_logger();
@@ -183,6 +189,7 @@ mod tests {
             log_path: "tests/export_graphs_test/simple_events.log".to_string(),
             output_dir: output_dir.to_str().unwrap().to_string(),
             format: OutputFormat::Png,
+            keep_dot: false,
         };
 
         let logger = create_test_logger();
@@ -218,6 +225,7 @@ mod tests {
             log_path: "tests/export_graphs_test/simple_events.log".to_string(),
             output_dir: output_dir.to_str().unwrap().to_string(),
             format: OutputFormat::Pdf,
+            keep_dot: false,
         };
 
         let logger = create_test_logger();
@@ -253,6 +261,7 @@ mod tests {
             log_path: "tests/export_graphs_test/simple_events.log".to_string(),
             output_dir: output_dir.to_str().unwrap().to_string(),
             format: OutputFormat::Dot,
+            keep_dot: false,
         };
 
         let logger = create_test_logger();
@@ -273,6 +282,7 @@ mod tests {
             log_path: "tests/export_graphs_test/empty_events.log".to_string(),
             output_dir: output_dir.to_str().unwrap().to_string(),
             format: OutputFormat::Dot,
+            keep_dot: false,
         };
 
         let logger = create_test_logger();
@@ -296,6 +306,7 @@ mod tests {
             log_path: "tests/export_graphs_test/nonexistent.log".to_string(),
             output_dir: output_dir.to_str().unwrap().to_string(),
             format: OutputFormat::Dot,
+            keep_dot: false,
         };
 
         let logger = create_test_logger();
@@ -315,6 +326,7 @@ mod tests {
             log_path: "tests/export_graphs_test/complex_events.log".to_string(),
             output_dir: output_dir.to_str().unwrap().to_string(),
             format: OutputFormat::Dot,
+            keep_dot: false,
         };
 
         let logger = create_test_logger();
@@ -350,6 +362,7 @@ mod tests {
             log_path: "tests/export_graphs_test/simple_events.log".to_string(),
             output_dir: output_dir.to_str().unwrap().to_string(),
             format: OutputFormat::Dot,
+            keep_dot: false,
         };
 
         let logger = create_test_logger();

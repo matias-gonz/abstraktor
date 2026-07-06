@@ -563,12 +563,13 @@ impl ScheduleManager {
             let our_history = our_history.or_default();
 
             log::info!(
-                "[STATS][NEMESIS] Completed {} schedules. At step {}/{} in schedule {}: {}",
+                "[STATS][NEMESIS] Completed {} schedules. At step {}/{} in schedule {}: {} | past_schedules retained: {}",
                 self.num_completed_schedules(),
                 self.timing.current_step().0,
                 self.timing.schedule_length(),
                 self.num_current_schedule(),
                 our_history.current_schedule,
+                our_history.past_schedules.len(),
             );
         }
     }

@@ -298,4 +298,42 @@ bool progressSnapshotDone(struct raft *r, const unsigned i)
     return p->match_index >= p->snapshot_index;
 }
 
+bool progressTestExistIndex(struct raft *r, size_t i, raft_index index)
+{
+    if (r == NULL || r->leader_state.progress == NULL) return false;
+    if (i >= r->configuration.n) return false;
+    
+    struct raft_progress *p = &r->leader_state.progress[i];
+    return p->match_index >= index;
+}
+
+bool progressTestExistIndexQuorum(struct raft *r, raft_index index)
+{
+    size_t n_voters = configurationVoterCount(&r->configuration);
+    size_t count = 0;
+
+    for (size_t i = 0; i < r->configuration.n; i++) {
+        if (r->configuration.servers[i].role != RAFT_VOTER) {
+            continue;
+        }
+        if (progressTestExistIndex(r, i, index)) count++;
+    }
+
+    return count >= (n_voters / 2) + 1;
+}
+
+raft_index progressTestGetMaxIndexQuorum(struct raft *r)
+{
+    for (size_t i = logLastIndex(r->log); i > 0; i--) {
+        if (progressTestExistIndexQuorum(r, i)) return i;
+    }
+
+    return 0;
+}
+
+bool progressTestExistsOneIndexQuorum(struct raft *r)
+{
+    return progressTestGetMaxIndexQuorum(r) != 0;
+}
+
 #undef tracef

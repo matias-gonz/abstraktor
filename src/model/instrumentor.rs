@@ -1,14 +1,33 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap};
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct TargetInfo {
+    pub var_info: Vec<VarInfo>,
+    pub group: GroupInfo,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct VarInfo {
+    pub var_name: String,
+    pub struct_index_groups: Vec<Vec<u32>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct GroupInfo {
+    pub end_mark: bool,
+    pub id: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct InstrumentationTargets {
     pub path: String,
-    pub targets_const: HashMap<usize, String>,
-    pub targets_block: HashMap<usize, HashMap<String, Vec<u32>>>,
-    pub targets_function: HashMap<usize, HashMap<String, Vec<u32>>>,
+    pub targets_const: BTreeMap<usize, String>,
+    pub targets_block: BTreeMap<usize, TargetInfo>,
+    pub targets_function: BTreeMap<usize, TargetInfo>,
+    pub group_transition_names: BTreeMap<u32, String>,
 }
 
 pub struct Instrumentor {
@@ -16,15 +35,27 @@ pub struct Instrumentor {
     target_block_regex: Regex,
     block_start_regex: Regex,
     target_function_regex: Regex,
+    target_override_transition_name_regex: Regex,
+    target_override_func_regex: Regex,
+    target_override_block_regex: Regex,
 }
 
 impl Instrumentor {
     pub fn new() -> Self {
         Self {
             target_const_regex: Regex::new(r"ABSTRAKTOR_CONST: (\w+)").unwrap(),
-            target_block_regex: Regex::new(r"ABSTRAKTOR_BLOCK_EVENT(?:[:\s]*(\w+(?:->\d+)*))?").unwrap(),
+            target_block_regex: Regex::new(r"ABSTRAKTOR_BLOCK_EVENT(?:\s*:\s*(\w+(?:->\d+)*(?:\s*,\s*\w+(?:->\d+)*)*))?(?:\s+END)?\s*$").unwrap(),
             block_start_regex: Regex::new(r"^(([a-zA-z]{1}.*)|\})").unwrap(),
-            target_function_regex: Regex::new(r"ABSTRAKTOR_FUNC:\s*(\w+(?:->\d+)*(?:\s*,\s*\w+(?:->\d+)*)*)\s*").unwrap(),
+            target_function_regex: Regex::new(r"ABSTRAKTOR_FUNC:\s*(\w+(?:->\d+)*(?:\s*,\s*\w+(?:->\d+)*)*)(?:\s+END)?\s*$").unwrap(),
+            target_override_transition_name_regex: Regex::new(
+                r"ABSTRAKTOR_OVERRADE_TRANSITION_NAME:\s*(\w+)\s*,\s*(ABSTRAKTOR_FUNC|ABSTRAKTOR_BLOCK_EVENT)"
+            ).unwrap(),
+            target_override_func_regex: Regex::new(
+                r"ABSTRAKTOR_OVERRADE_TRANSITION_NAME:\s*\w+\s*,\s*ABSTRAKTOR_FUNC:\s*(\w+(?:->\d+)*(?:\s*,\s*\w+(?:->\d+)*)*)(?:\s+END)?\s*$"
+            ).unwrap(),
+            target_override_block_regex: Regex::new(
+                r"ABSTRAKTOR_OVERRADE_TRANSITION_NAME:\s*\w+\s*,\s*ABSTRAKTOR_BLOCK_EVENT(?:\s*:\s*(\w+(?:->\d+)*(?:\s*,\s*\w+(?:->\d+)*)*))?(?:\s+END)?\s*$"
+            ).unwrap(),
         }
     }
 
@@ -44,7 +75,75 @@ impl Instrumentor {
         None
     }
 
-    fn get_targets_single(&self, content: &str, path: &str) -> InstrumentationTargets {
+    fn parse_target_line(
+        &self,
+        line: &str,
+        regex: &Regex,
+        id: &mut u32,
+    ) -> Option<TargetInfo> {
+        let captures = regex.captures(line)?;
+     
+        let list = captures
+            .get(1)
+            .map(|m| m.as_str())
+            .unwrap_or("");
+
+        let has_end = line.trim_end().ends_with("END");
+
+        let mut map: BTreeMap<String, Vec<Vec<u32>>> = BTreeMap::new();
+        let regex_variables = Regex::new(r"(\w+)((?:->\d+)*)").unwrap();
+        for variables_captures in regex_variables.captures_iter(list) {
+            let var_name = variables_captures[1].to_string();
+
+            let mut numbers: Vec<u32> = Vec::new();
+            if let Some(numbers_match) = variables_captures.get(2) {
+                let numbers_str = numbers_match.as_str();
+                if !numbers_str.is_empty() {
+                    numbers = numbers_str
+                        .split("->")
+                        .filter(|s| !s.is_empty())
+                        .map(|s| s.parse::<u32>().unwrap())
+                        .collect();
+                }
+            }
+
+            if !numbers.is_empty() {
+                map.entry(var_name)
+                .or_insert_with(Vec::new)
+                .push(numbers);
+            } else {
+                map.entry(var_name)
+                .or_insert_with(Vec::new);
+            }
+        }
+
+        let mut var_info: Vec<VarInfo> = map
+            .into_iter()
+            .map(|(var_name, struct_index_groups)| VarInfo {
+                var_name,
+                struct_index_groups,
+            })
+            .collect();
+
+        var_info.sort_by(|a, b| a.var_name.cmp(&b.var_name));
+
+        let group = GroupInfo {
+            end_mark: has_end,
+            id: *id,
+        };
+
+        if has_end {
+            *id += 1;
+        }
+
+        Some(TargetInfo {
+            var_info,
+            group,
+        })
+    }
+
+
+    fn get_targets_single(&self, content: &str, path: &str, id: &mut u32) -> InstrumentationTargets {
         let mut targets = InstrumentationTargets {
             path: path.to_string(),
             ..Default::default()
@@ -56,36 +155,40 @@ impl Instrumentor {
             let line = lines[i];
             let line_num = i + 1;
 
-            if self.target_function_regex.is_match(line){
-                let captures = self.target_function_regex.captures(line).unwrap();
+            if self.target_override_transition_name_regex.is_match(line) {
+                let captures = self.target_override_transition_name_regex.captures(line).unwrap();
+                let transition_name = captures[1].to_string();
+                let event_type = captures[2].to_string();
 
-                let list = &captures[1]; 
+                let parse_regex = match event_type.as_str() {
+                    "ABSTRAKTOR_FUNC" => &self.target_override_func_regex,
+                    _ => &self.target_override_block_regex,
+                };
 
-                let mut map: HashMap<String, Vec<u32>> = HashMap::new();
-                let regex_variables = Regex::new(r"(\w+)((?:->\d+)*)").unwrap();
-
-                for variables_captures in regex_variables.captures_iter(list) {
-                    let var_name = variables_captures[1].to_string(); 
-                    
-                    let mut numbers: Vec<u32> = Vec::new();
-                    if let Some(numbers_match) = variables_captures.get(2){
-                        
-                        let numbers_str = numbers_match.as_str();
-                        if !numbers_str.is_empty() {
-                            numbers = numbers_str
-                                .split("->")
-                                .filter(|s| !s.is_empty())
-                                .map(|s| s.parse::<u32>().unwrap())
-                                .collect();
+                if let Some(target_info) = self.parse_target_line(line, parse_regex, id) {
+                    targets.group_transition_names.insert(target_info.group.id, transition_name);
+                    if let Some(block_line) = self.find_next_block_start(&lines, line_num) {
+                        match event_type.as_str() {
+                            "ABSTRAKTOR_FUNC" => { targets.targets_function.insert(block_line, target_info); }
+                            _ => { targets.targets_block.insert(block_line, target_info); }
                         }
-                    } 
-                        
-                    map.insert(var_name, numbers);
+                    }
                 }
-                if let Some(block_line) = self.find_next_block_start(&lines, line_num) {
-                    targets.targets_function.insert(block_line, map);
+            } else {
+                if self.target_function_regex.is_match(line) {
+                    if let Some(target_info) = self.parse_target_line(line, &self.target_function_regex, id) {
+                        if let Some(block_line) = self.find_next_block_start(&lines, line_num) {
+                            targets.targets_function.insert(block_line, target_info);
+                        }
+                    }
                 }
-                
+                if self.target_block_regex.is_match(line) {
+                    if let Some(target_info) = self.parse_target_line(line, &self.target_block_regex, id) {
+                        if let Some(block_line) = self.find_next_block_start(&lines, line_num) {
+                            targets.targets_block.insert(block_line, target_info);
+                        }
+                    }
+                }
             }
             if self.target_const_regex.is_match(line) {
                 let captures = self.target_const_regex.captures(line).unwrap();
@@ -95,37 +198,6 @@ impl Instrumentor {
                     targets.targets_const.insert(block_line, const_name);
                 }
             }
-            if self.target_block_regex.is_match(line) {
-                
-                let captures = self.target_block_regex.captures(line).unwrap();
-                let mut var_name: String = "".to_string();
-                let mut numbers: Vec<u32> = Vec::new();
-                let mut map_block: HashMap<String, Vec<u32>> = HashMap::new();
-                if captures.get(1).is_some(){
-                    let list = &captures[1]; 
-                    print!("{}", list);
-                    let regex_variables = Regex::new(r"(\w+)((?:->\d+)*)").unwrap();
-                    
-                    for variables_captures in regex_variables.captures_iter(list) {
-                        var_name = variables_captures[1].to_string(); 
-                        numbers = Vec::new();
-                        if let Some(numbers_match) = variables_captures.get(2){
-                            let numbers_str = numbers_match.as_str();
-                            if !numbers_str.is_empty() {
-                                numbers = numbers_str
-                                    .split("->")
-                                    .filter(|s| !s.is_empty())
-                                    .map(|s| s.parse::<u32>().unwrap())
-                                    .collect();
-                            }
-                        }
-                    }
-                }
-                map_block.insert(var_name, numbers);
-                if let Some(block_line) = self.find_next_block_start(&lines, line_num) {
-                    targets.targets_block.insert(block_line, map_block);
-                }
-            }
             i += 1;
         }
 
@@ -133,9 +205,10 @@ impl Instrumentor {
     }
 
     pub fn get_targets(&self, files: Vec<(String, String)>) -> Vec<InstrumentationTargets> {
+        let mut id = 0;
         files
             .into_iter()
-            .map(|(content, path)| self.get_targets_single(&content, &path))
+            .map(|(content, path)| self.get_targets_single(&content, &path, &mut id))
             .collect()
     }
 }
@@ -211,7 +284,7 @@ mod tests {
         let x = 1;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
         assert!(targets.targets_block.is_empty());
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -229,9 +302,9 @@ mod tests {
         let z = 3;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
 
-        let expected = HashMap::from([
+        let expected = BTreeMap::from([
             (3, "x".to_string()),
             (5, "y".to_string()),
             (7, "z".to_string()),
@@ -253,13 +326,40 @@ mod tests {
         let z = 3;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
-        let expected_block = HashMap::from([(3_usize, HashMap::from([("".to_string(), Vec::new())])), (7_usize, HashMap::from([("".to_string(), Vec::new())]))]);
-        let expected_const = HashMap::from([(5, "y".to_string())]);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
+
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                3_usize,
+                TargetInfo {
+                    var_info: vec![],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    },
+                },
+            ),
+            (
+                7_usize,
+                TargetInfo {
+                    var_info: vec![],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    },
+                },
+            ),
+        ]);
+
+        let expected_const = BTreeMap::from([
+            (5_usize, "y".to_string())
+        ]);
+
         assert_eq!(targets.targets_block, expected_block);
         assert_eq!(targets.targets_const, expected_const);
         assert_eq!(targets.path, path);
     }
+
 
     #[test]
     fn test_parse_targets_with_complex_block_annotations() {
@@ -269,11 +369,31 @@ mod tests {
         let x = 1;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
-        assert_eq!(targets.targets_block,HashMap::from([(3_usize, HashMap::from([("x".to_string(), vec![4])]))]));
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
+
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                3_usize,
+                TargetInfo {
+                    var_info: vec![
+                        VarInfo {
+                            var_name: "x".to_string(),
+                            struct_index_groups: vec![vec![4]],
+                        }
+                    ],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    },
+                }
+            )
+        ]);
+
+        assert_eq!(targets.targets_block, expected_block);
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
     }
+
 
     #[test]
     fn test_parse_targets_with_complex_block_multiple_fields_annotations() {
@@ -283,11 +403,31 @@ mod tests {
         let x = 1;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
-        assert_eq!(targets.targets_block,HashMap::from([(3_usize, HashMap::from([("x".to_string(), vec![4,5])]))]));
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
+
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                3_usize,
+                TargetInfo {
+                    var_info: vec![
+                        VarInfo {
+                            var_name: "x".to_string(),
+                            struct_index_groups: vec![vec![4, 5]],
+                        }
+                    ],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    },
+                }
+            )
+        ]);
+
+        assert_eq!(targets.targets_block, expected_block);
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
     }
+
     #[test]
     fn test_parse_targets_with_consecutive_block_annotations() {
         let instrumentor = Instrumentor::new();
@@ -300,11 +440,46 @@ mod tests {
         let z = 3;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
-        assert_eq!(targets.targets_block,HashMap::from([(3_usize, HashMap::from([("".to_string(), Vec::new())])), (5_usize, HashMap::from([("".to_string(), Vec::new())])), (7_usize, HashMap::from([("".to_string(), Vec::new())]))]));
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
+
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                3_usize,
+                TargetInfo {
+                    var_info: vec![],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    },
+                }
+            ),
+            (
+                5_usize,
+                TargetInfo {
+                    var_info: vec![],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    },
+                }
+            ),
+            (
+                7_usize,
+                TargetInfo {
+                    var_info: vec![],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    },
+                }
+            ),
+        ]);
+
+        assert_eq!(targets.targets_block, expected_block);
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
     }
+
 
     #[test]
     fn test_parse_targets_with_empty_lines_between_blocks() {
@@ -319,11 +494,36 @@ mod tests {
         let y = 2;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
-        assert_eq!(targets.targets_block, HashMap::from([(4_usize, HashMap::from([("".to_string(), Vec::new())])), (8_usize, HashMap::from([("".to_string(), Vec::new())]))]));
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
+
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                4_usize,
+                TargetInfo {
+                    var_info: vec![],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    },
+                }
+            ),
+            (
+                8_usize,
+                TargetInfo {
+                    var_info: vec![],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    },
+                }
+            ),
+        ]);
+
+        assert_eq!(targets.targets_block, expected_block);
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
     }
+
 
     #[test]
     fn test_parse_targets_with_comments_between_blocks() {
@@ -338,13 +538,38 @@ mod tests {
         let y = 2;
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
-        assert_eq!(targets.targets_block, HashMap::from([(5_usize, HashMap::from([("".to_string(), Vec::new())])), (8_usize, HashMap::from([("".to_string(), Vec::new())]))]));
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
+
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                5_usize,
+                TargetInfo {
+                    var_info: vec![],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    },
+                }
+            ),
+            (
+                8_usize,
+                TargetInfo {
+                    var_info: vec![],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    },
+                }
+            ),
+        ]);
+
+        assert_eq!(targets.targets_block, expected_block);
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
     }
 
-    #[test]
+
+   #[test]
     fn test_parse_targets_with_block_at_end_of_file() {
         let instrumentor = Instrumentor::new();
         let content = r"
@@ -354,11 +579,26 @@ mod tests {
         // ABSTRAKTOR_BLOCK_EVENT
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
-        assert_eq!(targets.targets_block, HashMap::from([(4_usize, HashMap::from([("".to_string(), Vec::new())]))]));
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
+
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                4_usize,
+                TargetInfo {
+                    var_info: vec![],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    },
+                }
+            ),
+        ]);
+
+        assert_eq!(targets.targets_block, expected_block);
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
     }
+
 
     #[test]
     fn test_parse_targets_with_no_valid_block_start() {
@@ -369,7 +609,8 @@ mod tests {
         // No actual code
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
+
         assert!(targets.targets_block.is_empty());
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
@@ -384,13 +625,14 @@ mod tests {
         // No actual code
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
+
         assert!(targets.targets_block.is_empty());
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
     }
 
-    #[test]
+   #[test]
     fn test_parse_targets_with_block_starting_with_brace() {
         let instrumentor = Instrumentor::new();
         let content = r"
@@ -400,11 +642,26 @@ mod tests {
         { // start of new block
         ";
         let path = "test.c";
-        let targets = instrumentor.get_targets_single(content, path);
-        assert_eq!(targets.targets_block, HashMap::from([(3_usize, HashMap::from([("".to_string(), Vec::new())]))]));
+        let targets = instrumentor.get_targets_single(content, path, &mut 0);
+
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                3_usize,
+                TargetInfo {
+                    var_info: vec![],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    },
+                }
+            ),
+        ]);
+
+        assert_eq!(targets.targets_block, expected_block);
         assert!(targets.targets_const.is_empty());
         assert_eq!(targets.path, path);
     }
+
 
     #[test]
     fn test_parse_targets_one_file_func_only_one_parameter() {
@@ -429,16 +686,25 @@ mod tests {
         assert_eq!(targets[0].path, "file1.c");
         assert_eq!(
             targets[0].targets_const,
-            HashMap::from([(5, "y".to_string())])
+            BTreeMap::from([(5, "y".to_string())])
         );
-        let inside_map: HashMap<String, Vec<u32>> = HashMap::from([
-            ("r".to_string(), Vec::<u32>::new())
+        let expected: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                3_usize,
+                TargetInfo {
+                    var_info: vec![
+                        VarInfo {
+                            var_name: "r".to_string(),
+                            struct_index_groups: vec![],
+                        }
+                    ],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    }
+                }
+            )
         ]);
-
-        let expected: HashMap<usize, HashMap<String, Vec<u32>>> = HashMap::from([
-            (3_usize, inside_map)
-        ]);
-
         assert_eq!(targets[0].targets_function, expected);
 
     }
@@ -466,19 +732,29 @@ mod tests {
         assert_eq!(targets[0].path, "file1.c");
         assert_eq!(
             targets[0].targets_const,
-            HashMap::from([(5, "y".to_string())])
+            BTreeMap::from([(5, "y".to_string())])
         );
-        let inside_map: HashMap<String, Vec<u32>> = HashMap::from([
-            ("r".to_string(), vec![19])
+        let expected: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                3_usize,
+                TargetInfo {
+                    var_info: vec![
+                        VarInfo {
+                            var_name: "r".to_string(),
+                            struct_index_groups: vec![vec![19]],
+                        }
+                    ],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    }
+                }
+            )
         ]);
-
-        let expected: HashMap<usize, HashMap<String, Vec<u32>>> = HashMap::from([
-            (3_usize, inside_map)
-        ]);
-
         assert_eq!(targets[0].targets_function, expected);
 
     }
+    
 
     #[test]
     fn test_parse_targets_one_file_func_multiple_parameter_optional_fields() {
@@ -503,17 +779,107 @@ mod tests {
         assert_eq!(targets[0].path, "file1.c");
         assert_eq!(
             targets[0].targets_const,
-            HashMap::from([(5, "y".to_string())])
+            BTreeMap::from([(5, "y".to_string())])
         );
-        let inside_map: HashMap<String, Vec<u32>> = HashMap::from([
-            ("r".to_string(), vec![19,4,5])
+        let expected: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                3_usize,
+                TargetInfo {
+                    var_info: vec![
+                        VarInfo {
+                            var_name: "r".to_string(),
+                            struct_index_groups: vec![vec![19, 4, 5]],
+                        }
+                    ],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    }
+                }
+            )
         ]);
-
-        let expected: HashMap<usize, HashMap<String, Vec<u32>>> = HashMap::from([
-            (3_usize, inside_map)
-        ]);
-
         assert_eq!(targets[0].targets_function, expected);
+
+    }
+
+    #[test]
+    fn test_parse_targets_one_file_func_multiple_parameter_multiple_groups() {
+        let instrumentor = Instrumentor::new();
+        let files = vec![
+            (
+                r"
+                // ABSTRAKTOR_FUNC: r->19->4->5
+                let x = 1;
+                // ABSTRAKTOR_BLOCK_EVENT: y->15 END
+                let y = 2;
+                // ABSTRAKTOR_BLOCK_EVENT: z->15 END
+                let z = 2;
+                "
+                .to_string(),
+                "file1.c".to_string(),
+            ),
+        ];
+
+        let targets = instrumentor.get_targets(files);
+        assert_eq!(targets.len(), 1);
+
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                5_usize,
+                TargetInfo {
+                    var_info: vec![
+                        VarInfo {
+                            var_name: "y".to_string(),
+                            struct_index_groups: vec![vec![15]],
+                        },
+                    ],
+                    group: GroupInfo {
+                        end_mark: true,
+                        id: 0,
+                    }
+                }
+            ),
+            (
+                7_usize,
+                TargetInfo {
+                    var_info: vec![
+                        VarInfo {
+                            var_name: "z".to_string(),
+                            struct_index_groups: vec![vec![15]],
+                        },
+                    ],
+                    group: GroupInfo {
+                        end_mark: true,
+                        id: 1,
+                    }
+                }
+            ),
+        ]);
+
+        // Check first file
+        assert_eq!(targets[0].path, "file1.c");
+        assert_eq!(
+            targets[0].targets_block,
+            expected_block
+        );
+        let expected_function: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                3_usize,
+                TargetInfo {
+                    var_info: vec![
+                        VarInfo {
+                            var_name: "r".to_string(),
+                            struct_index_groups: vec![vec![19, 4, 5]],
+                        }
+                    ],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    }
+                }
+            )
+        ]);
+        assert_eq!(targets[0].targets_function, expected_function);
 
     }
 
@@ -538,26 +904,95 @@ mod tests {
 
         // Check first file
         assert_eq!(targets[0].path, "file1.c");
-  
-        let inside_map: HashMap<String, Vec<u32>> = HashMap::from([
-            ("r".to_string(), vec![19,4,5]),
-            ("r2".to_string(), vec![15])
+
+        let expected: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                3_usize,
+                TargetInfo {
+                    var_info: vec![
+                        VarInfo {
+                            var_name: "r".to_string(),
+                            struct_index_groups: vec![vec![19, 4, 5]],
+                        },
+                        VarInfo {
+                            var_name: "r2".to_string(),
+                            struct_index_groups: vec![vec![15]],
+                        }
+                    ],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    }
+                }
+            ),
+            (
+                5_usize,
+                TargetInfo {
+                    var_info: vec![
+                        VarInfo {
+                            var_name: "y2".to_string(),
+                            struct_index_groups: vec![vec![15]],
+                        }
+                    ],
+                    group: GroupInfo {
+                        end_mark: false,
+                        id: 0,
+                    }
+                }
+            )
         ]);
 
-        let second_inside_map: HashMap<String, Vec<u32>> = HashMap::from([
-            ("y2".to_string(), vec![15])
-        ]);
-
-        let expected: HashMap<usize, HashMap<String, Vec<u32>>> = HashMap::from([
-            (3_usize, inside_map),
-            (5_usize, second_inside_map)
-            
-        ]);
 
         assert_eq!(targets[0].targets_function, expected);
 
     }
 
+    #[test]
+    fn test_parse_targets_one_function_with_end() {
+        let instrumentor = Instrumentor::new();
+        let files = vec![
+            (
+                r"
+                // ABSTRAKTOR_FUNC: r->19->4->5, r2->15 END
+                let x = 1;
+                "
+                .to_string(),
+                "file1.c".to_string(),
+            ),
+        ];
+
+        let targets = instrumentor.get_targets(files);
+        assert_eq!(targets.len(), 1);
+
+        // Check first file
+        assert_eq!(targets[0].path, "file1.c");
+
+        let expected: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                3_usize,
+                TargetInfo {
+                    var_info: vec![
+                        VarInfo {
+                            var_name: "r".to_string(),
+                            struct_index_groups: vec![vec![19, 4, 5]],
+                        },
+                        VarInfo {
+                            var_name: "r2".to_string(),
+                            struct_index_groups: vec![vec![15]],
+                        }
+                    ],
+                    group: GroupInfo {
+                        end_mark: true,
+                        id: 0,
+                    }
+                }
+            ),
+        ]);
+
+
+        assert_eq!(targets[0].targets_function, expected);
+
+    }
 
     #[test]
     fn test_parse_targets_multiple_files() {
@@ -593,7 +1028,7 @@ mod tests {
         //assert_eq!(targets[0].targets_block, vec![3]);
         assert_eq!(
             targets[0].targets_const,
-            HashMap::from([(5, "y".to_string())])
+            BTreeMap::from([(5, "y".to_string())])
         );
 
         // Check second file
@@ -601,7 +1036,165 @@ mod tests {
         //assert_eq!(targets[1].targets_block, vec![3]);
         assert_eq!(
             targets[1].targets_const,
-            HashMap::from([(5, "w".to_string())])
+            BTreeMap::from([(5, "w".to_string())])
         );
+    }
+
+    #[test]
+    fn test_override_transition_name_with_func_with_vars() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: sending, ABSTRAKTOR_FUNC: r->19->4
+        do_something();
+        ";
+        let targets = instrumentor.get_targets_single(content, "test.c", &mut 0);
+
+        let expected_function: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                3_usize,
+                TargetInfo {
+                    var_info: vec![
+                        VarInfo { var_name: "r".to_string(), struct_index_groups: vec![vec![19, 4]] },
+                    ],
+                    group: GroupInfo { end_mark: false, id: 0 },
+                },
+            )
+        ]);
+        assert_eq!(targets.targets_function, expected_function);
+        assert!(targets.targets_block.is_empty());
+        assert_eq!(
+            targets.group_transition_names,
+            BTreeMap::from([(0_u32, "sending".to_string())])
+        );
+    }
+
+    #[test]
+    fn test_override_transition_name_with_block_event_with_vars() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: receiving, ABSTRAKTOR_BLOCK_EVENT: x->4->5
+        some_var = 5;
+        ";
+        let targets = instrumentor.get_targets_single(content, "test.c", &mut 0);
+
+        let expected_block: BTreeMap<usize, TargetInfo> = BTreeMap::from([
+            (
+                3_usize,
+                TargetInfo {
+                    var_info: vec![
+                        VarInfo { var_name: "x".to_string(), struct_index_groups: vec![vec![4, 5]] },
+                    ],
+                    group: GroupInfo { end_mark: false, id: 0 },
+                },
+            )
+        ]);
+        assert_eq!(targets.targets_block, expected_block);
+        assert!(targets.targets_function.is_empty());
+        assert_eq!(
+            targets.group_transition_names,
+            BTreeMap::from([(0_u32, "receiving".to_string())])
+        );
+    }
+
+    #[test]
+    fn test_override_transition_name_with_end_increments_id() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: alpha, ABSTRAKTOR_FUNC: r END
+        do_something();
+        // ABSTRAKTOR_FUNC: s END
+        do_other();
+        ";
+        let targets = instrumentor.get_targets_single(content, "test.c", &mut 0);
+
+        assert_eq!(
+            targets.targets_function[&3].group,
+            GroupInfo { end_mark: true, id: 0 }
+        );
+        assert_eq!(
+            targets.targets_function[&5].group,
+            GroupInfo { end_mark: true, id: 1 }
+        );
+        assert_eq!(
+            targets.group_transition_names,
+            BTreeMap::from([(0_u32, "alpha".to_string())])
+        );
+    }
+
+    #[test]
+    fn test_override_transition_name_group_spans_multiple_events() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: sending, ABSTRAKTOR_FUNC: r
+        do_something();
+        // ABSTRAKTOR_BLOCK_EVENT: x->4 END
+        some_var = 5;
+        ";
+        let targets = instrumentor.get_targets_single(content, "test.c", &mut 0);
+
+        // Ambos eventos pertenecen al grupo 0
+        assert_eq!(targets.targets_function[&3].group.id, 0);
+        assert_eq!(targets.targets_block[&5].group.id, 0);
+        assert_eq!(
+            targets.group_transition_names,
+            BTreeMap::from([(0_u32, "sending".to_string())])
+        );
+    }
+
+    #[test]
+    fn test_override_transition_name_multiple_groups() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: alpha, ABSTRAKTOR_FUNC: r END
+        do_something();
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: beta, ABSTRAKTOR_BLOCK_EVENT: x->4 END
+        some_var = 5;
+        ";
+        let targets = instrumentor.get_targets_single(content, "test.c", &mut 0);
+
+        assert_eq!(
+            targets.group_transition_names,
+            BTreeMap::from([
+                (0_u32, "alpha".to_string()),
+                (1_u32, "beta".to_string()),
+            ])
+        );
+        assert_eq!(targets.targets_function[&3].group.id, 0);
+        assert_eq!(targets.targets_block[&5].group.id, 1);
+    }
+
+    #[test]
+    fn test_override_transition_name_with_multiple_vars() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: sending, ABSTRAKTOR_FUNC: r->19, s->3
+        do_something();
+        ";
+        let targets = instrumentor.get_targets_single(content, "test.c", &mut 0);
+
+        let target = &targets.targets_function[&3];
+        assert_eq!(target.var_info.len(), 2);
+        assert_eq!(target.var_info[0].var_name, "r");
+        assert_eq!(target.var_info[0].struct_index_groups, vec![vec![19]]);
+        assert_eq!(target.var_info[1].var_name, "s");
+        assert_eq!(target.var_info[1].struct_index_groups, vec![vec![3]]);
+        assert_eq!(
+            targets.group_transition_names,
+            BTreeMap::from([(0_u32, "sending".to_string())])
+        );
+    }
+
+    #[test]
+    fn test_regular_events_do_not_populate_group_transition_names() {
+        let instrumentor = Instrumentor::new();
+        let content = r"
+        // ABSTRAKTOR_FUNC: r
+        do_something();
+        // ABSTRAKTOR_BLOCK_EVENT: x->4
+        some_var = 5;
+        ";
+        let targets = instrumentor.get_targets_single(content, "test.c", &mut 0);
+
+        assert!(targets.group_transition_names.is_empty());
     }
 }

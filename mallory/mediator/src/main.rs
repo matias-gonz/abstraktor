@@ -573,6 +573,27 @@ fn print_packet_processing_statistics() {
         num_pkts,
         num_dropped
     );
+
+    // In-memory state of the Packets structure.
+    let (pkt_vec_len, pkt_map_len) = HISTORY.get().packets.stats();
+    let unproc_len = PACKETS.get().unprocessed_packets.len();
+    let unreleased_len = PACKETS
+        .get()
+        .unreleased_packets
+        .try_lock()
+        .map(|q| q.len())
+        .unwrap_or(usize::MAX);
+    log::info!(
+        "[STATS][PACKETS] Vec: {} | by_network_id DashMap: {} | unprocessed: {} | unreleased: {}",
+        pkt_vec_len,
+        pkt_map_len,
+        unproc_len,
+        if unreleased_len == usize::MAX {
+            "<locked>".to_string()
+        } else {
+            unreleased_len.to_string()
+        },
+    );
 }
 
 fn print_firewall_statistics() {
@@ -864,20 +885,55 @@ fn setup_history(feedback_type: &String) {
     )));
 }
 
+// For the [STATS][MEM] delta between prints.
+static LAST_ALLOCATED: AtomicUsize = AtomicUsize::new(0);
+static LAST_RESIDENT: AtomicUsize = AtomicUsize::new(0);
+
+fn fmt_signed_bytes(delta: i128) -> String {
+    let sign = if delta >= 0 { "+" } else { "-" };
+    let abs = delta.unsigned_abs();
+    format!(
+        "{}{}",
+        sign,
+        Byte::from_bytes(abs).get_appropriate_unit(false)
+    )
+}
+
 /// Print memory usage statistics.
 fn print_memory_usage_statistics() {
     let e = epoch::mib().unwrap();
     let allocated = stats::allocated::mib().unwrap();
     let resident = stats::resident::mib().unwrap();
+    let active = stats::active::mib().unwrap();
+    let mapped = stats::mapped::mib().unwrap();
+    let metadata = stats::metadata::mib().unwrap();
+    let retained = stats::retained::mib().unwrap();
 
     // Many stats are only updated when the epoch is advanced.
     e.advance().unwrap();
     let allocated = allocated.read().unwrap();
     let resident = resident.read().unwrap();
+    let active = active.read().unwrap();
+    let mapped = mapped.read().unwrap();
+    let metadata = metadata.read().unwrap();
+    let retained = retained.read().unwrap();
+
+    // Compute deltas vs last print.
+    let prev_alloc = LAST_ALLOCATED.swap(allocated, Ordering::Relaxed);
+    let prev_res = LAST_RESIDENT.swap(resident, Ordering::Relaxed);
+    let alloc_delta = allocated as i128 - prev_alloc as i128;
+    let res_delta = resident as i128 - prev_res as i128;
+
     log::info!(
-        "[STATS][MEM] {} allocated / {} resident",
+        "[STATS][MEM] allocated: {} ({}) | resident: {} ({}) | active: {} | mapped: {} | metadata: {} | retained: {}",
         Byte::from_bytes(allocated as u128).get_appropriate_unit(false),
+        fmt_signed_bytes(alloc_delta),
         Byte::from_bytes(resident as u128).get_appropriate_unit(false),
+        fmt_signed_bytes(res_delta),
+        Byte::from_bytes(active as u128).get_appropriate_unit(false),
+        Byte::from_bytes(mapped as u128).get_appropriate_unit(false),
+        Byte::from_bytes(metadata as u128).get_appropriate_unit(false),
+        Byte::from_bytes(retained as u128).get_appropriate_unit(false),
     )
 }
 

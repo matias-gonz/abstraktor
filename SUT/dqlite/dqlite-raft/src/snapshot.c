@@ -8,6 +8,7 @@
 #include "err.h"
 #include "log.h"
 #include "tracing.h"
+#include "progress.h"
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
@@ -29,7 +30,7 @@ void snapshotDestroy(struct raft_snapshot *s)
     raft_free(s);
 }
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19 END
 int snapshotRestore(struct raft *r, struct raft_snapshot *snapshot)
 {
     int rv;

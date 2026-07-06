@@ -7,7 +7,12 @@ use xshell::Shell;
 use crate::logger::Logger;
 
 #[derive(Parser, Debug)]
-pub struct RunMalloryArgs {}
+pub struct RunMalloryArgs {
+	#[arg(long, default_value = "5")]
+	pub node_count: usize,
+	#[arg(long, default_value = "65")]
+	pub time_limit: usize,
+}
 
 pub fn run(_args: RunMalloryArgs, logger: &Logger, sh: &Shell) -> Result<()> {
 	logger.log("Starting Mallory test environment");
@@ -47,14 +52,20 @@ pub fn run(_args: RunMalloryArgs, logger: &Logger, sh: &Shell) -> Result<()> {
 	sh.cmd("sudo")
 		.arg(up_path.to_string_lossy().as_ref())
 		.arg("--no-build")
+		.arg("--node-count")
+		.arg(_args.node_count.to_string())
 		.run()
 		.context("Failed to run mallory up")?;
 
 	logger.success("Mallory environment is running");
 	
+	let jepsen_cmd = format!(
+		"cd /jepsen/mediator && ./target/x86_64-unknown-linux-musl/release/mediator qlearning event_history 0.7 & sleep 5 && cd /jepsen/tests/mallory/dqlite && lein run test --workload append --nemesis all --time-limit {} --test-count 1 ; cp /jepsen/tests/mallory/dqlite/store/latest/mediator.log /host",
+		_args.time_limit
+	);
 	let result = sh.cmd("sudo")
 		.arg(console_path.to_string_lossy().as_ref())
-		.arg("cd /jepsen/mediator && ./target/x86_64-unknown-linux-musl/release/mediator qlearning event_history 0.7 & sleep 5 && cd /jepsen/tests/mallory/dqlite && lein run test --workload append --nemesis all --time-limit 65 --test-count 1 && cp /jepsen/tests/mallory/dqlite/store/latest/mediator.log /host")
+		.arg(jepsen_cmd)
 		.run();
 
 	sh.cmd("bash")

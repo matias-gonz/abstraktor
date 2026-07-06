@@ -9,7 +9,7 @@
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
-// ABSTRAKTOR_CONST: constante
+// ABSTRAKTOR_FUNC: r->19 END
 int recvTimeoutNow(struct raft *r,
                    const raft_id id,
                    const char *address,

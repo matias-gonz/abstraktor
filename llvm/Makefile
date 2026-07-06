@@ -65,11 +65,16 @@ endif
 ./rustc-demangle/target/release/librustc_demangle.a: ./rustc-demangle/crates/capi/src/lib.rs ./rustc-demangle/crates/capi/Cargo.toml
 	cd rustc-demangle && cargo build -p rustc-demangle-capi --release
 
-./afl-llvm-pass.so: ./src/afl-llvm-pass.so.cc | test_deps
-	$(CC) $(CLANG_CFL) -fPIC -c $< -o $@.tmp.o
-	ld -r -o $@.o $@.tmp.o ./rustc-demangle/target/release/librustc_demangle.a
-	$(CXX) $(CLANG_CFL) -shared $@.o -o $@ $(CLANG_LFL)
-	rm -f $@.tmp.o $@.o
+./afl-llvm-pass.so: \
+	./src/afl-llvm-pass.so.cc \
+	./src/targets_types.cc \
+	./src/targets_types.h | test_deps
+	$(CXX) $(CLANG_CFL) -fPIC -c ./src/afl-llvm-pass.so.cc -o afl-llvm-pass.tmp.o
+	$(CXX) $(CLANG_CFL) -fPIC -c ./src/targets_types.cc -o targets_types.tmp.o
+	ld -r -o afl-llvm-pass.o afl-llvm-pass.tmp.o targets_types.tmp.o \
+		./rustc-demangle/target/release/librustc_demangle.a
+	$(CXX) $(CLANG_CFL) -shared afl-llvm-pass.o -o $@ $(CLANG_LFL)
+	rm -f *.tmp.o afl-llvm-pass.o
 
 ./afl-llvm-rt.o: ./src/afl-llvm-rt.o.c | test_deps
 	$(CC) $(CFLAGS) -fPIC -c $< -o $@

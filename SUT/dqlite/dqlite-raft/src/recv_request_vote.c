@@ -5,6 +5,9 @@
 #include "recv.h"
 #include "replication.h"
 #include "tracing.h"
+#include "configuration.h"
+#include "log.h"
+#include "progress.h"
 
 #define tracef(...) Tracef(r->tracer, __VA_ARGS__)
 
@@ -14,7 +17,6 @@ static void requestVoteSendCb(struct raft_io_send *req, int status)
     raft_free(req);
 }
 
-// ABSTRAKTOR_CONST: constante
 int recvRequestVote(struct raft *r,
                     const raft_id id,
                     const char *address,
@@ -38,6 +40,42 @@ int recvRequestVote(struct raft *r,
     result->vote_granted = false;
     result->pre_vote = args->pre_vote;
     result->version = RAFT_REQUEST_VOTE_RESULT_VERSION;
+
+    struct raft *_r;
+    raft_index log;
+    bool exists;
+    raft_index max;
+    raft_term logTerm;
+
+    if (r->state == RAFT_LEADER) {
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
+        _r = r;
+        (void)_r;
+
+        // ABSTRAKTOR_BLOCK_EVENT: log
+        log = logLastIndex(r->log);
+        (void)log;
+
+        // ABSTRAKTOR_BLOCK_EVENT: exists
+        exists = progressTestExistsOneIndexQuorum(r);
+        (void)exists;
+
+        // ABSTRAKTOR_BLOCK_EVENT: max
+        max = progressTestGetMaxIndexQuorum(r);
+        (void)max;
+
+        // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+        logTerm = exists ? logTermOf(r->log, max) : 0;
+        (void)logTerm;
+    } else {
+        // ABSTRAKTOR_BLOCK_EVENT: _r->19
+        _r = r;
+        (void)_r;
+
+        // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+        bool in_quorum = r->state == RAFT_CANDIDATE ? electionInQuorum(r) : false;
+        (void)in_quorum;
+    }
 
     /* Reject the request if we have a leader.
      *
@@ -112,6 +150,46 @@ int recvRequestVote(struct raft *r,
     }
 
 reply:
+    /* If the vote was not granted, fire an additional event tagged with the
+     * spec label HRqVRqNotGrantedEQCurrentTerm so the spec's NotGranted edge
+     * is observable. The granted case is already covered by the annotation at
+     * the start of the function (which translates to HRqVRqLEQCurrentTerm). */
+    if (!result->vote_granted) {
+        if (r->state == RAFT_LEADER) {
+            // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: HRqVRqNotGrantedEQCurrentTerm, ABSTRAKTOR_BLOCK_EVENT: _r->19, _r->6, _r->16
+            _r = r;
+            (void)_r;
+
+            // ABSTRAKTOR_BLOCK_EVENT: log
+            log = logLastIndex(r->log);
+            (void)log;
+
+            // ABSTRAKTOR_BLOCK_EVENT: exists
+            exists = progressTestExistsOneIndexQuorum(r);
+            (void)exists;
+
+            // ABSTRAKTOR_BLOCK_EVENT: max
+            max = progressTestGetMaxIndexQuorum(r);
+            (void)max;
+
+            // ABSTRAKTOR_BLOCK_EVENT: logTerm END
+            logTerm = exists ? logTermOf(r->log, max) : 0;
+            (void)logTerm;
+        } else if (r->state == RAFT_CANDIDATE) {
+            // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: HRqVRqNotGrantedEQCurrentTerm, ABSTRAKTOR_BLOCK_EVENT: _r->19
+            _r = r;
+            (void)_r;
+
+            // ABSTRAKTOR_BLOCK_EVENT: in_quorum END
+            bool in_quorum = electionInQuorum(r);
+            (void)in_quorum;
+        } else {
+            // ABSTRAKTOR_OVERRADE_TRANSITION_NAME: HRqVRqNotGrantedEQCurrentTerm, ABSTRAKTOR_BLOCK_EVENT: _r->19 END
+            _r = r;
+            (void)_r;
+        }
+    }
+
     result->term = r->current_term;
     /* Nodes don't update their term when seeing a Pre-Vote RequestVote RPC.
      * To prevent the candidate from ignoring the response of this node if it has
